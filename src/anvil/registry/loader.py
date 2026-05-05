@@ -87,7 +87,9 @@ def _extract_outputs_from_source(source):
 
 def _build_namespace():
     """Build the execution namespace with standard anvil imports."""
-    ns = {}
+    import numpy as np
+    import math
+    ns = {"np": np, "numpy": np, "math": math}
     try:
         from anvil.quantity import Quantity, Q
         from anvil.relation import Relation

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Registry database (user-specific, auto-regenerated)
+*.db
+
+# Generated outputs from examples
+*.png
+*.csv
+*.json
+nozzle_result.*
+sweep_*.csv
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

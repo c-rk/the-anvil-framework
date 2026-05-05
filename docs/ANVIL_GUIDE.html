@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anvil Framework — Complete Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px;
+         line-height: 1.6; color: #1a1a1a; background: #fafafa; }
+  .slide { max-width: 900px; margin: 0 auto 0 auto; padding: 48px 52px 44px;
+           background: #fff; border-bottom: 3px solid #e8e8e8; page-break-after: always; }
+  .slide:last-child { border-bottom: none; }
+  h1 { font-size: 2em; font-weight: 700; color: #111; margin-bottom: 10px; }
+  h2 { font-size: 1.35em; font-weight: 700; color: #1a1a1a; margin: 28px 0 10px; }
+  h3 { font-size: 1.05em; font-weight: 700; color: #333; margin: 18px 0 6px; }
+  p  { margin: 8px 0; color: #333; }
+  ul, ol { margin: 8px 0 8px 22px; }
+  li { margin: 4px 0; }
+  code { font-family: 'Consolas', 'Fira Mono', monospace; font-size: .88em;
+         background: #f2f2f2; padding: 1px 5px; border-radius: 3px; color: #c7254e; }
+  pre  { font-family: 'Consolas', 'Fira Mono', monospace; font-size: .85em;
+         background: #1e1e2e; color: #cdd6f4; padding: 16px 20px; border-radius: 6px;
+         overflow-x: auto; margin: 12px 0; line-height: 1.5; }
+  pre .cm  { color: #6c7086; }   /* comment */
+  pre .kw  { color: #cba6f7; }   /* keyword */
+  pre .fn  { color: #89b4fa; }   /* function */
+  pre .st  { color: #a6e3a1; }   /* string */
+  pre .nu  { color: #fab387; }   /* number */
+  pre .op  { color: #89dceb; }   /* operator/decorator */
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .88em; }
+  th { background: #1e1e2e; color: #cdd6f4; padding: 7px 12px; text-align: left; }
+  td { padding: 6px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f8f8; }
+  .tag { display: inline-block; background: #e8f4ff; color: #0066cc;
+         border-radius: 3px; padding: 1px 7px; font-size: .8em; margin: 0 3px 3px 0; }
+  .note { background: #fffbea; border-left: 4px solid #f5a623; padding: 10px 14px;
+          margin: 12px 0; font-size: .9em; }
+  .slide-num { font-size: .8em; color: #aaa; float: right; margin-top: 4px; }
+  .subtitle { color: #555; font-size: 1.1em; margin-top: 6px; }
+  hr { border: none; border-top: 1px solid #e0e0e0; margin: 20px 0; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .box { background: #f5f5f5; border-radius: 6px; padding: 14px 16px; }
+  .box h3 { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- ===== SLIDE 1 — TITLE ===== -->
+<div class="slide">
+  <span class="slide-num">1 / 17</span>
+  <h1>Anvil Framework</h1>
+  <p class="subtitle">From equations to engineering tools — a complete guide</p>
+  <hr>
+  <p>Anvil is a Python framework for engineering computation. Write physics as plain Python functions, wire them together, and Anvil handles units, dimensional analysis, iterative solving, parametric sweeps, and a searchable library of reusable relations.</p>
+
+  <h2>Contents</h2>
+  <div class="cols">
+    <ol>
+      <li>Installation &amp; setup</li>
+      <li>Core concepts</li>
+      <li>Unit system</li>
+      <li>Defining relations</li>
+      <li>Building &amp; solving systems</li>
+      <li>Algebraic &amp; iterative solvers</li>
+      <li>ODE / BVP / PDE solvers</li>
+      <li>RSQ Registry</li>
+    </ol>
+    <ol start="9">
+      <li>Built-in RSQs — full list</li>
+      <li>Adapters (external tools)</li>
+      <li>Project registry</li>
+      <li>Visualization</li>
+      <li>Jupyter / notebook support</li>
+      <li>Parallel sweep</li>
+      <li>Full worked example</li>
+      <li>Packages &amp; dependencies</li>
+      <li>Quick reference card</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ===== SLIDE 2 — INSTALLATION ===== -->
+<div class="slide">
+  <span class="slide-num">2 / 17</span>
+  <h1>Installation &amp; Setup</h1>
+  <hr>
+
+  <h2>Install</h2>
+  <pre><span class="cm"># Clone the repo (no PyPI package yet)</span>
+git clone https://github.com/your-org/anvil-framework
+cd anvil-framework/anvil-03-1
+pip install -e .            <span class="cm"># editable install</span>
+
+<span class="cm"># Or add src/ to PYTHONPATH directly</span>
+import sys
+sys.path.insert(0, "path/to/anvil-03-1/src")</pre>
+
+  <h2>Required dependencies</h2>
+  <table>
+    <tr><th>Package</th><th>Purpose</th><th>Install</th></tr>
+    <tr><td><code>numpy</code></td><td>Array math, internal SI values</td><td><code>pip install numpy</code></td></tr>
+    <tr><td><code>scipy</code></td><td>All solvers (ODE, BVP, root-finding, optimize)</td><td><code>pip install scipy</code></td></tr>
+  </table>
+
+  <h2>Optional dependencies</h2>
+  <table>
+    <tr><th>Package</th><th>Purpose</th><th>Install</th></tr>
+    <tr><td><code>matplotlib</code></td><td>Visualization (viz module)</td><td><code>pip install matplotlib</code></td></tr>
+    <tr><td><code>cantera</code></td><td>Combustion thermochemistry adapter</td><td><code>conda install -c cantera cantera</code></td></tr>
+    <tr><td><code>jupyter</code></td><td>Notebook rich display (HTML repr)</td><td><code>pip install jupyter</code></td></tr>
+  </table>
+
+  <h2>Verify</h2>
+  <pre>import anvil
+print(anvil.__version__)        <span class="cm"># 1.1.0</span>
+anvil.registry.list()           <span class="cm"># shows all built-in RSQs</span></pre>
+</div>
+
+<!-- ===== SLIDE 3 — CORE CONCEPTS ===== -->
+<div class="slide">
+  <span class="slide-num">3 / 17</span>
+  <h1>Core Concepts</h1>
+  <hr>
+
+  <div class="cols">
+    <div class="box">
+      <h3>Quantity <code>Q</code></h3>
+      <p>A number with a physical unit. Stores SI value internally. Carries dimension for unit propagation.</p>
+      <pre style="font-size:.78em">T = Q(300, "K")          <span class="cm"># explicit</span>
+T = 300 * K              <span class="cm"># stub syntax</span>
+T.value   <span class="cm"># → 300 (in K)</span>
+T.si      <span class="cm"># → 300 (SI float)</span>
+T.unit    <span class="cm"># → "K"</span>
+T.to("R") <span class="cm"># → 540 R</span></pre>
+    </div>
+    <div class="box">
+      <h3>Relation <code>R</code></h3>
+      <p>A physics equation — any Python function that accepts keyword arguments and returns a dict.</p>
+      <pre style="font-size:.78em"><span class="kw">def</span> <span class="fn">ideal_gas</span>(T, P, R_gas):
+    <span class="kw">return</span> {<span class="st">"rho"</span>: Q(P/(R_gas*T), <span class="st">"kg/m^3"</span>)}
+
+<span class="cm"># Register as RSQ:</span>
+anvil.push(ideal_gas, domain=<span class="st">"thermo"</span>)</pre>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:16px">
+    <div class="box">
+      <h3>System</h3>
+      <p>A solvable problem — a set of Quantities (inputs) and Relations (computations) wired together.</p>
+      <pre style="font-size:.78em">sys = anvil.system(<span class="st">"nozzle"</span>)
+sys.add(<span class="st">"T0"</span>, 3500, <span class="st">"K"</span>)
+sys.use(ideal_gas)
+result = sys.solve_forward()</pre>
+    </div>
+    <div class="box">
+      <h3>Registry (RSQ)</h3>
+      <p>SQLite-backed library of Relations (R), Systems (S), and Quantities (Q). Auto-seeded on first import.</p>
+      <pre style="font-size:.78em">anvil.registry.list()
+anvil.registry.search(<span class="st">"mach"</span>)
+anvil.R.isentropic_ratios(M=2, gamma=1.4)
+nozzle = anvil.S.rocket_nozzle.copy()</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDE 4 — UNIT SYSTEM ===== -->
+<div class="slide">
+  <span class="slide-num">4 / 17</span>
+  <h1>Unit System</h1>
+  <hr>
+
+  <h2>Stub syntax (recommended)</h2>
+  <pre><span class="kw">from</span> anvil <span class="kw">import</span> K, Pa, m, s, kg, mol, N, J, W, rad, deg
+<span class="kw">from</span> anvil <span class="kw">import</span> km, cm, mm, g, kPa, MPa, GPa, bar, atm, psi
+<span class="kw">from</span> anvil <span class="kw">import</span> kN, kJ, MJ, kW, BTU, ft, inch, in_, lb, lbf
+<span class="kw">from</span> anvil <span class="kw">import</span> hr, ms, kmol, g_mol, kg_mol
+
+T  = 300 * K           <span class="cm"># Q(300, "K")</span>
+P  = 101325 * Pa       <span class="cm"># Q(101325, "Pa")</span>
+v  = 340 * (m/s)       <span class="cm"># Q(340, "m/s")</span>
+g  = 9.81 * m/s**2     <span class="cm"># Q(9.81, "m/s^2")</span>
+rho = 1.225 * kg/m**3  <span class="cm"># Q(1.225, "kg/m^3")</span></pre>
+
+  <h2>String-based (also valid)</h2>
+  <pre><span class="kw">from</span> anvil <span class="kw">import</span> Q
+T   = Q(300, <span class="st">"K"</span>)
+P   = Q(10, <span class="st">"MPa"</span>)
+mdot = Q(1.5, <span class="st">"g/s"</span>)       <span class="cm"># compound units parsed automatically</span>
+vol  = Q(5, <span class="st">"cm**3"</span>)        <span class="cm"># Python ** notation OK</span>
+d    = Q(1, <span class="st">"[LMT-2]"</span>)     <span class="cm"># raw dimension string</span></pre>
+
+  <h2>Conversion</h2>
+  <pre>T.to(<span class="st">"R"</span>)                 <span class="cm"># K → Rankine</span>
+v.to(<span class="st">"km/s"</span>)              <span class="cm"># m/s → km/s</span>
+mdot.to(<span class="st">"kg/s"</span>)           <span class="cm"># g/s → kg/s</span>
+Q(1, <span class="st">"cm^3"</span>).to(<span class="st">"m**3"</span>)  <span class="cm"># volume conversion</span></pre>
+
+  <h2>Arithmetic propagates dimensions</h2>
+  <pre>F = Q(100, <span class="st">"N"</span>)
+A = Q(0.01, <span class="st">"m^2"</span>)
+sigma = F / A         <span class="cm"># → Quantity(10000, "Pa")  [L-1 M T-2]</span>
+E_kin = 0.5 * Q(10, <span class="st">"kg"</span>) * Q(30, <span class="st">"m/s"</span>)**2   <span class="cm"># → J</span></pre>
+
+  <div class="note">
+    <b>Note:</b> All computations internally use SI. Display unit follows what you originally typed. <code>q.si</code> always gives SI float. <code>q.value</code> gives display-unit value.
+  </div>
+</div>
+
+<!-- ===== SLIDE 5 — DEFINING RELATIONS ===== -->
+<div class="slide">
+  <span class="slide-num">5 / 17</span>
+  <h1>Defining Relations</h1>
+  <hr>
+
+  <h2>Plain function (simplest)</h2>
+  <pre><span class="kw">from</span> anvil <span class="kw">import</span> Q
+
+<span class="kw">def</span> <span class="fn">isentropic_exit</span>(T0, P0, gamma, T0_T, P0_P):
+    T_exit = T0 / T0_T
+    P_exit = P0 / P0_P
+    a_exit = (gamma * 287 * T_exit) ** 0.5
+    <span class="kw">return</span> {<span class="st">"T_exit"</span>: Q(T_exit, <span class="st">"K"</span>),
+            <span class="st">"P_exit"</span>: Q(P_exit, <span class="st">"Pa"</span>),
+            <span class="st">"a_exit"</span>: Q(a_exit, <span class="st">"m/s"</span>)}
+
+sys.use(isentropic_exit)    <span class="cm"># System.use() wraps it automatically</span></pre>
+
+  <h2>With <code>@anvil.relation</code> decorator (registers automatically)</h2>
+  <pre><span class="op">@anvil.relation</span>(domain=<span class="st">"thermo"</span>, tags=[<span class="st">"gas"</span>])
+<span class="kw">def</span> <span class="fn">ideal_gas_density</span>(T, P, R_gas):
+    <span class="st">"""rho = P / (R * T)"""</span>
+    <span class="kw">return</span> {<span class="st">"rho"</span>: Q(P / (R_gas * T), <span class="st">"kg/m^3"</span>)}</pre>
+
+  <h2>Block relation (multiple steps)</h2>
+  <pre><span class="kw">from</span> anvil.relation <span class="kw">import</span> Relation
+
+nozzle_block = Relation.block(<span class="st">"nozzle_physics"</span>,
+    steps=[area_fn, mach_fn, isentropic_fn],
+    tags=[<span class="st">"compressible"</span>, <span class="st">"nozzle"</span>]
+)</pre>
+
+  <h2>Rules for relation functions</h2>
+  <ul>
+    <li>Accept inputs as keyword arguments — no positional args</li>
+    <li>Return a <code>dict</code> mapping output names to values or <code>Q()</code> objects</li>
+    <li>Returning <code>Q()</code> objects propagates units to the result automatically</li>
+    <li>Inputs receive SI floats unless all inputs have known dimensions (then receive <code>Quantity</code>)</li>
+    <li>Default parameter values work normally: <code>def fn(M, gamma=1.4):</code></li>
+  </ul>
+</div>
+
+<!-- ===== SLIDE 6 — BUILDING AND SOLVING SYSTEMS ===== -->
+<div class="slide">
+  <span class="slide-num">6 / 17</span>
+  <h1>Building &amp; Solving Systems</h1>
+  <hr>
+
+  <h2>Build</h2>
+  <pre>sys = anvil.system(<span class="st">"heat_exchanger"</span>)
+
+<span class="cm"># Add inputs</span>
+sys.add(<span class="st">"T_hot_in"</span>,  600,  <span class="st">"K"</span>)       <span class="cm"># string style</span>
+sys.add(<span class="st">"T_cold_in"</span>, 300,  <span class="st">"K"</span>)
+sys.add(<span class="st">"mdot_hot"</span>,  2.0,  <span class="st">"kg/s"</span>)
+sys.add(UA=5000*W/K, cp_hot=1005*J/kg/K)   <span class="cm"># keyword style</span>
+
+<span class="cm"># Add computations</span>
+sys.use(effectiveness_ntu)
+sys.use(energy_balance)
+sys.use(<span class="st">"reynolds_number"</span>)     <span class="cm"># load from registry by name</span>
+sys.use(some_rel, map={<span class="st">"func_T"</span>: <span class="st">"T_hot_in"</span>})  <span class="cm"># rename input</span>
+
+<span class="cm"># Override inputs later</span>
+sys.set(UA=3000)              <span class="cm"># keeps existing unit (W/K)</span>
+sys.set(UA=Q(3000, <span class="st">"W/K"</span>))    <span class="cm"># explicit Q overrides</span></pre>
+
+  <h2>Inspect before solving</h2>
+  <pre>sys.validate()           <span class="cm"># checks for missing inputs, duplicate outputs</span>
+print(sys.info())        <span class="cm"># lists all quantities and relations</span>
+anvil.check(sys)         <span class="cm"># deep inspection with dependency tree</span></pre>
+
+  <h2>Solve — choose your solver explicitly</h2>
+  <pre><span class="cm"># Acyclic (one-pass forward propagation)</span>
+result = sys.solve_forward()
+
+<span class="cm"># Coupled / iterative (Gauss-Seidel fixed-point)</span>
+result = sys.solve_gauss_seidel(relaxation=0.8, max_iter=200, rtol=1e-8)
+result = sys.solve_gauss_seidel(monitor=True)   <span class="cm"># live residuals printed</span>
+
+<span class="cm"># Strongly coupled nonlinear (Newton-Raphson)</span>
+result = sys.solve_newton(max_iter=50, rtol=1e-10, verbose=True)
+
+<span class="cm"># Auto-selects forward vs gauss_seidel based on cycle detection:</span>
+result = sys.solve()    </pre>
+
+  <h2>Use results</h2>
+  <pre>result.summary()                    <span class="cm"># print table</span>
+rho = result[<span class="st">"rho"</span>]                 <span class="cm"># Quantity</span>
+rho.value                           <span class="cm"># float in display unit</span>
+rho.to(<span class="st">"g/cm^3"</span>).value             <span class="cm"># convert</span>
+result.to_csv(<span class="st">"out.csv"</span>)          <span class="cm"># export</span>
+result.to_json(<span class="st">"out.json"</span>)</pre>
+</div>
+
+<!-- ===== SLIDE 7 — ALGEBRAIC SOLVERS ===== -->
+<div class="slide">
+  <span class="slide-num">7 / 17</span>
+  <h1>Algebraic &amp; Iterative Solvers</h1>
+  <p>All in <code>anvil.solvers</code>. Method names are explicit — never abstracted.</p>
+  <hr>
+
+  <h2><code>find_root</code> — scalar f(x) = 0</h2>
+  <pre><span class="kw">from</span> anvil <span class="kw">import</span> solvers
+
+x = solvers.find_root(func, bracket=(1.0, 10.0), method=<span class="st">"brent"</span>, tol=1e-12)
+x = solvers.find_root(func, x0=5.0,              method=<span class="st">"newton"</span>, tol=1e-12)
+x = solvers.find_root(func, x0=5.0,              method=<span class="st">"secant"</span>)
+<span class="cm"># method="auto": uses brent if bracket provided, newton if x0 provided</span></pre>
+
+  <h2><code>solve_nonlinear</code> — system F(x) = 0</h2>
+  <pre>x = solvers.solve_nonlinear(func, x0,
+    method=<span class="st">"hybr"</span>,    <span class="cm"># Powell hybrid (default) — robust</span>
+    <span class="cm"># method="lm"   — Levenberg-Marquardt</span>
+    <span class="cm"># method="broyden1" — Broyden update</span>
+    tol=1e-10, maxiter=200, jac=None)</pre>
+
+  <h2><code>minimize</code> — scalar objective f(x)</h2>
+  <pre>r = solvers.minimize(func, x0,
+    method=<span class="st">"L-BFGS-B"</span>,   <span class="cm"># gradient-based with box bounds (default)</span>
+    <span class="cm"># method="SLSQP"    — constrained (equality + inequality)</span>
+    <span class="cm"># method="Nelder-Mead" — gradient-free</span>
+    bounds=[(<span class="nu">0</span>, None), (<span class="nu">0</span>, <span class="nu">10</span>)],
+    tol=1e-8, maxiter=500, jac=None)
+r[<span class="st">"x"</span>], r[<span class="st">"fun"</span>], r[<span class="st">"success"</span>], r[<span class="st">"nit"</span>]</pre>
+
+  <h2>System-level iterative solvers</h2>
+  <table>
+    <tr><th>Method</th><th>Call</th><th>Best for</th></tr>
+    <tr><td><code>"forward"</code></td><td><code>sys.solve_forward()</code></td><td>Acyclic DAG, pure feed-forward systems</td></tr>
+    <tr><td><code>"gauss_seidel"</code></td><td><code>sys.solve_gauss_seidel(relaxation=0.8)</code></td><td>Weakly coupled loops, HVAC, heat exchangers</td></tr>
+    <tr><td><code>"newton"</code></td><td><code>sys.solve_newton(rtol=1e-10)</code></td><td>Strongly nonlinear, tightly coupled systems</td></tr>
+  </table>
+
+  <div class="note">
+    <b>monitor=True</b> on gauss_seidel: prints live residual per iteration and stores history in <code>sys.history()</code>. Use <code>viz.convergence(sys)</code> to plot.
+  </div>
+</div>
+
+<!-- ===== SLIDE 8 — ODE / BVP / PDE SOLVERS ===== -->
+<div class="slide">
+  <span class="slide-num">8 / 17</span>
+  <h1>ODE / BVP / PDE Solvers</h1>
+  <p>All in <code>anvil.solvers</code>. Thin wrappers around SciPy with clear method names and progress output.</p>
+  <hr>
+
+  <h2><code>solve_ode</code> — dy/dt = f(t, y)  <small>[explicit methods]</small></h2>
+  <pre>r = solvers.solve_ode(func, t_span=(0, 10), y0=[1.0, 0.0],
+    method=<span class="st">"RK45"</span>,    <span class="cm"># Runge-Kutta 4/5 (default) — general non-stiff</span>
+    <span class="cm"># method="RK23"   — Runge-Kutta 2/3 — lower accuracy, fewer evals</span>
+    <span class="cm"># method="DOP853" — Dormand-Prince 8/5/3 — high accuracy</span>
+    t_eval=np.linspace(0, 10, 500), rtol=1e-8, atol=1e-10,
+    events=None, verbose=True)
+r[<span class="st">"t"</span>], r[<span class="st">"y"</span>], r[<span class="st">"sol"</span>]  <span class="cm"># sol is callable: sol(t) → y(t)</span></pre>
+
+  <h2><code>solve_ode_stiff</code> — stiff dy/dt = f(t, y) <small>[implicit methods]</small></h2>
+  <pre>r = solvers.solve_ode_stiff(func, t_span, y0,
+    method=<span class="st">"BDF"</span>,     <span class="cm"># Backward Differentiation Formula (default) — large stiff systems</span>
+    <span class="cm"># method="Radau"  — implicit Runge-Kutta — small stiff, higher accuracy</span>
+    jac=None,         <span class="cm"># optional Jacobian df/dy; estimated if None</span>
+    rtol=1e-6, atol=1e-10, verbose=True)
+<span class="cm"># Use for: combustion kinetics, stiff ODEs, diffusion-reaction</span></pre>
+
+  <h2><code>solve_bvp</code> — dy/dx = f(x, y),  bc(y(a), y(b)) = 0</h2>
+  <pre>r = solvers.solve_bvp(func, bc, x=np.linspace(0, np.pi, 5), y_init=y0,
+    tol=1e-3, max_nodes=1000, verbose=False)
+r[<span class="st">"x"</span>], r[<span class="st">"y"</span>], r[<span class="st">"sol"</span>]   <span class="cm"># sol(x) → y(x)  [dense output]</span></pre>
+
+  <h2><code>solve_pde_heat_1d</code> — ∂u/∂t = α ∂²u/∂x²  [Crank-Nicolson]</h2>
+  <pre>r = solvers.solve_pde_heat_1d(
+    alpha=1e-5,                         <span class="cm"># thermal diffusivity [m²/s]</span>
+    x_span=(0, 1), t_span=(0, 10),
+    u_init=<span class="kw">lambda</span> x: np.exp(-100*(x-0.5)**2),
+    bc_left=0.0, bc_right=0.0,          <span class="cm"># Dirichlet; None → Neumann zero-flux</span>
+    source=<span class="kw">lambda</span> x, t, u: np.zeros_like(x),
+    nx=100, verbose=True)
+r[<span class="st">"x"</span>], r[<span class="st">"t"</span>], r[<span class="st">"u"</span>]   <span class="cm"># u shape: (nt+1, nx)</span></pre>
+</div>
+
+<!-- ===== SLIDE 9 — RSQ REGISTRY ===== -->
+<div class="slide">
+  <span class="slide-num">9 / 17</span>
+  <h1>RSQ Registry</h1>
+  <p>SQLite database at <code>~/.anvil/registry.db</code>. Seeded automatically on first import.</p>
+  <hr>
+
+  <h2>Explore</h2>
+  <pre>anvil.registry.list()                    <span class="cm"># all RSQs</span>
+anvil.registry.list(domain=<span class="st">"aero"</span>)      <span class="cm"># filter by domain</span>
+anvil.registry.list(type=<span class="st">"R"</span>)           <span class="cm"># only Relations</span>
+anvil.registry.search(<span class="st">"mach"</span>)           <span class="cm"># fuzzy search across name/desc/tags</span>
+anvil.registry.info(<span class="st">"isentropic_ratios"</span>) <span class="cm"># detailed info with inputs/outputs</span>
+anvil.registry.export(<span class="st">"ideal_gas"</span>)      <span class="cm"># print source code</span></pre>
+
+  <h2>Use RSQs</h2>
+  <pre><span class="cm"># Direct call (no System needed)</span>
+r = anvil.R.isentropic_ratios(M=2.0, gamma=1.4)
+r[<span class="st">"P0_P"</span>]   <span class="cm"># → 7.824</span>
+
+<span class="cm"># Load a pre-built System</span>
+nozzle = anvil.S.rocket_nozzle.copy()
+nozzle.set(P0=15e6, T0=3200)
+result = nozzle.solve_forward()
+
+<span class="cm"># Inside a System</span>
+sys.use(<span class="st">"isentropic_ratios"</span>)
+sys.use(<span class="st">"isentropic_ratios"</span>, map={<span class="st">"M"</span>: <span class="st">"M_exit"</span>})</pre>
+
+  <h2>Register your own RSQs</h2>
+  <pre><span class="cm"># Push a function</span>
+anvil.push(my_func, name=<span class="st">"my_rsq"</span>, domain=<span class="st">"thermo"</span>,
+           description=<span class="st">"My ideal gas variant"</span>, tags=[<span class="st">"gas"</span>])
+
+<span class="cm"># Update existing</span>
+anvil.update(my_improved_func, name=<span class="st">"my_rsq"</span>)
+
+<span class="cm"># Remove</span>
+anvil.registry.remove(<span class="st">"my_rsq"</span>)</pre>
+
+  <h2>One-shot solve (no System object)</h2>
+  <pre>result = anvil.solve(ideal_gas, T=300*K, P=101325*Pa, R_gas=287*J/kg/K)</pre>
+</div>
+
+<!-- ===== SLIDE 10 — BUILT-IN RSQs ===== -->
+<div class="slide">
+  <span class="slide-num">10 / 17</span>
+  <h1>Built-in RSQs — Complete List</h1>
+  <p>55 RSQs across 10 domains. Access via <code>anvil.R.&lt;name&gt;</code>, <code>anvil.S.&lt;name&gt;</code>, or <code>sys.use("&lt;name&gt;")</code>.</p>
+  <hr>
+
+  <h2>Constants <code>const</code></h2>
+  <table>
+    <tr><th>Name</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>g0</code></td><td>Q</td><td>Standard gravitational acceleration — 9.80665 m/s²</td></tr>
+    <tr><td><code>R_universal</code></td><td>Q</td><td>Universal gas constant — 8.314462 J/mol/K</td></tr>
+    <tr><td><code>atm_pressure</code></td><td>Q</td><td>Standard atmospheric pressure — 101325 Pa</td></tr>
+    <tr><td><code>sigma_sb</code></td><td>Q</td><td>Stefan-Boltzmann constant — 5.670374×10⁻⁸ W/m²K⁴</td></tr>
+  </table>
+
+  <h2>Aerodynamics <code>aero</code> / <code>aero.atmosphere</code> / <code>aero.compressible</code> / <code>aero.performance</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>isa_atmosphere</code></td><td>h [m]</td><td>T_atm, P_atm, rho_atm, a_atm, mu_atm, sigma</td></tr>
+    <tr><td><code>isentropic_ratios</code></td><td>M, gamma=1.4</td><td>T0_T, P0_P, rho0_rho</td></tr>
+    <tr><td><code>area_mach_supersonic</code></td><td>area_ratio, gamma</td><td>M_exit</td></tr>
+    <tr><td><code>area_mach_subsonic</code></td><td>area_ratio, gamma</td><td>M_sub</td></tr>
+    <tr><td><code>normal_shock</code></td><td>M1, gamma=1.4</td><td>M2, P2_P1, T2_T1, rho2_rho1, P02_P01</td></tr>
+    <tr><td><code>prandtl_meyer</code></td><td>M, gamma=1.4</td><td>nu [rad], nu_deg</td></tr>
+    <tr><td><code>dynamic_pressure</code></td><td>rho, V</td><td>q_inf [Pa]</td></tr>
+    <tr><td><code>lift_force</code></td><td>rho, V, S_ref, CL</td><td>lift [N]</td></tr>
+    <tr><td><code>drag_force</code></td><td>rho, V, S_ref, CD</td><td>drag [N]</td></tr>
+    <tr><td><code>thin_airfoil_cl</code></td><td>alpha_deg, alpha_L0_deg=0, M=0</td><td>CL, CL_alpha</td></tr>
+    <tr><td><code>induced_drag</code></td><td>CL, AR, e=0.85</td><td>CDi</td></tr>
+    <tr><td><code>drag_polar</code></td><td>CL, CD0, AR, e=0.85</td><td>CD, CDi, LoD</td></tr>
+    <tr><td><code>oswald_efficiency</code></td><td>AR, sweep_deg=0, taper=1</td><td>e_oswald</td></tr>
+    <tr><td><code>stall_speed</code></td><td>W [N], rho, S_ref, CLmax</td><td>V_stall [m/s]</td></tr>
+    <tr><td><code>range_breguet</code></td><td>V [m/s], TSFC [1/s], LoD, W_initial [N], W_final [N]</td><td>range [m], range_km</td></tr>
+  </table>
+
+  <h2>Propulsion <code>propulsion</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>nozzle_area_ratio</code></td><td>A_exit, A_throat</td><td>area_ratio</td></tr>
+    <tr><td><code>exit_conditions</code></td><td>T0, P0, T0_T, P0_P, gamma, R_gas</td><td>T_exit, P_exit, a_exit</td></tr>
+    <tr><td><code>exit_velocity</code></td><td>M_exit, a_exit</td><td>V_exit</td></tr>
+    <tr><td><code>choked_mass_flow</code></td><td>P0, A_throat, gamma, R_gas, T0</td><td>mdot [kg/s]</td></tr>
+    <tr><td><code>rocket_thrust</code></td><td>mdot, V_exit, P_exit, P_amb, A_exit</td><td>thrust [N]</td></tr>
+    <tr><td><code>specific_impulse</code></td><td>thrust, mdot</td><td>Isp [s]</td></tr>
+    <tr><td><code>tsiolkovsky</code></td><td>Isp, mass_ratio</td><td>delta_v [m/s]</td></tr>
+    <tr><td><code>rocket_nozzle</code> ★</td><td>P0, T0, gamma, R_gas, A_throat, A_exit, P_amb</td><td>M_exit, thrust, Isp, mdot, …</td></tr>
+  </table>
+  <p style="font-size:.85em;color:#666">★ = System (use <code>anvil.S.rocket_nozzle.copy()</code>)</p>
+</div>
+
+<!-- ===== SLIDE 10b — MORE RSQs ===== -->
+<div class="slide">
+  <span class="slide-num">10b / 17</span>
+  <h1>Built-in RSQs (continued)</h1>
+  <hr>
+
+  <h2>Thermodynamics <code>thermo</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>ideal_gas_density</code></td><td>P, R_gas, T</td><td>rho [kg/m³]</td></tr>
+    <tr><td><code>speed_of_sound</code></td><td>gamma, R_gas, T</td><td>a [m/s]</td></tr>
+    <tr><td><code>sutherland_viscosity</code></td><td>T, T_ref=288.15, mu_ref, S=110.4</td><td>mu [Pa·s]</td></tr>
+    <tr><td><code>reynolds_number</code></td><td>rho, V, L_char, mu</td><td>Re</td></tr>
+  </table>
+
+  <h2>Heat Transfer <code>heat_transfer</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>conduction_1d</code></td><td>k, A_cross, dT, L_thickness</td><td>Q_cond [W]</td></tr>
+    <tr><td><code>convection</code></td><td>h_conv, A_surf, T_surf, T_inf</td><td>Q_conv [W]</td></tr>
+    <tr><td><code>radiation</code></td><td>emissivity, A_surf, T_hot, T_cold</td><td>Q_rad [W]</td></tr>
+    <tr><td><code>thermal_resistance_wall</code></td><td>L_thickness, k, A_cross</td><td>R_thermal [K/W]</td></tr>
+    <tr><td><code>fin_efficiency_rect</code></td><td>h_conv, k_fin, t_fin, L_fin</td><td>eta_fin, mL</td></tr>
+  </table>
+
+  <h2>Structures <code>structures</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>hooke_stress</code></td><td>E, strain</td><td>stress [Pa]</td></tr>
+    <tr><td><code>axial_stress</code></td><td>F_axial, A_cross</td><td>sigma_axial [Pa]</td></tr>
+    <tr><td><code>beam_deflection_cantilever</code></td><td>F_tip, L_beam, E, I_moment</td><td>deflection [m], max_moment [N·m]</td></tr>
+    <tr><td><code>beam_deflection_simply_supported</code></td><td>w_load, L_beam, E, I_moment</td><td>deflection [m], max_moment [N·m]</td></tr>
+    <tr><td><code>buckling_euler</code></td><td>E, I_moment, L_eff</td><td>P_critical [N]</td></tr>
+    <tr><td><code>thin_wall_hoop_stress</code></td><td>P_internal, r_inner, t_wall</td><td>sigma_hoop, sigma_axial [Pa]</td></tr>
+  </table>
+
+  <h2>Controls <code>controls</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>pid_output</code></td><td>error, integral_error, derivative_error, Kp, Ki, Kd</td><td>u_pid</td></tr>
+    <tr><td><code>ziegler_nichols_pid</code></td><td>Ku, Tu, method="classic"</td><td>Kp, Ki, Kd, Ti, Td</td></tr>
+    <tr><td><code>first_order_step</code></td><td>K, tau, criterion=0.02</td><td>t_settle, t_rise, bandwidth_Hz</td></tr>
+    <tr><td><code>second_order_metrics</code></td><td>omega_n, zeta</td><td>overshoot_pct, t_peak, t_settle, t_rise, omega_d</td></tr>
+    <tr><td><code>routh_hurwitz_2nd</code></td><td>a1, a0</td><td>stable</td></tr>
+  </table>
+
+  <h2>Materials <code>materials</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>safety_factor</code></td><td>allowable_stress, applied_stress</td><td>safety_factor, margin_of_safety, pass</td></tr>
+    <tr><td><code>thermal_expansion_stress</code></td><td>E, alpha_thermal, dT</td><td>sigma_thermal [Pa]</td></tr>
+    <tr><td><code>fatigue_life_basquin</code></td><td>sigma_a, sigma_f_prime, b_exponent</td><td>N_cycles</td></tr>
+    <tr><td><code>miners_rule</code></td><td>cycle_counts, cycle_limits</td><td>damage_index, failed, remaining_life_fraction</td></tr>
+    <tr><td><code>fracture_toughness_check</code></td><td>sigma, a_crack, KIc, F_geometry=1.12</td><td>KI, KIc, safety_factor, failed</td></tr>
+    <tr><td><code>composite_laminate_stiffness</code></td><td>Ef, Em, Gf, Gm, nu_f, nu_m, Vf</td><td>E1, E2, G12, nu12</td></tr>
+  </table>
+
+  <h2>Orbital Mechanics <code>orbital</code></h2>
+  <table>
+    <tr><th>Name</th><th>Inputs</th><th>Outputs</th></tr>
+    <tr><td><code>vis_viva</code></td><td>mu, r, a</td><td>V_orbital [m/s]</td></tr>
+    <tr><td><code>hohmann_transfer</code></td><td>mu, r1, r2</td><td>dv1, dv2, dv_total [m/s], tof [s]</td></tr>
+    <tr><td><code>orbital_period</code></td><td>mu, a</td><td>T_orbital [s]</td></tr>
+  </table>
+</div>
+
+<!-- ===== SLIDE 11 — ADAPTERS ===== -->
+<div class="slide">
+  <span class="slide-num">11 / 17</span>
+  <h1>Adapters — Wrapping External Tools</h1>
+  <p>Adapters let external codes (Cantera, OpenFOAM, Fortran CFD tools, REST APIs) behave exactly like Relations inside a System.</p>
+  <hr>
+
+  <h2>Python library adapter (e.g., Cantera)</h2>
+  <pre><span class="kw">from</span> anvil <span class="kw">import</span> Adapter, Q
+
+<span class="kw">def</span> <span class="fn">my_cantera_wrapper</span>(fuel, oxidizer, OF, Pc):
+    <span class="kw">import</span> cantera <span class="kw">as</span> ct
+    <span class="cm"># ... equilibrate, extract Tc, gamma, R_gas ...</span>
+    <span class="kw">return</span> {<span class="st">"Tc"</span>: Q(Tc, <span class="st">"K"</span>), <span class="st">"gamma_c"</span>: gamma}
+
+cea = Adapter(<span class="st">"cantera_cea"</span>,
+    backend=<span class="st">"python"</span>, call=my_cantera_wrapper,
+    inputs={<span class="st">"fuel"</span>:   {<span class="st">"default"</span>: <span class="st">"H2"</span>},
+            <span class="st">"oxidizer"</span>: {<span class="st">"default"</span>: <span class="st">"O2"</span>},
+            <span class="st">"OF"</span>:     {<span class="st">"default"</span>: 6.0},
+            <span class="st">"Pc"</span>:     {<span class="st">"unit"</span>: <span class="st">"Pa"</span>, <span class="st">"default"</span>: 10e6}},   <span class="cm"># SI auto-convert</span>
+    outputs={<span class="st">"Tc"</span>:    {<span class="st">"unit"</span>: <span class="st">"K"</span>},
+             <span class="st">"gamma_c"</span>: {}},
+    tags=[<span class="st">"combustion"</span>, <span class="st">"cantera"</span>])
+
+engine.use(cea)  <span class="cm"># use exactly like any other relation</span></pre>
+
+  <h2>CLI adapter (e.g., SU2, OpenFOAM, Fortran codes)</h2>
+  <pre>cfd = Adapter(<span class="st">"su2_aero"</span>,
+    backend=<span class="st">"cli"</span>,
+    command=<span class="st">"SU2_CFD {config_file}"</span>,
+    inputs={<span class="st">"mach"</span>: {}, <span class="st">"alpha_deg"</span>: {}, <span class="st">"Re"</span>: {}},
+    outputs={<span class="st">"CL"</span>: {}, <span class="st">"CD"</span>: {}, <span class="st">"CM"</span>: {}},
+    setup=write_config_fn,     <span class="cm"># writes config files before run</span>
+    parse=read_results_fn,     <span class="cm"># extracts outputs after run</span>
+    timeout=300, cwd=<span class="st">"./cfd_work"</span>)</pre>
+
+  <h2>Built-in Cantera adapters (adapters/cantera_thermo.py)</h2>
+  <table>
+    <tr><th>Name</th><th>Description</th></tr>
+    <tr><td><code>cea_rocket</code></td><td>Rocket chamber equilibrium (H2, CH4, C2H5OH, C3H8 / O2). Outputs Tc, gamma_c, R_gas_c, cstar, MW_c, rho_c</td></tr>
+    <tr><td><code>equilibrium_flame</code></td><td>Adiabatic flame temperature at constant H,P. Outputs T_ad, gamma, MW, rho</td></tr>
+  </table>
+  <pre><span class="kw">import</span> sys; sys.path.insert(0, <span class="st">"path/to/adapters"</span>)
+<span class="kw">from</span> cantera_thermo <span class="kw">import</span> cea_rocket, equilibrium_flame
+cea_rocket.register()   <span class="cm"># push to global registry</span></pre>
+</div>
+
+<!-- ===== SLIDE 12 — PROJECT REGISTRY ===== -->
+<div class="slide">
+  <span class="slide-num">12 / 17</span>
+  <h1>Project Registry</h1>
+  <p>Isolated RSQ workspace per project. Prevents cluttering the global registry while iterating.</p>
+  <hr>
+
+  <h2>Open a project</h2>
+  <pre>proj = anvil.project(<span class="st">"heat_exchanger_study"</span>, path=<span class="st">"./my_project"</span>)
+<span class="cm"># Creates: ./my_project/.anvil/project_heat_exchanger_study.db</span></pre>
+
+  <h2>Register, access, search</h2>
+  <pre>proj.push(my_func, domain=<span class="st">"hx"</span>, description=<span class="st">"Draft NTU correlation"</span>)
+proj.list()
+proj.search(<span class="st">"NTU"</span>)
+proj.remove(<span class="st">"old_draft"</span>)
+
+<span class="cm"># Access project RSQs via proj.R namespace</span>
+result = proj.R.my_func(T_in=300, mdot=2.0)
+sys.use(proj.R.my_func)</pre>
+
+  <h2>Context manager — route anvil.push() to project</h2>
+  <pre><span class="kw">with</span> anvil.project(<span class="st">"my_study"</span>, path=<span class="st">"./work"</span>) <span class="kw">as</span> proj:
+    <span class="op">@anvil.relation</span>(domain=<span class="st">"test"</span>, register=False)
+    <span class="kw">def</span> <span class="fn">draft_ntu</span>(UA, C_min):
+        <span class="kw">return</span> {<span class="st">"NTU"</span>: UA / C_min}
+    proj.push(draft_ntu)               <span class="cm"># goes to project, not global</span>
+    anvil.R.isentropic_ratios(M=2)     <span class="cm"># global RSQs still accessible</span>
+
+<span class="cm"># Outside with block — promote when ready</span>
+proj.promote(<span class="st">"draft_ntu"</span>)             <span class="cm"># moves to global registry</span>
+proj.promote_all(overwrite=True)       <span class="cm"># promote everything</span></pre>
+
+  <div class="note">
+    Project stores are independent SQLite databases. You can have multiple projects open simultaneously; only the context-manager-active project receives <code>anvil.push()</code> calls.
+  </div>
+</div>
+
+<!-- ===== SLIDE 13 — PARAMETRIC SWEEP + SENSITIVITY ===== -->
+<div class="slide">
+  <span class="slide-num">13 / 17</span>
+  <h1>Parametric Sweep, Sensitivity &amp; Visualization</h1>
+  <hr>
+
+  <h2>Parametric sweep</h2>
+  <pre>sweep = nozzle.sweep(<span class="st">"P0"</span>, np.linspace(5e6, 30e6, 20))
+sweep = nozzle.sweep(<span class="st">"P0"</span>, values, parallel=4)   <span class="cm"># parallel — N threads</span>
+sweep = nozzle.sweep(<span class="st">"P0"</span>, values, skip_errors=True)
+
+sweep.summary(outputs=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>, <span class="st">"mdot"</span>])
+sweep.to_csv(<span class="st">"sweep.csv"</span>)
+sweep.to_json(<span class="st">"sweep.json"</span>)
+
+<span class="cm"># Index a column</span>
+isp_array = sweep[<span class="st">"Isp"</span>]    <span class="cm"># numpy array of SI values</span>
+p0_array  = sweep[<span class="st">"P0"</span>]    <span class="cm"># numpy array</span></pre>
+
+  <h2>Sensitivity analysis</h2>
+  <pre>sens = nozzle.sensitivity(outputs=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>], step=0.01)
+sens.summary()               <span class="cm"># ranked bar chart in terminal</span>
+sens.top(<span class="st">"Isp"</span>, n=5)         <span class="cm"># → [(input, sensitivity_value), ...]</span>
+<span class="cm"># Normalized: 1.0 means 1% input change → 1% output change</span></pre>
+
+  <h2>Visualization (<code>from anvil import viz</code>)</h2>
+  <pre><span class="cm"># Requires: pip install matplotlib</span>
+<span class="kw">from</span> anvil <span class="kw">import</span> viz
+
+result = sys.solve(monitor=True)
+viz.convergence(sys)                   <span class="cm"># residual vs iteration</span>
+viz.variable_trace(sys, [<span class="st">"T_hot"</span>, <span class="st">"T_cold"</span>])   <span class="cm"># variable history</span>
+viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>])    <span class="cm"># sweep results</span>
+viz.dependency_graph(sys)              <span class="cm"># input → relation → output graph</span>
+
+<span class="cm"># Save to file</span>
+viz.sweep_plot(sweep, show=False, save=<span class="st">"sweep.png"</span>)</pre>
+
+  <h2>Jupyter / notebook rich display</h2>
+  <pre><span class="cm"># In Jupyter cells, these render as HTML tables automatically:</span>
+result    <span class="cm"># → colored input/output table</span>
+sweep     <span class="cm"># → sweep table</span>
+sens      <span class="cm"># → sensitivity bar chart</span>
+Q(340, <span class="st">"m/s"</span>)  <span class="cm"># → styled value badge</span></pre>
+</div>
+
+<!-- ===== SLIDE 14 — FULL EXAMPLE ===== -->
+<div class="slide">
+  <span class="slide-num">14 / 17</span>
+  <h1>Full Worked Example — Rocket Nozzle</h1>
+  <hr>
+
+  <pre><span class="kw">import</span> anvil
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> anvil <span class="kw">import</span> Q, K, Pa, MPa, m, kg, J
+
+<span class="cm"># ── 1. Load a pre-built System ─────────────────────────────────────</span>
+nozzle = anvil.S.rocket_nozzle.copy()
+
+<span class="cm"># ── 2. Override inputs (LOX/LH2) ───────────────────────────────────</span>
+nozzle.set(
+    P0 = 20e6,    <span class="cm"># Pa  — chamber pressure</span>
+    T0 = 3500,    <span class="cm"># K   — chamber temperature</span>
+    gamma = 1.20, <span class="cm"># —</span>
+    R_gas = 520,  <span class="cm"># J/kg/K</span>
+    A_throat = 0.005,   <span class="cm"># m²</span>
+    A_exit   = 0.08,    <span class="cm"># m²</span>
+    P_amb    = 0,       <span class="cm"># Pa  — vacuum</span>
+)
+
+<span class="cm"># ── 3. Solve (explicit solver) ──────────────────────────────────────</span>
+result = nozzle.solve_forward()
+result.summary()
+
+<span class="cm"># ── 4. Access results with unit conversion ──────────────────────────</span>
+<span class="kw">print</span>(f<span class="st">"Thrust  : {result['thrust'].to('kN').value:.1f} kN"</span>)
+<span class="kw">print</span>(f<span class="st">"Isp     : {result['Isp'].value:.1f} s"</span>)
+<span class="kw">print</span>(f<span class="st">"Exit V  : {result['V_exit'].to('km/s').value:.2f} km/s"</span>)
+
+<span class="cm"># ── 5. Parametric sweep — chamber pressure ──────────────────────────</span>
+sweep = nozzle.sweep(<span class="st">"P0"</span>, np.linspace(5e6, 30e6, 8), parallel=4)
+sweep.summary(outputs=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>, <span class="st">"mdot"</span>])
+
+<span class="cm"># ── 6. Sensitivity — what drives Isp? ──────────────────────────────</span>
+sens = nozzle.sensitivity(outputs=[<span class="st">"Isp"</span>, <span class="st">"thrust"</span>])
+sens.summary()
+
+<span class="cm"># ── 7. Export ───────────────────────────────────────────────────────</span>
+result.to_csv(<span class="st">"nozzle_result.csv"</span>)
+sweep.to_csv(<span class="st">"pressure_sweep.csv"</span>)
+
+<span class="cm"># ── 8. Visualize ────────────────────────────────────────────────────</span>
+<span class="kw">from</span> anvil <span class="kw">import</span> viz
+viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>])
+viz.dependency_graph(nozzle)</pre>
+</div>
+
+<!-- ===== SLIDE 15 — FULL EXAMPLE 2 (custom system) ===== -->
+<div class="slide">
+  <span class="slide-num">15 / 17</span>
+  <h1>Full Worked Example — Custom System with Coupling</h1>
+  <hr>
+
+  <pre><span class="kw">import</span> anvil
+<span class="kw">from</span> anvil <span class="kw">import</span> Q
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># ── Coupled heat exchanger: T_hot_out and T_cold_out depend on each other ──</span>
+
+<span class="kw">def</span> <span class="fn">ntu_effectiveness</span>(NTU, C_ratio):
+    eps = (1 - np.exp(-NTU*(1 - C_ratio))) / (1 - C_ratio*np.exp(-NTU*(1 - C_ratio)))
+    <span class="kw">return</span> {<span class="st">"effectiveness"</span>: eps}
+
+<span class="kw">def</span> <span class="fn">heat_balance</span>(effectiveness, C_min, T_hot_in, T_cold_in):
+    Q_dot = effectiveness * C_min * (T_hot_in - T_cold_in)
+    <span class="kw">return</span> {<span class="st">"Q_dot"</span>: Q(Q_dot, <span class="st">"W"</span>)}
+
+<span class="kw">def</span> <span class="fn">outlet_temps</span>(Q_dot, C_hot, C_cold, T_hot_in, T_cold_in):
+    T_hot_out  = T_hot_in  - Q_dot / C_hot
+    T_cold_out = T_cold_in + Q_dot / C_cold
+    <span class="kw">return</span> {<span class="st">"T_hot_out"</span>: Q(T_hot_out, <span class="st">"K"</span>), <span class="st">"T_cold_out"</span>: Q(T_cold_out, <span class="st">"K"</span>)}
+
+sys = anvil.system(<span class="st">"counter_flow_hx"</span>)
+sys.add(<span class="st">"T_hot_in"</span>,  600, <span class="st">"K"</span>)
+sys.add(<span class="st">"T_cold_in"</span>, 300, <span class="st">"K"</span>)
+sys.add(<span class="st">"C_hot"</span>,  2000)   <span class="cm"># W/K</span>
+sys.add(<span class="st">"C_cold"</span>, 3000)
+sys.add(<span class="st">"UA"</span>,     5000)   <span class="cm"># W/K</span>
+
+<span class="kw">def</span> <span class="fn">compute_ntu</span>(UA, C_hot, C_cold):
+    C_min = min(C_hot, C_cold)
+    C_max = max(C_hot, C_cold)
+    <span class="kw">return</span> {<span class="st">"NTU"</span>: UA / C_min, <span class="st">"C_min"</span>: C_min, <span class="st">"C_ratio"</span>: C_min / C_max}
+
+sys.use(compute_ntu)
+sys.use(ntu_effectiveness)
+sys.use(heat_balance)
+sys.use(outlet_temps)
+
+<span class="cm"># Coupled loop → Gauss-Seidel with live residuals</span>
+result = sys.solve_gauss_seidel(relaxation=0.7, max_iter=200, monitor=True)
+result.summary(keys=[<span class="st">"T_hot_out"</span>, <span class="st">"T_cold_out"</span>, <span class="st">"Q_dot"</span>, <span class="st">"effectiveness"</span>])
+
+<span class="cm"># Sweep UA</span>
+sweep = sys.sweep(<span class="st">"UA"</span>, np.linspace(500, 5000, 10), parallel=4,
+                  method=<span class="st">"gauss_seidel"</span>, relaxation=0.7)
+sweep.summary(outputs=[<span class="st">"effectiveness"</span>, <span class="st">"T_hot_out"</span>, <span class="st">"Q_dot"</span>])</pre>
+</div>
+
+<!-- ===== SLIDE 16 — DEPENDENCIES TABLE ===== -->
+<div class="slide">
+  <span class="slide-num">16 / 17</span>
+  <h1>Packages &amp; Dependencies</h1>
+  <hr>
+
+  <h2>Core (required)</h2>
+  <table>
+    <tr><th>Package</th><th>Version</th><th>Used for</th></tr>
+    <tr><td><code>numpy</code></td><td>≥ 1.21</td><td>Array math, SI value storage, ODE/solver arrays</td></tr>
+    <tr><td><code>scipy</code></td><td>≥ 1.9</td><td>
+      <code>scipy.integrate.solve_ivp</code> (ODE RK45/RK23/DOP853/BDF/Radau),
+      <code>scipy.integrate.solve_bvp</code>,
+      <code>scipy.optimize.root</code> (hybr/lm/broyden1),
+      <code>scipy.optimize.brentq / newton</code>,
+      <code>scipy.optimize.minimize</code>,
+      <code>scipy.linalg.solve_banded</code> (PDE Crank-Nicolson)
+    </td></tr>
+    <tr><td><code>sqlite3</code></td><td>stdlib</td><td>RSQ registry storage</td></tr>
+    <tr><td><code>pathlib</code></td><td>stdlib</td><td>File paths for registry, project store</td></tr>
+    <tr><td><code>concurrent.futures</code></td><td>stdlib</td><td>Parallel sweep (ThreadPoolExecutor)</td></tr>
+  </table>
+
+  <h2>Optional</h2>
+  <table>
+    <tr><th>Package</th><th>Install</th><th>Enables</th></tr>
+    <tr><td><code>matplotlib</code></td><td><code>pip install matplotlib</code></td><td><code>anvil.viz.*</code> — convergence, sweep, dependency graph</td></tr>
+    <tr><td><code>cantera</code></td><td><code>conda install -c cantera cantera</code></td><td>Combustion equilibrium adapter (CEA replacement)</td></tr>
+    <tr><td><code>jupyter</code> / <code>ipython</code></td><td><code>pip install jupyter</code></td><td>HTML rich display for Quantity, Result, SweepResult</td></tr>
+  </table>
+
+  <h2>Install everything at once</h2>
+  <pre>pip install numpy scipy matplotlib jupyter
+conda install -c cantera cantera   <span class="cm"># optional</span></pre>
+
+  <h2>Python version</h2>
+  <p>Tested on Python 3.10 – 3.14. No C extensions — pure Python.</p>
+
+  <h2>Where things live</h2>
+  <table>
+    <tr><th>Path</th><th>Contents</th></tr>
+    <tr><td><code>src/anvil/</code></td><td>Core source: quantity, units, relation, system, solvers, registry, viz, adapter, project</td></tr>
+    <tr><td><code>adapters/</code></td><td>Cantera adapter (cantera_thermo.py), NASA CEA detonation</td></tr>
+    <tr><td><code>examples/</code></td><td>10 worked examples covering nozzle, heat exchanger, beam, combustion, ODE, PDE</td></tr>
+    <tr><td><code>~/.anvil/registry.db</code></td><td>Global RSQ registry (auto-created)</td></tr>
+    <tr><td><code>&lt;proj&gt;/.anvil/project_*.db</code></td><td>Project-local registry stores</td></tr>
+  </table>
+</div>
+
+<!-- ===== SLIDE 17 — QUICK REFERENCE ===== -->
+<div class="slide">
+  <span class="slide-num">17 / 17</span>
+  <h1>Quick Reference Card</h1>
+  <hr>
+
+  <div class="cols">
+    <div>
+      <h2>Units</h2>
+      <pre style="font-size:.8em">Q(val, "unit")       <span class="cm"># create</span>
+val * K              <span class="cm"># stub</span>
+q.value / q.si       <span class="cm"># display / SI</span>
+q.to("cm/s")         <span class="cm"># convert</span>
+q.unit / q.dim       <span class="cm"># string / Dim</span></pre>
+
+      <h2>System</h2>
+      <pre style="font-size:.8em">s = anvil.system("name")
+s.add("x", 1.0, "m")
+s.use(fn)
+s.use("rsq_name")
+s.set(x=2.0)
+s.validate()
+r = s.solve_forward()
+r = s.solve_gauss_seidel(
+      relaxation=0.8,
+      monitor=True)
+r = s.solve_newton(rtol=1e-10)</pre>
+
+      <h2>Results</h2>
+      <pre style="font-size:.8em">r["T"]               <span class="cm"># Quantity</span>
+r["T"].value         <span class="cm"># float</span>
+r.summary()
+r.to_csv("f.csv")
+r.to_json("f.json")</pre>
+    </div>
+    <div>
+      <h2>Registry</h2>
+      <pre style="font-size:.8em">anvil.registry.list()
+anvil.registry.search("mach")
+anvil.registry.info("name")
+anvil.R.my_func(...)
+anvil.S.my_sys.copy()
+anvil.push(fn, domain="d")
+anvil.update(fn, name="n")
+anvil.registry.remove("n")</pre>
+
+      <h2>Sweep &amp; Sensitivity</h2>
+      <pre style="font-size:.8em">sw = s.sweep("P", vals)
+sw = s.sweep("P", vals, parallel=4)
+sw.summary()
+sw["Isp"]   <span class="cm"># numpy array</span>
+sw.to_csv("f.csv")
+sens = s.sensitivity()
+sens.top("Isp", n=5)</pre>
+
+      <h2>Solvers</h2>
+      <pre style="font-size:.8em">solvers.find_root(f, bracket=...,
+    method="brent")
+solvers.solve_nonlinear(F, x0,
+    method="hybr")
+solvers.solve_ode(f, t_span, y0,
+    method="RK45")     <span class="cm"># non-stiff</span>
+solvers.solve_ode_stiff(f, t_span, y0,
+    method="BDF")      <span class="cm"># stiff</span>
+solvers.solve_bvp(f, bc, x, y)
+solvers.solve_pde_heat_1d(alpha,...)
+solvers.minimize(f, x0,
+    method="L-BFGS-B")</pre>
+    </div>
+  </div>
+
+  <hr>
+  <div class="cols3">
+    <div class="box" style="font-size:.82em">
+      <h3>Project Registry</h3>
+      <code>proj = anvil.project("name", path=".")</code><br>
+      <code>proj.push(fn)</code><br>
+      <code>proj.R.fn(...)</code><br>
+      <code>proj.promote("fn")</code>
+    </div>
+    <div class="box" style="font-size:.82em">
+      <h3>Visualization</h3>
+      <code>viz.convergence(sys)</code><br>
+      <code>viz.sweep_plot(sw)</code><br>
+      <code>viz.variable_trace(sys, [...])</code><br>
+      <code>viz.dependency_graph(sys)</code>
+    </div>
+    <div class="box" style="font-size:.82em">
+      <h3>Adapters</h3>
+      <code>Adapter("name", backend="python", call=fn, inputs={...}, outputs={...})</code><br>
+      <code>Adapter("name", backend="cli", command="...", setup=fn, parse=fn)</code>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

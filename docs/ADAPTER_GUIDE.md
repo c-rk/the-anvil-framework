@@ -1,80 +1,153 @@
-# Anvil Framework -- Adapter Guide & AI Agent Prompt
+# Anvil Framework — Adapter Guide
 
-**Version 0.4.0** | Integrating External Tools into Anvil
-
-This document covers two topics:
-1. How to write Anvil adapters for external tools (detailed steps + examples)
-2. A ready-to-use prompt you can give to any AI agent to generate adapter files automatically
+**Version 1.1.0** | Integrating External Tools into Anvil
 
 ---
 
-## Part 1: Writing Adapters (Step by Step)
+## Contents
 
-### What is an Adapter?
+1. [What is an Adapter?](#1-what-is-an-adapter)
+2. [Python Backend — step by step](#2-python-backend--step-by-step)
+3. [CLI Backend — step by step](#3-cli-backend--step-by-step)
+4. [Using Adapters in Systems](#4-using-adapters-in-systems)
+5. [Adapter File Structure](#5-adapter-file-structure)
+6. [Registering Adapters](#6-registering-adapters)
+7. [Built-in Cantera Adapters](#7-built-in-cantera-adapters)
+8. [Unit Handling Reference](#8-unit-handling-reference)
+9. [Verifying Adapters](#9-verifying-adapters)
+10. [AI Agent Prompt — Generate an Adapter Automatically](#10-ai-agent-prompt--generate-an-adapter-automatically)
 
-An Adapter wraps an external tool (Python library, CLI program, HTTP service) so it behaves like any other Anvil Relation. Once wrapped, it plugs into Systems, participates in solves, sweeps, and composition -- identically to a plain function.
+---
 
-### The Two Backends
+## 1. What is an Adapter?
 
-**Python backend** -- for tools with a Python API (CoolProp, Cantera, Pint, custom modules):
+An Adapter wraps an external tool — a Python library, a CLI executable, a Fortran solver — so it behaves exactly like any other Anvil Relation. Once wrapped, it plugs into Systems, participates in solves, sweeps, sensitivity analysis, and composition, identically to a plain Python function.
+
+**Two backends:**
+
+- **`"python"`** — calls a Python function directly (CoolProp, Cantera, OpenMDAO, Pint, ...)
+- **`"cli"`** — runs a command-line executable (SU2, OpenFOAM, custom Fortran/C codes)
+
+---
+
+## 2. Python Backend — Step by Step
+
+### Step 1: Write the wrapper function
+
+The wrapper receives raw SI floats from Anvil's solver workspace and returns a dict. Import the external library **inside** the function (lazy import) so the adapter file loads even if the package is not installed.
 
 ```python
-from anvil import Adapter
-
-def my_wrapper(P, T):
-    """Call the external library and return outputs as a dict."""
-    import CoolProp.CoolProp as CP
+def _coolprop_water(P, T):
+    """
+    Water thermophysical properties via CoolProp.
+    P [Pa], T [K] → rho, mu, cp, k
+    """
+    try:
+        import CoolProp.CoolProp as CP
+    except ImportError:
+        raise ImportError(
+            "CoolProp is required for this adapter.\n"
+            "  Install: pip install CoolProp"
+        )
     rho = CP.PropsSI('D', 'P', P, 'T', T, 'Water')
     mu  = CP.PropsSI('V', 'P', P, 'T', T, 'Water')
     cp  = CP.PropsSI('C', 'P', P, 'T', T, 'Water')
-    return {"rho": rho, "mu": mu, "cp": cp}
+    k   = CP.PropsSI('L', 'P', P, 'T', T, 'Water')
+    return {
+        "rho": Q(rho, "kg/m^3"),
+        "mu":  Q(mu,  "Pa*s"),
+        "cp":  Q(cp,  "J/kg/K"),
+        "k":   Q(k,   "W/m/K"),
+    }
+```
 
-water_props = Adapter("water_properties",
+**Rules:**
+- Inputs arrive as **raw SI floats** (Anvil converts from whatever unit the System uses)
+- Return `Q(value, "unit")` for dimensional outputs — this propagates units to results
+- Return plain floats for dimensionless outputs
+
+### Step 2: Declare the Adapter
+
+```python
+from anvil import Adapter, Q
+
+water_props = Adapter("coolprop_water",
     backend="python",
-    call=my_wrapper,
+    call=_coolprop_water,
     inputs={
-        "P": {"unit": "Pa", "desc": "Pressure"},
-        "T": {"unit": "K",  "desc": "Temperature"},
+        "P": {"unit": "Pa",  "desc": "Pressure",    "default": 101325},
+        "T": {"unit": "K",   "desc": "Temperature", "default": 300},
     },
     outputs={
         "rho": {"unit": "kg/m^3", "desc": "Density"},
         "mu":  {"unit": "Pa*s",   "desc": "Dynamic viscosity"},
         "cp":  {"unit": "J/kg/K", "desc": "Specific heat"},
+        "k":   {"unit": "W/m/K",  "desc": "Thermal conductivity"},
     },
     desc="Water thermophysical properties via CoolProp",
-    tags=["fluid", "water", "properties"],
+    tags=["fluid", "water", "coolprop"],
 )
 ```
 
-**CLI backend** -- for tools that run as executables (SU2, OpenFOAM, custom Fortran):
+**`inputs` spec fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `"unit"` | No | Anvil converts from SI to this before calling wrapper. E.g., `"Pa"` → wrapper receives Pa float |
+| `"desc"` | No | Human description |
+| `"default"` | No | Default value if not provided |
+
+**`outputs` spec fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `"unit"` | No | Expected output unit — used for display. If wrapper returns `Q()` objects, this is informational |
+| `"desc"` | No | Human description |
+
+---
+
+## 3. CLI Backend — Step by Step
+
+### Step 1: Write setup and parse functions
 
 ```python
-from anvil import Adapter
 import os, json
 
 def write_su2_config(inputs, workdir):
-    """Write the SU2 config file from Anvil inputs."""
-    config = f\"\"\"
+    """Write SU2 config file from Anvil inputs dict."""
+    config = f"""
 SOLVER= EULER
 MACH_NUMBER= {inputs['mach']}
 AOA= {inputs['alpha_deg']}
 REYNOLDS_NUMBER= {inputs['Re']}
 MESH_FILENAME= mesh.su2
-\"\"\"
+OUTPUT_FILES= (RESTART, CSV)
+CONV_FIELD= RMS_DENSITY
+"""
     with open(os.path.join(workdir, "flow.cfg"), "w") as f:
         f.write(config)
 
 def parse_su2_output(workdir):
-    """Parse SU2 output files and return dict."""
-    # Read forces from SU2 history file
-    with open(os.path.join(workdir, "history.csv")) as f:
-        lines = f.readlines()
-        last = lines[-1].split(",")
-    return {"CL": float(last[1]), "CD": float(last[2]), "CM": float(last[3])}
+    """Read SU2 history CSV and return aerodynamic coefficients."""
+    history_file = os.path.join(workdir, "history.csv")
+    with open(history_file) as f:
+        lines = [l.strip() for l in f if l.strip()]
+    headers = [h.strip() for h in lines[0].split(",")]
+    last    = [v.strip() for v in lines[-1].split(",")]
+    row = dict(zip(headers, last))
+    return {
+        "CL": float(row["CL"]),
+        "CD": float(row["CD"]),
+        "CM": float(row["CMz"]),
+    }
+```
 
+### Step 2: Declare the CLI Adapter
+
+```python
 su2 = Adapter("su2_airfoil",
     backend="cli",
-    command="SU2_CFD flow.cfg",
+    command="SU2_CFD flow.cfg",       # runs in workdir
     inputs={
         "mach":      {"desc": "Freestream Mach number"},
         "alpha_deg": {"desc": "Angle of attack (degrees)"},
@@ -85,381 +158,442 @@ su2 = Adapter("su2_airfoil",
         "CD": {"desc": "Drag coefficient"},
         "CM": {"desc": "Pitching moment coefficient"},
     },
-    setup=write_su2_config,
-    parse=parse_su2_output,
-    timeout=600,
-    desc="SU2 Euler solver for airfoil aerodynamics",
+    setup=write_su2_config,    # called before running command
+    parse=parse_su2_output,    # called after command exits
+    timeout=600,               # seconds before killing process
+    cwd="./su2_runs",          # persistent working directory; None = temp dir
+    desc="SU2 Euler solver for 2D airfoil",
+    tags=["aero", "CFD", "su2"],
 )
 ```
 
-### Using Adapters in Systems
+**Execution sequence:**
+1. `setup(inputs_dict, workdir)` — write config, mesh, etc.
+2. `subprocess.run(command, cwd=workdir, timeout=timeout)`
+3. `parse(workdir)` — read output files, return dict
+4. Outputs are wrapped with declared units (if any)
 
-Once created, adapters work exactly like functions:
+If `cwd=None`, a temporary directory is created per call and deleted afterwards. If `cwd` is set, it persists across calls (useful for runs that generate large files you want to inspect).
+
+---
+
+## 4. Using Adapters in Systems
+
+Once created, adapters work exactly like any other Relation:
 
 ```python
 from anvil import System
 
-# Direct call
-result = water_props(P=101325, T=300)
-print(result["rho"])  # density of water at 1 atm, 300 K
-
-# In a System
 pipe = System("pipe_flow")
-pipe.add("P", 500e3, "Pa")
-pipe.add("T", 350, "K")
-pipe.add("D_pipe", 0.05, "m")
-pipe.add("V_flow", 2.0, "m/s")
+pipe.add("P",      500e3, "Pa")
+pipe.add("T",      350,   "K")
+pipe.add("D_pipe", 0.05,  "m")
+pipe.add("V_flow", 2.0,   "m/s")
 
-pipe.use(water_props)                    # get rho, mu, cp
-pipe.use("reynolds_number", map={        # map adapter outputs to Re inputs
-    "L_char": "D_pipe", "V": "V_flow"
+pipe.use(water_props)                            # pulls rho, mu, cp, k
+pipe.use("reynolds_number", map={               # uses rho, mu from adapter
+    "L_char": "D_pipe",
+    "V":      "V_flow",
 })
-pipe.solve().summary()
+pipe.solve_forward().summary()
 ```
 
-### Adapter File Structure
+Direct call (no System):
 
-For sharing adapters, create a Python file that can be imported:
+```python
+result = water_props(P=101325, T=300)
+print(result["rho"])   # Q(998.2, "kg/m^3")
+```
+
+Sweep with adapter inside system:
+
+```python
+sweep = pipe.sweep("T", np.linspace(280, 370, 20), parallel=4)
+sweep.summary(outputs=["rho", "mu", "Re"])
+```
+
+---
+
+## 5. Adapter File Structure
+
+For sharing, put each adapter in its own file under `adapters/`:
 
 ```
 adapters/
-    coolprop_water.py      # Adapter definition
-    cantera_combustion.py
+    __init__.py
+    coolprop_water.py
+    cantera_thermo.py
     su2_airfoil.py
+    openfoam_pipe.py
 ```
 
-Each file should export the adapter as a module-level variable:
+Standard file layout:
 
 ```python
-# coolprop_water.py
-from anvil import Adapter
+"""
+Anvil adapter for CoolProp — water thermophysical properties.
+
+Wraps CoolProp.PropsSI to compute density, viscosity, specific heat,
+and thermal conductivity of liquid water.
+
+Requirements:
+    pip install CoolProp
+"""
+from anvil import Adapter, Q
+
 
 def _call(P, T):
-    import CoolProp.CoolProp as CP
+    try:
+        import CoolProp.CoolProp as CP
+    except ImportError:
+        raise ImportError(
+            "CoolProp is required for this adapter.\n"
+            "  Install: pip install CoolProp"
+        )
     rho = CP.PropsSI('D', 'P', P, 'T', T, 'Water')
-    return {"rho": rho}
+    return {"rho": Q(rho, "kg/m^3")}
 
-adapter = Adapter("coolprop_water", backend="python", call=_call,
-    inputs={"P": {"unit": "Pa"}, "T": {"unit": "K"}},
-    outputs={"rho": {"unit": "kg/m^3"}})
+
+adapter = Adapter("coolprop_water",
+    backend="python", call=_call,
+    inputs={"P": {"unit": "Pa", "default": 101325},
+            "T": {"unit": "K",  "default": 300}},
+    outputs={"rho": {"unit": "kg/m^3", "desc": "Water density"}},
+    desc="Water density via CoolProp",
+    tags=["fluid", "water", "coolprop"],
+)
+
+
+def register():
+    """Register this adapter in the Anvil global registry."""
+    import anvil
+    anvil.push(adapter, domain="fluid.water", tags=["coolprop"])
+
+
+if __name__ == "__main__":
+    # Quick test
+    r = adapter(P=101325, T=300)
+    print(f"Water density at STP: {r['rho']}")
 ```
 
-Then use it:
+Import and use:
 
 ```python
 from adapters.coolprop_water import adapter as water
 system.use(water)
+
+# Or register globally once and use by name everywhere
+from adapters.coolprop_water import register
+register()
+anvil.R.coolprop_water(P=101325, T=300)
 ```
 
-### Registering Adapters
+---
+
+## 6. Registering Adapters
 
 ```python
 import anvil
-anvil.push(water_props, domain="fluid", tags=["water", "coolprop"])
 
-# Now available as:
-anvil.R.water_properties(P=101325, T=300)
+# Register to global registry
+anvil.push(water_props, domain="fluid", tags=["water", "coolprop"])
+# → available as anvil.R.coolprop_water(...)
+
+# Register to a project only
+proj = anvil.project("hx_study", path="./work")
+proj.push(water_props, domain="fluid")
+# → available as proj.R.coolprop_water(...)
+# → does NOT pollute global registry until proj.promote("coolprop_water")
 ```
 
-### Verifying Adapters
+---
+
+## 7. Built-in Cantera Adapters
+
+Located at `adapters/cantera_thermo.py`. Require `conda install -c cantera cantera`.
 
 ```python
-anvil.check("water_properties")
-# Shows inputs, outputs, test run, any issues
+import sys; sys.path.insert(0, "path/to/adapters")
+from cantera_thermo import cea_rocket, equilibrium_flame, register
+```
+
+### `cea_rocket` — Rocket chamber equilibrium
+
+Equivalent to NASA CEA HP equilibration.
+
+```python
+cea_rocket(
+    fuel="H2",      # H2, CH4, C2H5OH, C3H8 (or any Cantera species)
+    oxidizer="O2",  # O2, or "O2:1,N2:3.76" for air
+    OF=6.0,         # oxidizer/fuel mass ratio
+    Pc=10e6,        # chamber pressure [Pa]
+    T_fuel=300,     # fuel inlet temperature [K]
+    T_ox=90,        # oxidizer inlet temperature [K]
+)
+# Returns: Tc [K], gamma_c, R_gas_c [J/kg/K], MW_c [kg/mol], rho_c [kg/m³], cstar [m/s]
+```
+
+### `equilibrium_flame` — Adiabatic flame temperature
+
+```python
+equilibrium_flame(
+    fuel="CH4",
+    oxidizer="O2:1,N2:3.76",  # air
+    phi=1.0,                   # equivalence ratio
+    T_init=300,                # initial temperature [K]
+    P=101325,                  # pressure [Pa]
+)
+# Returns: T_ad [K], gamma, MW [kg/mol], rho [kg/m³]
+```
+
+### Registering
+
+```python
+register()   # pushes both adapters to global registry under propulsion.combustion
+```
+
+### Full engine example
+
+See `examples/ex09_cantera_cea.py` for a complete H2/O2 and CH4/O2 engine analysis. The example works with or without Cantera installed (uses a mock if not available).
+
+---
+
+## 8. Unit Handling Reference
+
+Anvil uses SI base units internally. The `"unit"` field in an adapter's input spec tells Anvil to convert the SI value **before** passing it to the wrapper. Use this when the external tool expects a non-SI input (e.g., a tool that takes Celsius instead of Kelvin).
+
+```python
+inputs={
+    "T": {"unit": "K"},     # tool receives Kelvin (same as SI — no conversion)
+    "P": {"unit": "Pa"},    # tool receives Pascals (same as SI — no conversion)
+    "T_C": {"unit": "K"},   # no Celsius unit; convert manually inside wrapper
+}
+```
+
+For the `outputs` spec, Anvil wraps plain float outputs with the declared unit:
+
+```python
+outputs={"Tc": {"unit": "K"}}
+# If wrapper returns {"Tc": 3500.0}, Anvil wraps it as Q(3500.0, "K")
+# If wrapper returns {"Tc": Q(3500.0, "K")}, the Q() is used directly
+```
+
+**Supported unit strings** (full list in `ANVIL_DOCUMENTATION.md §5.7`):
+
+```
+Pressure:     Pa, kPa, MPa, GPa, bar, atm, psi, psia, torr
+Temperature:  K, R
+Velocity:     m/s, km/s, km/hr, ft/s, mph, kn
+Force:        N, kN, MN, lbf
+Energy:       J, kJ, MJ, cal, BTU, eV
+Power:        W, kW, MW, hp
+Mass:         kg, g, mg, lb, tonne
+Length:       m, km, cm, mm, um, in, ft
+Area:         m^2, cm^2, mm^2, ft^2, in^2
+Volume:       m^3, cm^3, L, ft^3, gal
+Density:      kg/m^3, g/cm^3, lb/ft^3
+Viscosity:    Pa*s, poise, m^2/s
+Specific:     J/kg, kJ/kg, J/kg/K, kJ/kg/K, BTU/lb, BTU/lb/R
+Thermal:      W/m/K
+Molar:        kg/mol, g/mol, J/mol/K
+Mass flow:    kg/s, lb/s
+Other:        V, Hz, kHz, rad, deg, mol, kmol, A
+Compound:     any combination parsed automatically (e.g., g/s, cm/s, mW/m^2)
+Dimensionless: "" (empty string)
 ```
 
 ---
 
-## Part 2: AI Agent Prompt Template for Adapter Generation
+## 9. Verifying Adapters
 
-Copy the prompt below and give it to any AI agent (Claude, GPT, Gemini, etc.) along with the name of the package you want to integrate. The agent will generate ready-to-use adapter files.
+```python
+import anvil
+
+# After registering
+anvil.check("coolprop_water")
+# Shows: type, inputs, outputs, test run with defaults, any issues
+
+# Programmatic
+report = anvil.check("coolprop_water", verbose=False)
+report["ok"]        # bool
+report["inputs"]    # list
+report["outputs"]   # list
+report["issues"]    # list of problem strings
+```
 
 ---
 
-### PROMPT (copy everything between the lines)
+## 10. AI Agent Prompt — Generate an Adapter Automatically
+
+Give this prompt to any AI agent (Claude, GPT, Gemini, Copilot) to generate a ready-to-use adapter file. Replace the package name and answer the clarifying questions.
+
+---
 
 ```
-=== ANVIL FRAMEWORK ADAPTER GENERATION PROMPT ===
+=== ANVIL FRAMEWORK — ADAPTER GENERATION PROMPT ===
 
-You are generating an Anvil Framework adapter file for the open-source
-package specified below. Anvil is a Python computation framework for
-engineering research. Adapters wrap external tools so they work as
-native Anvil Relations inside solvable Systems.
+You are generating an Anvil Framework adapter file for the package below.
 
-PACKAGE TO ADAPT: [USER: replace this with your package name, e.g., "CoolProp", "Cantera", "OpenFOAM", "Pint", "SU2"]
+Anvil is a Python engineering computation framework. Adapters wrap
+external tools so they work as native Anvil Relations inside solvable
+Systems — participating in solves, parametric sweeps, and composition
+exactly like plain Python functions.
 
-YOUR TASK:
-Generate a complete, ready-to-use Python adapter file. The user should
-be able to drop this file into their project and immediately use it
-with Anvil.
+PACKAGE TO ADAPT:
+[replace with: CoolProp / Cantera / OpenMDAO / SU2 / OpenFOAM / your package]
 
-ANVIL ADAPTER API:
+─────────────────────────────────────────────
+ANVIL ADAPTER API
+─────────────────────────────────────────────
+
+from anvil import Adapter, Q
+
+adapter = Adapter(
+    name="<snake_case_name>",
+    backend="python",            # or "cli"
+    call=<wrapper_function>,     # python backend
+    command="<cmd {arg}>",       # cli backend
+    inputs={
+        "<param>": {
+            "unit": "<unit>",    # SI unit the tool expects; "" = dimensionless
+            "desc": "<text>",
+            "default": <value>,  # optional
+        },
+    },
+    outputs={
+        "<param>": {
+            "unit": "<unit>",    # unit the tool returns; "" = dimensionless
+            "desc": "<text>",
+        },
+    },
+    setup=<fn(inputs, workdir)>, # cli only
+    parse=<fn(workdir) -> dict>, # cli only
+    timeout=60,                  # cli only
+    desc="<one-line description>",
+    tags=["<tag>"],
+)
+
+─────────────────────────────────────────────
+UNIT STRINGS — use exactly these
+─────────────────────────────────────────────
+
+Pressure:     Pa, kPa, MPa, GPa, bar, atm, psi
+Temperature:  K, R
+Velocity:     m/s, km/s, ft/s, mph
+Force:        N, kN, lbf
+Energy:       J, kJ, MJ, BTU
+Power:        W, kW, MW
+Mass:         kg, g, lb
+Length:       m, cm, mm, ft, in
+Area:         m^2, cm^2, ft^2
+Volume:       m^3, cm^3, L
+Density:      kg/m^3, g/cm^3
+Viscosity:    Pa*s, m^2/s
+Sp. heat:     J/kg/K, kJ/kg/K
+Sp. energy:   J/kg, kJ/kg
+Mass flow:    kg/s, lb/s
+Conductivity: W/m/K
+Molar:        kg/mol, g/mol, J/mol/K
+Dimensionless: ""
+Compound:     any combination, e.g. "g/s", "W/m^2", "cm/s"
+
+─────────────────────────────────────────────
+RULES
+─────────────────────────────────────────────
+
+1. The wrapper function receives raw SI floats. Return a dict.
+2. For dimensional outputs, wrap with Q(value, "unit"). For
+   dimensionless outputs, return plain floats.
+3. Import the external package INSIDE the wrapper (lazy import) so the
+   adapter file loads even if the package is not installed.
+4. Add a clear ImportError message with install instructions.
+5. Add a module docstring: what it wraps, install command, any caveats.
+6. Add a register() function: calls anvil.push(adapter, domain=...).
+7. Add an if __name__ == "__main__" block that tests the adapter with
+   typical input values and prints the result.
+8. If the package has many functions, write SEPARATE adapters — one per
+   physical model. Never one monolithic adapter with a "mode" parameter.
+9. Name adapters descriptively: "coolprop_water_density",
+   "cantera_h2o2_flame", "su2_euler_airfoil". Not "adapter1".
+10. For CLI adapters, the setup function writes all config files;
+    the parse function reads all result files. Both receive raw floats
+    (same as the wrapper).
+
+─────────────────────────────────────────────
+OUTPUT FORMAT
+─────────────────────────────────────────────
+
+Generate a single .py file with this structure:
+
+    """
+    Anvil adapter for [PACKAGE].
+    [What it computes and wraps.]
+    Requirements: pip install [package]  (or conda install ...)
+    """
     from anvil import Adapter, Q
 
-    adapter = Adapter(
-        name="<adapter_name>",        # unique name, snake_case
-        backend="python",              # "python" or "cli"
-        call=<wrapper_function>,       # for python backend
-        command="<cmd>",               # for cli backend
-        inputs={
-            "<param>": {
-                "unit": "<anvil_unit>",  # e.g., "Pa", "K", "m/s", "" for dimensionless
-                "desc": "<description>",
-                "default": <value>,      # optional default
-            },
-        },
-        outputs={
-            "<param>": {
-                "unit": "<anvil_unit>",
-                "desc": "<description>",
-            },
-        },
-        setup=<config_writer>,   # cli only: function(inputs, workdir)
-        parse=<output_parser>,   # cli only: function(workdir) -> dict
-        timeout=60,              # cli only: seconds
-        desc="<one-line description>",
-        tags=["<tag1>", "<tag2>"],
-    )
-
-ANVIL UNITS (use these exact strings):
-    Pressure:     Pa, kPa, MPa, bar, atm, psi
-    Temperature:  K, R
-    Velocity:     m/s, km/s, ft/s
-    Force:        N, kN, lbf
-    Energy:       J, kJ, MJ, BTU
-    Power:        W, kW, MW
-    Mass:         kg, g, lb
-    Length:        m, cm, mm, ft, in
-    Density:      kg/m^3, g/cm^3
-    Viscosity:    Pa*s, m^2/s
-    Sp. heat:     J/kg/K, kJ/kg/K
-    Sp. energy:   J/kg, kJ/kg
-    Mass flow:    kg/s, lb/s
-    Conductivity: W/m/K
-    Molar:        kg/mol, g/mol, J/mol/K
-    Dimensionless: "" (empty string)
-
-RULES:
-1. The wrapper function receives raw SI floats from Anvil's solver
-   workspace. It must return a dict of output values.
-2. For outputs with units, wrap them: Q(value, "unit").
-   For dimensionless outputs, return plain floats.
-3. Import the external package INSIDE the wrapper function (lazy import)
-   so the adapter file can be loaded even if the package isn't installed.
-4. Include clear error messages if the package is not installed.
-5. Add a docstring explaining what the adapter does and what the
-   external package provides.
-6. Include a __main__ block that demonstrates usage and tests the adapter.
-7. If the package has many possible functions, organize them as SEPARATE
-   adapters (one per physical model or computation type), not one
-   monolithic adapter.
-8. Name adapters descriptively: "coolprop_water", "cantera_gri30_flame",
-   "su2_euler_airfoil", not "adapter1".
-
-OUTPUT FORMAT:
-Generate a single Python file with this structure:
-
-    \"\"\"
-    Anvil adapter for [PACKAGE_NAME].
-    
-    Wraps [describe what it computes].
-    Requires: pip install [package_name]
-    \"\"\"
-    from anvil import Adapter, Q
-
-    def _wrapper_function(input1, input2, ...):
+    def _wrapper(input1, input2, ...):
         try:
-            import package_name
+            import package
         except ImportError:
-            raise ImportError(
-                "[package_name] is required for this adapter.\\n"
-                "  Install: pip install [package_name]"
-            )
-        # ... call the tool ...
-        return {"output1": Q(val, "unit"), "output2": val2}
+            raise ImportError("[package] required.\n  Install: pip install [package]")
+        # call tool, extract outputs
+        return {"out1": Q(val, "unit"), "out2": plain_float}
 
     adapter = Adapter(
         name="...",
         backend="python",
-        call=_wrapper_function,
+        call=_wrapper,
         inputs={...},
         outputs={...},
         desc="...",
         tags=[...],
     )
 
-    # Registration (optional -- user can also do this manually)
     def register():
         import anvil
         anvil.push(adapter, domain="...", tags=[...])
 
     if __name__ == "__main__":
-        # Demo and test
-        result = adapter(input1=..., input2=...)
-        print(result)
+        r = adapter(input1=..., input2=...)
+        for k, v in r.items():
+            print(f"  {k}: {v}")
 
-BEFORE GENERATING:
-- Ask the user which specific functions/models from the package they
-  want to wrap (e.g., "PropsSI for water" vs "full mixture properties")
-- Ask about typical input ranges so you can set sensible defaults
-- If the package is a CLI tool, ask about the config file format and
-  output file format
+─────────────────────────────────────────────
+BEFORE GENERATING — ask the user:
+─────────────────────────────────────────────
 
-GENERATE THE FILE NOW.
+1. Which specific functions / models from this package do you want?
+   (e.g., "PropsSI for water" vs "full mixture library")
+2. What are typical input ranges? (for setting sensible defaults)
+3. For CLI tools: what does the config file look like, and what does
+   the output file look like?
+4. Any non-SI units the tool expects? (e.g., Celsius, bar, lb/ft³)
+
+GENERATE THE ADAPTER FILE NOW.
 === END PROMPT ===
 ```
 
 ---
 
-### How to Use This Prompt
+### How to use this prompt
 
 1. Copy the prompt above
-2. Replace `[USER: replace this...]` with your package name
-3. Paste into any AI agent (Claude, ChatGPT, Gemini, Copilot, etc.)
-4. The agent will ask clarifying questions if needed, then generate a complete adapter file
-5. Save the file as `adapters/<package_name>.py`
-6. Use it:
+2. Replace `[replace with: ...]` with your package name
+3. Paste into any AI chat (Claude, GPT, Gemini, Copilot)
+4. Answer the clarifying questions if asked
+5. Save the output as `adapters/<package_name>.py`
+6. Test it:
 
 ```python
-from adapters.coolprop_water import adapter as water_props
-system.use(water_props)
+python adapters/coolprop_water.py          # runs __main__ test
 ```
 
-Or register it globally:
+7. Use it in Anvil:
 
 ```python
-from adapters.coolprop_water import register
+from adapters.coolprop_water import adapter as water, register
 register()
-# Now: anvil.R.coolprop_water(P=101325, T=300)
-```
-
----
-
-## Part 3: anvil.check() -- RSQ Inspection
-
-The `check` function is the single entry point for verifying any RSQ.
-
-### Usage
-
-```python
-import anvil
-
-# Check a Relation
-anvil.check("isentropic_ratios")
-
-# Check a System (shows full dependency tree)
-anvil.check("rocket_nozzle")
-
-# Check a Quantity
-anvil.check("g0")
-
-# Check something that doesn't exist
-anvil.check("nonexistent")  # [FAIL] with clear message
-
-# Programmatic use (returns dict, no printing)
-report = anvil.check("rocket_nozzle", verbose=False)
-if report["ok"]:
-    print("All good")
-else:
-    for issue in report["issues"]:
-        print(f"  Problem: {issue}")
-```
-
-### What check() Verifies
-
-For Relations:
-- Inputs detected from function signature
-- Outputs detected from return dict
-- Defaults extracted
-- Test run with dummy values
-
-For Systems:
-- All inputs have values (no None)
-- All dependencies exist in registry
-- Dependency graph is valid
-- Full tree printed: inputs -> relations -> outputs
-- Test solve runs successfully
-- Coupled variables identified
-
-For Quantities:
-- Value, SI value, unit, dimension all present
-
-### Report Structure
-
-```python
-report = anvil.check("rocket_nozzle", verbose=False)
-report["ok"]           # bool: overall health
-report["name"]         # "rocket_nozzle"
-report["type"]         # "S"
-report["inputs"]       # ["P0", "T0", "gamma", ...]
-report["outputs"]      # ["thrust", "Isp", "M_exit", ...]
-report["depends"]      # ["nozzle_area_ratio", "area_mach_supersonic", ...]
-report["tree"]         # printable dependency tree string
-report["issues"]       # list of problem descriptions
-report["test_result"]  # dict from test solve
-```
-
----
-
-## Part 4: Monitoring & Visualization
-
-### Pre-Solve Diagnostics
-
-```python
-from anvil.monitor import diagnose
-
-msgs = diagnose(system)
-for m in msgs:
-    print(m)
-# Example output:
-#   WARNING: 'T0' = 50000 K is outside bounds (200, 5000).
-#   INFO: Coupled variables detected: T_cold_out, Q_dot. Will use iterative solver.
-```
-
-### Convergence Plotting
-
-```python
-from anvil.monitor import plot_convergence, plot_variables
-
-# Solve with monitoring enabled
-result = system.solve(method="gauss_seidel", monitor=True)
-
-# Residual vs iteration + vs wall clock
-plot_convergence(system, save="convergence.png")
-
-# Variable evolution during iteration
-plot_variables(system, variables=["T_hot_out", "T_cold_out", "Q_dot"],
-               save="variables.png")
-```
-
-### Sweep Charts
-
-```python
-from anvil.monitor import plot_sweep
-
-sweep = system.sweep("P0", np.linspace(1e6, 20e6, 20))
-plot_sweep(sweep, y=["thrust", "Isp"], save="sweep.png")
-```
-
-### System Dependency Graph
-
-```python
-from anvil.monitor import plot_system
-
-plot_system(system, save="graph.png")
-```
-
-Renders inputs (green), relations (blue), and outputs (yellow) as a directed graph with arrows showing data flow.
-
-### Watchdog (Advanced)
-
-```python
-from anvil import Watchdog
-
-wd = Watchdog("my_system")
-wd.record(iteration, workspace, residual, wallclock)
-wd.check_nan(iteration, workspace)
-wd.convergence_rate()     # array of successive residual ratios
-wd.stalled_variables()    # variables not changing
-wd.report()               # formatted diagnostic report
+system.use(water)
+# or: anvil.R.coolprop_water(P=101325, T=300)
 ```

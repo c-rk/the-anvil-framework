@@ -160,6 +160,59 @@ _SEED_ENTRIES = [
      "tags": ["structures", "pressure_vessel", "hoop"],
      "source": 'from anvil import Q\ndef thin_wall_hoop_stress(P_internal, r_inner, t_wall):\n    sigma_h = P_internal * r_inner / t_wall\n    sigma_a = P_internal * r_inner / (2 * t_wall)\n    return {"sigma_hoop": Q(sigma_h, "Pa"), "sigma_axial": Q(sigma_a, "Pa")}\nexport = thin_wall_hoop_stress'},
 
+    # ==================== AERO: OBLIQUE SHOCK ====================
+    {"name": "oblique_shock", "type": "R", "domain": "aero.compressible",
+     "desc": "2D oblique shock: shock angle, downstream M, pressure/temperature ratios",
+     "tags": ["compressible", "shock", "oblique", "wedge"],
+     "source": (
+         'import numpy as np\nfrom anvil import solvers\n'
+         'def oblique_shock(M1, theta_deg, gamma=1.4):\n'
+         '    """Oblique shock: weak (attached) solution for wedge half-angle theta_deg.\n'
+         '    The theta-beta-M function starts at 0 (at Mach angle mu), rises to a\n'
+         '    maximum deflection, then falls back to 0 at beta=90. Both endpoints are\n'
+         '    below theta for attached shocks, so we sample to find the sign-change\n'
+         '    bracket near the weak-shock crossing.\n'
+         '    """\n'
+         '    theta = np.radians(theta_deg)\n'
+         '    mu = np.arcsin(1.0 / M1)\n'
+         '    def tbm(beta):\n'
+         '        sb2 = np.sin(beta)**2\n'
+         '        num = M1**2 * sb2 - 1.0\n'
+         '        den = M1**2 * (gamma + np.cos(2.0*beta)) + 2.0\n'
+         '        tb  = abs(np.tan(beta))\n'
+         '        if tb < 1e-14: return 0.0\n'
+         '        return np.arctan(2.0 / tb * num / den)\n'
+         '    betas = np.linspace(mu + 0.001, np.pi/2 - 0.001, 500)\n'
+         '    vals  = np.array([tbm(b) for b in betas])\n'
+         '    if vals.max() <= theta:\n'
+         '        return {"beta_deg": float("nan"), "M2": float("nan"),\n'
+         '                "p2_p1": float("nan"), "T2_T1": float("nan"),\n'
+         '                "rho2_rho1": float("nan"), "attached": False}\n'
+         '    resid = vals - theta\n'
+         '    # Weak shock: first upward crossing (vals rising through theta)\n'
+         '    cross = np.where((resid[:-1] < 0) & (resid[1:] >= 0))[0]\n'
+         '    if len(cross) == 0:\n'
+         '        cross = np.where((resid[:-1] >= 0) & (resid[1:] < 0))[0]\n'
+         '    if len(cross) == 0:\n'
+         '        return {"beta_deg": float("nan"), "M2": float("nan"),\n'
+         '                "p2_p1": float("nan"), "T2_T1": float("nan"),\n'
+         '                "rho2_rho1": float("nan"), "attached": False}\n'
+         '    idx = int(cross[0])\n'
+         '    beta = solvers.find_root(lambda b: tbm(b) - theta,\n'
+         '                            bracket=(float(betas[idx]), float(betas[idx+1])),\n'
+         '                            method="brent", tol=1e-12)\n'
+         '    M1n       = M1 * np.sin(beta)\n'
+         '    M2n2      = (1+(gamma-1)/2*M1n**2) / (gamma*M1n**2-(gamma-1)/2)\n'
+         '    M2        = np.sqrt(max(M2n2, 0.0)) / np.sin(beta - theta)\n'
+         '    p2_p1     = 1 + 2*gamma/(gamma+1)*(M1n**2 - 1)\n'
+         '    T2_T1     = p2_p1*(2+(gamma-1)*M1n**2) / ((gamma+1)*M1n**2)\n'
+         '    rho2_rho1 = (gamma+1)*M1n**2 / (2+(gamma-1)*M1n**2)\n'
+         '    return {"beta_deg": float(np.degrees(beta)), "M2": float(M2),\n'
+         '            "p2_p1": float(p2_p1), "T2_T1": float(T2_T1),\n'
+         '            "rho2_rho1": float(rho2_rho1), "attached": True}\n'
+         'export = oblique_shock'
+     )},
+
     # ==================== ORBITAL MECHANICS ====================
     {"name": "vis_viva", "type": "R", "domain": "orbital",
      "desc": "Vis-viva equation: V = sqrt(mu * (2/r - 1/a))",

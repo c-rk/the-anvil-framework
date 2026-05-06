@@ -50,6 +50,7 @@ from anvil.adapter import Adapter
 from anvil.watchdog import Watchdog
 from anvil.inspect import check
 from anvil import units, solvers, viz
+from anvil import cfd
 from anvil.project import Project, get_active_project
 
 # Databases

@@ -1,25 +1,66 @@
 """
-anvil.cfd.mesh — Structured 2D mesh generation, file I/O, and geometry.
+anvil.cfd.mesh -- Structured 2D mesh generation, file I/O, and geometry.
 
-Named boundary patches allow arbitrary sub-divisions of the four sides so BCs
-can be applied to named regions (e.g. "inlet", "wall", "ramp") rather than
-the generic cardinal names.
+What is a structured mesh
+--------------------------
+Think of it as a deformed rectangular grid -- like stretching a piece of graph
+paper to fit your geometry.  Every mesh has exactly four outer edges:
 
-File format  (.amesh)
----------------------
-    # Anvil CFD Mesh v1
-    TYPE structured
-    NX 80
-    NY 40
-    PATCH inlet    west
-    PATCH outlet   east
-    PATCH wall     south 0:60
-    PATCH ramp     south 60:80
-    PATCH farfield north
+    left edge  (i = 0)      <- inlet / left wall
+    right edge (i = NX)     <- outlet / right wall
+    bottom edge(j = 0)      <- lower wall / ramp / airfoil
+    top edge   (j = NY)     <- upper wall / farfield / ceiling
+
+Any of these four edges can be split into multiple named patches.
+
+.amesh file format
+------------------
+A plain-text file you can create in any editor or generate in Python/Excel::
+
+    # My airfoil channel -- comment lines start with #
+    TITLE  naca0012_channel
+    NX     80       # cells in i-direction (columns)
+    NY     40       # cells in j-direction (rows)
+
+    # Named patches -- PATCH <name> <edge> [start:end]
+    # edge: left | right | top | bottom  (or west|east|north|south)
+    # start:end (optional): cell-index range along that edge
+    #   left/right edges  -> j-cell indices, range [0, NY)
+    #   top/bottom edges  -> i-cell indices, range [0, NX)
+    PATCH  inlet      left
+    PATCH  outlet     right
+    PATCH  airfoil    bottom   20:60
+    PATCH  flat_lo    bottom    0:20
+    PATCH  flat_hi    bottom   60:80
+    PATCH  farfield   top
+
+    # Node coordinates
+    # Total (NX+1)*(NY+1) lines, one per node: x  y
+    # Ordering: i varies fastest (column-by-column within each row)
+    #   j=0  -> bottom row: (i=0,j=0) ... (i=NX,j=0)
+    #   j=1  -> next row:   (i=0,j=1) ... (i=NX,j=1)
+    #   ...
+    #   j=NY -> top row:    (i=0,j=NY) ... (i=NX,j=NY)
     NODES
-    x00 y00
-    x10 y00
-    ...  # (NX+1)*(NY+1) lines, i varies fastest
+    0.000  0.000
+    0.025  0.000
+    ...
+
+Generating node coordinates
+---------------------------
+For a simple channel with geometry on the bottom wall::
+
+    import numpy as np
+    NX, NY = 80, 40
+    x = np.linspace(0, 2, NX+1)
+    for j in range(NY+1):
+        t = j / NY                        # 0 (bottom) -> 1 (top)
+        for i in range(NX+1):
+            y_wall = my_wall_function(x[i])   # bottom wall shape
+            y_node = y_wall + t * (height - y_wall)
+            print(f"{x[i]:.6f}  {y_node:.6f}")
+
+Or use Mesh.from_arrays(X, Y, patches) to stay in Python without a file.
 
 Extensibility
 -------------
@@ -28,25 +69,38 @@ For 3D: add k-dimension; node array becomes (nx+1,ny+1,nz+1); add k-faces.
 
 from __future__ import annotations
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict
+
+# Accepted edge-name aliases -> internal canonical names
+_EDGE_NORM = {
+    "left":   "west",  "west":  "west",  "w": "west",
+    "right":  "east",  "east":  "east",  "e": "east",
+    "bottom": "south", "south": "south", "s": "south", "bot": "south",
+    "top":    "north", "north": "north", "n": "north",
+}
 
 
 @dataclass
 class MeshPatch:
-    """Named boundary patch — a contiguous sub-range of one domain side.
+    """Named boundary patch -- a contiguous sub-range of one domain edge.
 
     Parameters
     ----------
-    side  : "west" | "east" | "south" | "north"
-    start : first cell index along the boundary (0-based, inclusive)
-    end   : last  cell index along the boundary (exclusive)
-            west/east → j-cell range [0, ny)
-            south/north → i-cell range [0, nx)
+    edge  : "left"|"right"|"top"|"bottom"  (or west|east|north|south)
+            Stored internally as west/east/south/north.
+    start : first cell index along the edge (0-based, inclusive)
+    end   : last  cell index along the edge (exclusive)
+            left/right  edges -> j-cell range [0, ny)
+            top/bottom  edges -> i-cell range [0, nx)
     """
-    side:  str
+    side:  str   # canonical: west|east|south|north
     start: int
     end:   int
+
+    def __post_init__(self):
+        key = self.side.strip().lower()
+        self.side = _EDGE_NORM.get(key, key)
 
 
 def _default_patches(nx: int, ny: int) -> Dict[str, MeshPatch]:
@@ -64,19 +118,21 @@ class StructuredMesh2D:
 
     Parameters
     ----------
-    X, Y    : ndarray, shape (nx+1, ny+1)  — node coordinates
-    patches : dict of name → MeshPatch, optional
-              If None, defaults to full-side patches named
-              "west", "east", "south", "north".
+    X, Y    : ndarray, shape (nx+1, ny+1)  -- node coordinates
+    patches : dict of name -> MeshPatch, optional
+              If None, defaults to full-edge patches named "west"/"east"/"south"/"north".
+    title   : str  -- optional geometry/project name (shown in plots, written to file)
     """
 
     def __init__(self, X: np.ndarray, Y: np.ndarray,
-                 patches: Optional[Dict[str, MeshPatch]] = None):
+                 patches: Optional[Dict[str, MeshPatch]] = None,
+                 title: str = ""):
         assert X.shape == Y.shape and X.ndim == 2
         self.X = np.asarray(X, dtype=np.float64)
         self.Y = np.asarray(Y, dtype=np.float64)
         self.nx = X.shape[0] - 1
         self.ny = X.shape[1] - 1
+        self.title = str(title)
         self.patches = patches if patches is not None else _default_patches(self.nx, self.ny)
         self._compute_geometry()
 
@@ -94,21 +150,21 @@ class StructuredMesh2D:
         d2y = Y[1:, :-1] - Y[:-1, 1:]
         self.vol = 0.5 * np.abs(d1x * d2y - d1y * d2x)
 
-        # i-face geometry: normal points from cell (i-1,j) → (i,j) (+x for Cartesian)
+        # i-face geometry: normal points from cell (i-1,j) -> (i,j) (+x for Cartesian)
         dxi = X[:, 1:] - X[:, :-1]    # (nx+1, ny)
         dyi = Y[:, 1:] - Y[:, :-1]
         self.i_nxa  =  dyi
         self.i_nya  = -dxi
         self.i_area = np.sqrt(dxi**2 + dyi**2)
 
-        # j-face geometry: normal points from cell (i,j-1) → (i,j) (+y for Cartesian)
+        # j-face geometry: normal points from cell (i,j-1) -> (i,j) (+y for Cartesian)
         dxj = X[1:, :] - X[:-1, :]    # (nx, ny+1)
         dyj = Y[1:, :] - Y[:-1, :]
         self.j_nxa  = -dyj
         self.j_nya  =  dxj
         self.j_area = np.sqrt(dxj**2 + dyj**2)
 
-    # ── Named constructors ─────────────────────────────────────────────────────
+    # -- Named constructors -----------------------------------------------------
 
     @classmethod
     def cartesian(cls, x_span, y_span, nx: int, ny: int,
@@ -204,32 +260,20 @@ class StructuredMesh2D:
         return cls(X, Y, patches)
 
     @classmethod
-    def from_arrays(cls, X, Y, patches=None) -> "StructuredMesh2D":
+    def from_arrays(cls, X, Y, patches=None, title="") -> "StructuredMesh2D":
         """Create from user-supplied node-coordinate arrays."""
         return cls(np.asarray(X, dtype=np.float64),
-                   np.asarray(Y, dtype=np.float64), patches)
+                   np.asarray(Y, dtype=np.float64), patches, title)
 
     @classmethod
     def from_file(cls, path: str) -> "StructuredMesh2D":
         """
-        Load mesh from .amesh coordinate file.
+        Load mesh from an .amesh coordinate file.
 
-        Format::
-
-            # comment
-            TYPE structured
-            NX 80
-            NY 40
-            PATCH inlet   west
-            PATCH outlet  east
-            PATCH wall    south 0:60
-            PATCH ramp    south 60:80
-            NODES
-            x00 y00
-            x10 y00
-            ...    # (NX+1)*(NY+1) lines, i varies fastest
+        See module docstring or Mesh.amesh_guide() for full format specification.
         """
         nx = ny = None
+        title = ""
         patches: Dict[str, MeshPatch] = {}
         node_lines = []
         in_nodes = False
@@ -240,26 +284,30 @@ class StructuredMesh2D:
                 if not line or line.startswith("#"):
                     continue
                 if in_nodes:
-                    if not line[0].isalpha():
+                    if not (line[0].isalpha() and line.upper().split()[0]
+                            in ("TYPE", "NX", "NY", "PATCH", "NODES", "TITLE")):
                         node_lines.append(line)
                     continue
                 parts = line.split()
                 key = parts[0].upper()
-                if key == "TYPE":
+                if key in ("TYPE",):
                     pass
+                elif key == "TITLE":
+                    title = " ".join(parts[1:])
                 elif key == "NX":
                     nx = int(parts[1])
                 elif key == "NY":
                     ny = int(parts[1])
                 elif key == "PATCH":
                     name = parts[1]
-                    side = parts[2].lower()
+                    edge = parts[2].lower()
+                    norm_edge = _EDGE_NORM.get(edge, edge)
                     if len(parts) >= 4:
                         s, e = parts[3].split(":")
-                        patch = MeshPatch(side, int(s), int(e))
+                        patch = MeshPatch(norm_edge, int(s), int(e))
                     else:
-                        end_val = ny if side in ("west", "east") else nx
-                        patch = MeshPatch(side, 0, end_val)
+                        end_val = ny if norm_edge in ("west", "east") else nx
+                        patch = MeshPatch(norm_edge, 0, end_val)
                     patches[name] = patch
                 elif key == "NODES":
                     in_nodes = True
@@ -278,25 +326,135 @@ class StructuredMesh2D:
 
         if not patches:
             patches = _default_patches(nx, ny)
-        return cls(X, Y, patches)
+        return cls(X, Y, patches, title)
 
-    # ── Output ────────────────────────────────────────────────────────────────
+    @staticmethod
+    def amesh_guide(save_example: str = None):
+        """
+        Print the .amesh file format guide and write an example file.
+
+        Parameters
+        ----------
+        save_example : str  optional path to write a runnable example .amesh file
+        """
+        guide = """\
+# ---------------------------------------------------------------------
+# Anvil CFD  .amesh  --  Structured 2D mesh file format
+# ---------------------------------------------------------------------
+#
+# A structured mesh is a deformed rectangle with NX*NY quadrilateral cells
+# and (NX+1)*(NY+1) corner nodes.  The four outer edges are named:
+#
+#   left  (i=0)    right (i=NX)    bottom (j=0)    top (j=NY)
+#
+# Each edge can be split into multiple named patches for BCs.
+#
+# ---------------------------------------------------------------------
+# Keywords (case-insensitive):
+#
+#  TITLE  <name>          optional project/geometry name
+#  NX     <int>           number of cells in i-direction (required)
+#  NY     <int>           number of cells in j-direction (required)
+#
+#  PATCH  <name>  <edge>  [start:end]
+#    name  : any identifier you choose (inlet, wall, outlet, ...)
+#    edge  : left | right | top | bottom   (or west|east|north|south)
+#    range : optional cell-index range along that edge (0-based, exclusive end)
+#              left/right  edge: j-cell range  [0 .. NY)
+#              top/bottom  edge: i-cell range  [0 .. NX)
+#            omit range to cover the full edge
+#
+#  NODES  followed by (NX+1)*(NY+1) lines of  "x  y"
+#    ordering: i varies fastest (i=0..NX for each j=0..NY)
+#    j=0  ->  bottom row of nodes
+#    j=NY ->  top row of nodes
+#
+# ---------------------------------------------------------------------
+TITLE  my_channel_geometry
+NX     8
+NY     4
+
+PATCH  inlet      left
+PATCH  outlet     right
+PATCH  bump       bottom   3:6
+PATCH  flat_lo    bottom   0:3
+PATCH  flat_hi    bottom   6:8
+PATCH  ceiling    top
+
+NODES
+#  x          y
+   0.000000   0.000000
+   0.250000   0.000000
+   0.500000   0.000000
+   0.750000   0.020000
+   1.000000   0.060000
+   1.250000   0.020000
+   1.500000   0.000000
+   1.750000   0.000000
+   2.000000   0.000000
+   0.000000   0.125000
+   0.250000   0.125000
+   0.500000   0.125000
+   0.750000   0.135000
+   1.000000   0.155000
+   1.250000   0.135000
+   1.500000   0.125000
+   1.750000   0.125000
+   2.000000   0.125000
+   0.000000   0.250000
+   0.250000   0.250000
+   0.500000   0.250000
+   0.750000   0.250000
+   1.000000   0.250000
+   1.250000   0.250000
+   1.500000   0.250000
+   1.750000   0.250000
+   2.000000   0.250000
+   0.000000   0.375000
+   0.250000   0.375000
+   0.500000   0.375000
+   0.750000   0.375000
+   1.000000   0.375000
+   1.250000   0.375000
+   1.500000   0.375000
+   1.750000   0.375000
+   2.000000   0.375000
+   0.000000   0.500000
+   0.250000   0.500000
+   0.500000   0.500000
+   0.750000   0.500000
+   1.000000   0.500000
+   1.250000   0.500000
+   1.500000   0.500000
+   1.750000   0.500000
+   2.000000   0.500000
+"""
+        print(guide)
+        if save_example:
+            with open(save_example, "w") as f:
+                f.write(guide)
+            print(f"  Example saved to: {save_example}")
+            print(f"  Load with: mesh = Mesh.from_file('{save_example}')")
+
+    # -- Output ----------------------------------------------------------------
 
     def to_file(self, path: str):
-        """Save mesh to .amesh coordinate file."""
+        """Save mesh to .amesh coordinate file (re-loadable with Mesh.from_file)."""
         nx, ny = self.nx, self.ny
         with open(path, "w") as f:
             f.write("# Anvil CFD Mesh v1\n")
-            f.write("TYPE structured\n")
-            f.write(f"NX {nx}\nNY {ny}\n")
+            if self.title:
+                f.write(f"TITLE  {self.title}\n")
+            f.write(f"NX     {nx}\nNY     {ny}\n")
             for name, p in self.patches.items():
-                f.write(f"PATCH {name}  {p.side}  {p.start}:{p.end}\n")
+                f.write(f"PATCH  {name:<12s}  {p.side:<8s}  {p.start}:{p.end}\n")
             f.write("NODES\n")
+            f.write(f"# {(nx+1)*(ny+1)} nodes: i varies fastest, j=0 is bottom\n")
             for j in range(ny + 1):
                 for i in range(nx + 1):
-                    f.write(f"{self.X[i, j]:.10e}  {self.Y[i, j]:.10e}\n")
+                    f.write(f"  {self.X[i, j]:.10e}  {self.Y[i, j]:.10e}\n")
 
-    # ── Info / plot ───────────────────────────────────────────────────────────
+    # -- Info / plot -----------------------------------------------------------
 
     def info(self):
         """Print mesh statistics to stdout."""
@@ -330,6 +488,7 @@ class StructuredMesh2D:
         try:
             import matplotlib.pyplot as plt
             import matplotlib.patches as mpatches
+            plt.rcParams.update({'font.family': 'monospace'})
         except ImportError:
             raise ImportError("pip install matplotlib")
 
@@ -374,10 +533,11 @@ class StructuredMesh2D:
                 legend_handles.append(mpatches.Patch(color=color, label=name))
 
         n_nodes = (self.nx + 1) * (self.ny + 1)
+        base = self.title or "mesh"
         hdr = (title or
-               f"{self.nx}×{self.ny} cells  |  {n_nodes} nodes  |  "
+               f"{base}   {self.nx}x{self.ny} cells  |  {n_nodes} nodes  |  "
                f"{len(self.patches)} patches")
-        ax.set_title(hdr, fontsize=10)
+        ax.set_title(hdr, fontsize=10, fontfamily='monospace')
         ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]")
         ax.set_aspect('equal', adjustable='datalim')
         if legend_handles:

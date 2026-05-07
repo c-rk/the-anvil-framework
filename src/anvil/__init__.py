@@ -52,6 +52,7 @@ from anvil.inspect import check
 from anvil import units, solvers, viz
 from anvil import cfd
 from anvil.project import Project, get_active_project
+from anvil.help_ import lookup
 
 # Databases
 from anvil.db import fluids, materials

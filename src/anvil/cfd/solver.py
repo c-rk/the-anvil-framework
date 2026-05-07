@@ -583,7 +583,9 @@ class CFDSolver:
             restart_prefix: str = "restart",
             save_every: int = 0,
             save_field: str = "p",
-            save_dir: str = ".") -> CFDResult:
+            save_dir: str = ".",
+            save_vmin=None,
+            save_vmax=None) -> CFDResult:
         """
         Run the solver until convergence or max_iter.
 
@@ -659,6 +661,7 @@ class CFDSolver:
                 _save_png(snap, save_field,
                           _os.path.join(save_dir,
                                         f"{save_field}_{it+1:05d}.png"),
+                          vmin=save_vmin, vmax=save_vmax,
                           title=f"iter {it+1}  res={res:.3e}")
 
         self._U_ext = U_ext

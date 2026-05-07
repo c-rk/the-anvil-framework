@@ -1,24 +1,21 @@
 """
 anvil.cfd.bc — Boundary condition types for 2D Euler CFD.
 
-Ghost-cell approach: each BC sets ghost cell values at the start of
-every iteration so the flux computation treats boundaries naturally.
+Ghost-cell approach: the solver extracts ghost and interior cell arrays for
+each named patch, then calls bc.apply() to fill ghost cells in-place.
 
-Side naming convention (matches dict keys passed to CFDSolver):
-    "west"  — i = 0   boundary (left  / inlet for +x flow)
-    "east"  — i = nx  boundary (right / outlet)
-    "south" — j = 0   boundary (bottom wall or lower farfield)
-    "north" — j = ny  boundary (top   farfield or symmetry)
+BC apply signature
+------------------
+    bc.apply(U_ghost, U_int, nx_out, ny_out, gamma, R_gas)
 
-Extended array layout (physical cells at [1..nx, 1..ny]):
-    Ghost row/col 0 at west and south edges.
-    Ghost row/col nx+1 / ny+1 at east and north edges.
+    U_ghost, U_int : ndarray (N, 4)   ghost / interior conservative states
+    nx_out, ny_out : ndarray (N,)     outward unit normals at each face
+    gamma, R_gas   : float            gas properties
 
 Extensibility
 -------------
-To add: SubsonicInlet (total pressure+temperature), periodic (shared ghost
-cells), no-slip wall (zero velocity, requires viscous flux layer).
-For 3D: add "bottom"/"top" sides and handle k-ghost layers identically.
+Add a new BC by subclassing BoundaryCondition and implementing apply().
+No changes needed in solver or mesh — just pass an instance in the bcs dict.
 """
 
 from __future__ import annotations
@@ -30,285 +27,363 @@ _TINY = 1.0e-30
 RHO = 0; RHOU = 1; RHOV = 2; E = 3
 
 
-class BoundaryCondition:
-    """Base class.  Subclasses implement apply()."""
+def _freestream_state(M, p, T, alpha_deg, gamma, R_gas):
+    """Return 1-D array [rho, rho*u, rho*v, E] for uniform freestream."""
+    alpha = np.radians(alpha_deg)
+    a     = np.sqrt(gamma * R_gas * T)
+    V     = M * a
+    u     = V * np.cos(alpha)
+    v     = V * np.sin(alpha)
+    rho   = p / (R_gas * T)
+    E_tot = p / (gamma - 1.0) + 0.5 * rho * (u**2 + v**2)
+    return np.array([rho, rho * u, rho * v, E_tot])
 
-    def apply(self, U_ext, mesh, side, gamma, R_gas):
+
+class BoundaryCondition:
+    """Base class — subclasses implement apply()."""
+
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        """
+        Fill U_ghost in-place.
+
+        Parameters
+        ----------
+        U_ghost : (N, 4)  ghost cell conservative state — write here
+        U_int   : (N, 4)  adjacent interior cell state   — read only
+        nx_out  : (N,)    x-component of outward unit normal
+        ny_out  : (N,)    y-component of outward unit normal
+        """
         raise NotImplementedError
 
-    @staticmethod
-    def _freestream_state(M, p, T, alpha_deg, gamma, R_gas):
-        """Return [rho, rho*u, rho*v, E] for uniform freestream."""
-        alpha = np.radians(alpha_deg)
-        a_inf = np.sqrt(gamma * R_gas * T)
-        V_inf = M * a_inf
-        u_inf = V_inf * np.cos(alpha)
-        v_inf = V_inf * np.sin(alpha)
-        rho   = p / (R_gas * T)
-        E_inf = p / (gamma - 1.0) + 0.5 * rho * (u_inf**2 + v_inf**2)
-        return np.array([rho, rho * u_inf, rho * v_inf, E_inf])
 
+# ── Supersonic ────────────────────────────────────────────────────────────────
 
 class SupersonicInlet(BoundaryCondition):
     """
-    All four characteristics enter the domain — set ghost = freestream.
+    All characteristics enter — set ghost to fixed freestream state.
 
     Parameters
     ----------
-    M : float       Freestream Mach number (> 1)
-    p : float       Static pressure   [Pa]
-    T : float       Static temperature [K]
-    alpha_deg : float  Flow angle from +x axis [deg]
-    gamma : float   Ratio of specific heats
-    R_gas : float   Specific gas constant [J/kg/K]
+    M         : freestream Mach number (> 1)
+    p         : static pressure [Pa]
+    T         : static temperature [K]
+    alpha_deg : flow angle from +x axis [deg]
     """
-
     def __init__(self, M, p, T, alpha_deg=0.0, gamma=1.4, R_gas=287.058):
-        self._U_fs = self._freestream_state(M, p, T, alpha_deg, gamma, R_gas)
+        self._U_fs = _freestream_state(M, p, T, alpha_deg, gamma, R_gas)
 
-    def apply(self, U_ext, mesh, side, gamma, R_gas):
-        U = self._U_fs
-        if side == "west":
-            U_ext[0, 1:-1] = U
-        elif side == "east":
-            U_ext[-1, 1:-1] = U
-        elif side == "south":
-            U_ext[1:-1, 0] = U
-        elif side == "north":
-            U_ext[1:-1, -1] = U
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        U_ghost[:] = self._U_fs
 
 
 class SupersonicOutlet(BoundaryCondition):
-    """
-    All characteristics leave — extrapolate (zero-gradient) from interior.
-    """
+    """All characteristics leave — zero-gradient extrapolation."""
 
-    def apply(self, U_ext, mesh, side, gamma, R_gas):
-        if side == "west":
-            U_ext[0, 1:-1] = U_ext[1, 1:-1]
-        elif side == "east":
-            U_ext[-1, 1:-1] = U_ext[-2, 1:-1]
-        elif side == "south":
-            U_ext[1:-1, 0] = U_ext[1:-1, 1]
-        elif side == "north":
-            U_ext[1:-1, -1] = U_ext[1:-1, -2]
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        U_ghost[:] = U_int
+
+
+# ── Subsonic inlet / outlet ───────────────────────────────────────────────────
+
+class SubsonicInlet(BoundaryCondition):
+    """
+    Fixed-state subsonic inlet specified via total (stagnation) conditions.
+
+    Isentropic conversion from total → static at the given Mach number.
+    This is a fixed-ghost approach: use for steady-state where upstream
+    conditions don't vary.  For transient accuracy, prefer PressureInlet.
+
+    Parameters
+    ----------
+    M         : inlet Mach number (< 1)
+    p0        : total pressure    [Pa]
+    T0        : total temperature [K]
+    alpha_deg : flow angle from +x axis [deg]
+    """
+    def __init__(self, M, p0, T0, alpha_deg=0.0, gamma=1.4, R_gas=287.058):
+        g   = gamma
+        fac = 1.0 + 0.5 * (g - 1.0) * M**2
+        p_s = p0 / fac ** (g / (g - 1.0))
+        T_s = T0 / fac
+        self._U_fs = _freestream_state(M, p_s, T_s, alpha_deg, gamma, R_gas)
+
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        U_ghost[:] = self._U_fs
+
+
+class PressureInlet(BoundaryCondition):
+    """
+    Characteristic-based subsonic inlet: total pressure p0 and temperature T0.
+
+    Uses the outgoing R+ Riemann invariant from the interior and the
+    isentropic energy constraint from the specified total conditions to
+    find the incoming normal velocity at each face.  Correctly handles
+    varying normal directions (body-fitted meshes).
+
+    Parameters
+    ----------
+    p0        : total (stagnation) pressure    [Pa]
+    T0        : total (stagnation) temperature [K]
+    alpha_deg : desired flow angle from +x [deg] (0 = normal to inlet)
+    """
+    def __init__(self, p0, T0, alpha_deg=0.0, gamma=1.4, R_gas=287.058):
+        self.p0    = float(p0)
+        self.T0    = float(T0)
+        self.alpha = float(np.radians(alpha_deg))
+        self.gamma = float(gamma)
+        self.R_gas = float(R_gas)
+
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        g = self.gamma; R = self.R_gas
+        p0 = self.p0;   T0 = self.T0
+        b  = 0.5 * (g - 1.0)
+        a0_sq = g * R * T0    # stagnation a² = g*R*T0
+
+        rho_i = U_int[:, RHO]
+        u_i   = U_int[:, RHOU] / (rho_i + _TINY)
+        v_i   = U_int[:, RHOV] / (rho_i + _TINY)
+        p_i   = (g - 1.0) * (U_int[:, E] - 0.5 * rho_i * (u_i**2 + v_i**2))
+        p_i   = np.maximum(p_i, _TINY)
+        a_i   = np.sqrt(g * p_i / (rho_i + _TINY))
+        Vn_i  = u_i * nx_out + v_i * ny_out
+
+        R_plus = Vn_i + 2.0 * a_i / (g - 1.0)   # outgoing Riemann invariant
+
+        # Solve: b*(b+1)*Vn² - 2*b²*R+*Vn + (b²*R+² - a0²) = 0
+        A_q = b * (b + 1.0)
+        B_q = -2.0 * b * b * R_plus
+        C_q = b * b * R_plus**2 - a0_sq
+        disc = np.maximum(B_q**2 - 4.0 * A_q * C_q, 0.0)
+        Vn1  = (-B_q + np.sqrt(disc)) / (2.0 * A_q)
+        Vn2  = (-B_q - np.sqrt(disc)) / (2.0 * A_q)
+        # Pick root closest to current interior (stability)
+        Vn_g = np.where(np.abs(Vn1 - Vn_i) <= np.abs(Vn2 - Vn_i), Vn1, Vn2)
+
+        a_g  = np.maximum(b * (R_plus - Vn_g), 1.0)
+        T_g  = a_g**2 / (g * R)
+        p_g  = np.maximum(p0 * (T_g / T0) ** (g / (g - 1.0)), _TINY)
+        rho_g = p_g / (R * np.maximum(T_g, _TINY))
+
+        # Tangential velocity from total energy + Vn
+        V_sq  = np.maximum(2.0 * (a0_sq - a_g**2) / (g - 1.0), Vn_g**2)
+        Vt_sq = V_sq - Vn_g**2
+        # Tangent direction (CCW 90° from outward normal)
+        tx = -ny_out; ty = nx_out
+        Vt_sign = np.sign(np.cos(self.alpha) * tx + np.sin(self.alpha) * ty + _TINY)
+        Vt_g = np.sqrt(Vt_sq) * Vt_sign
+
+        u_g = Vn_g * nx_out + Vt_g * tx
+        v_g = Vn_g * ny_out + Vt_g * ty
+        E_g = p_g / (g - 1.0) + 0.5 * rho_g * (u_g**2 + v_g**2)
+
+        U_ghost[:, RHO]  = rho_g
+        U_ghost[:, RHOU] = rho_g * u_g
+        U_ghost[:, RHOV] = rho_g * v_g
+        U_ghost[:, E]    = E_g
+
+
+class VelocityInlet(BoundaryCondition):
+    """
+    Specified velocity and temperature at inlet.
+
+    Density is set from a fixed reference pressure (or extrapolated).
+
+    Parameters
+    ----------
+    u, v   : velocity components [m/s]
+    T      : static temperature  [K]
+    p_ref  : reference pressure for ρ = p/(R*T) [Pa]; None → extrapolate from interior
+    """
+    def __init__(self, u, v, T, p_ref=None, gamma=1.4, R_gas=287.058):
+        self.u = float(u); self.v = float(v); self.T = float(T)
+        self.p_ref = float(p_ref) if p_ref is not None else None
+        self.gamma = float(gamma); self.R_gas = float(R_gas)
+
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        g = self.gamma; R = self.R_gas
+        if self.p_ref is not None:
+            p_g = self.p_ref
+        else:
+            rho_i = U_int[:, RHO]
+            u_i   = U_int[:, RHOU] / (rho_i + _TINY)
+            v_i   = U_int[:, RHOV] / (rho_i + _TINY)
+            p_g   = np.maximum(
+                (g - 1.0) * (U_int[:, E] - 0.5 * rho_i * (u_i**2 + v_i**2)), _TINY)
+        rho_g = p_g / (R * self.T)
+        E_g   = p_g / (g - 1.0) + 0.5 * rho_g * (self.u**2 + self.v**2)
+        U_ghost[:, RHO]  = rho_g
+        U_ghost[:, RHOU] = rho_g * self.u
+        U_ghost[:, RHOV] = rho_g * self.v
+        U_ghost[:, E]    = E_g
+
+
+class MassFlowInlet(BoundaryCondition):
+    """
+    Mass-flow-rate inlet: mdot = ρ * V * A.
+
+    Flow is assumed normal to the inlet face unless alpha_deg is set.
+
+    Parameters
+    ----------
+    mdot      : mass flow rate [kg/s]
+    T         : static temperature  [K]
+    area      : face area [m²] (2D: span × chord, or just 1 for per-unit-span)
+    alpha_deg : flow angle from +x axis
+    """
+    def __init__(self, mdot, T, area=1.0, alpha_deg=0.0,
+                 gamma=1.4, R_gas=287.058):
+        self.mdot  = float(mdot)
+        self.T     = float(T)
+        self.area  = float(area)
+        self.alpha = float(np.radians(alpha_deg))
+        self.gamma = float(gamma)
+        self.R_gas = float(R_gas)
+
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        g = self.gamma; R = self.R_gas
+        N = U_ghost.shape[0]
+        # rho from continuity: ρ*V = mdot/A; V = mdot/(ρ*A) → iterate once
+        rho_i = U_int[:, RHO]
+        V_mag = self.mdot / (np.maximum(rho_i, 1e-6) * self.area)
+        a_i   = np.sqrt(g * R * self.T)
+        # Extrapolate pressure from interior
+        u_i = U_int[:, RHOU] / (rho_i + _TINY)
+        v_i = U_int[:, RHOV] / (rho_i + _TINY)
+        p_g = np.maximum(
+            (g - 1.0) * (U_int[:, E] - 0.5 * rho_i * (u_i**2 + v_i**2)), _TINY)
+        rho_g = p_g / (R * self.T)
+        V_mag = self.mdot / (np.maximum(rho_g, 1e-6) * self.area / N)
+        u_g   = V_mag * np.cos(self.alpha)
+        v_g   = V_mag * np.sin(self.alpha)
+        E_g   = p_g / (g - 1.0) + 0.5 * rho_g * (u_g**2 + v_g**2)
+        U_ghost[:, RHO]  = rho_g
+        U_ghost[:, RHOU] = rho_g * u_g
+        U_ghost[:, RHOV] = rho_g * v_g
+        U_ghost[:, E]    = E_g
 
 
 class SubsonicOutlet(BoundaryCondition):
     """
     Subsonic outlet: specify back pressure; extrapolate other quantities.
-
-    One characteristic re-enters from downstream.  Pressure is fixed;
-    density, velocities are extrapolated from interior.
+    One characteristic re-enters from downstream (pressure is fixed).
     """
-
     def __init__(self, p_back, gamma=1.4):
         self.p_back = float(p_back)
         self.gamma  = float(gamma)
 
-    def _apply_side(self, U_int, p_back, gamma):
-        """Return ghost state for one layer of interior cells."""
-        rho_i = U_int[..., RHO]
-        u_i   = U_int[..., RHOU] / (rho_i + _TINY)
-        v_i   = U_int[..., RHOV] / (rho_i + _TINY)
-        p_i   = (gamma - 1.0) * (U_int[..., E]
-                                  - 0.5 * rho_i * (u_i**2 + v_i**2))
-        # Extrapolate rho from pressure ratio (isentropic)
-        rho_g = rho_i * (p_back / np.maximum(p_i, _TINY)) ** (1.0 / gamma)
-        E_g   = p_back / (gamma - 1.0) + 0.5 * rho_g * (u_i**2 + v_i**2)
-        return np.stack([rho_g, rho_g * u_i, rho_g * v_i, E_g], axis=-1)
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        g     = self.gamma
+        p_b   = self.p_back
+        rho_i = U_int[:, RHO]
+        u_i   = U_int[:, RHOU] / (rho_i + _TINY)
+        v_i   = U_int[:, RHOV] / (rho_i + _TINY)
+        p_i   = np.maximum(
+            (g - 1.0) * (U_int[:, E] - 0.5 * rho_i * (u_i**2 + v_i**2)), _TINY)
+        # Isentropic density adjustment
+        rho_g = rho_i * (p_b / p_i) ** (1.0 / g)
+        E_g   = p_b / (g - 1.0) + 0.5 * rho_g * (u_i**2 + v_i**2)
+        U_ghost[:, RHO]  = rho_g
+        U_ghost[:, RHOU] = rho_g * u_i
+        U_ghost[:, RHOV] = rho_g * v_i
+        U_ghost[:, E]    = E_g
 
-    def apply(self, U_ext, mesh, side, gamma, R_gas):
-        g = gamma
-        if side == "east":
-            U_ext[-1, 1:-1] = self._apply_side(U_ext[-2, 1:-1], self.p_back, g)
-        elif side == "west":
-            U_ext[0, 1:-1]  = self._apply_side(U_ext[1, 1:-1],  self.p_back, g)
-        elif side == "north":
-            U_ext[1:-1, -1] = self._apply_side(U_ext[1:-1, -2], self.p_back, g)
-        elif side == "south":
-            U_ext[1:-1, 0]  = self._apply_side(U_ext[1:-1, 1],  self.p_back, g)
 
+# Alias for clarity
+PressureOutlet = SubsonicOutlet
+
+
+# ── Walls ─────────────────────────────────────────────────────────────────────
 
 class SlipWall(BoundaryCondition):
     """
-    Inviscid (slip) wall: zero normal velocity, mirror normal component.
+    Inviscid (slip) wall: reflects normal velocity component.
 
-    The ghost cell has:
-        rho_g = rho_i
-        V_g   = V_i - 2*(V_i . n_out) * n_out
-        p_g   = p_i
-        E_g   = E_i  (pressure same → energy same for same speed magnitude)
-
-    n_out is the outward domain normal (pointing away from fluid domain).
-    For south wall: n_out points in -y direction for Cartesian mesh.
-    For a wedge, n_out is computed from the actual face geometry.
-
-    When `auto_normal=True` (default), the BC reads the face geometry
-    from the mesh to get the correct outward normal for body-fitted grids.
+    Ghost state: ρ_g = ρ_i, V_g = V_i − 2(V_i·n̂)n̂, E_g = E_i.
+    Normal direction is provided by the solver from actual mesh geometry,
+    so this works correctly on body-fitted (non-Cartesian) meshes.
     """
-
-    def __init__(self, auto_normal: bool = True):
-        self.auto_normal = auto_normal
-
-    def _reflect(self, U_int, nx_out, ny_out):
-        """
-        Reflect velocity about face normal.
-        nx_out, ny_out: outward normal (from domain), shape (...).
-        """
-        rho = U_int[..., RHO]
-        u   = U_int[..., RHOU] / (rho + _TINY)
-        v   = U_int[..., RHOV] / (rho + _TINY)
-
-        Vn = u * nx_out + v * ny_out
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        rho = U_int[:, RHO]
+        u   = U_int[:, RHOU] / (rho + _TINY)
+        v   = U_int[:, RHOV] / (rho + _TINY)
+        Vn  = u * nx_out + v * ny_out
         u_g = u - 2.0 * Vn * nx_out
         v_g = v - 2.0 * Vn * ny_out
-        E_g = U_int[..., E]                           # same total energy (|V| unchanged)
-
-        U_g = np.empty_like(U_int)
-        U_g[..., RHO]  = rho
-        U_g[..., RHOU] = rho * u_g
-        U_g[..., RHOV] = rho * v_g
-        U_g[..., E]    = E_g
-        return U_g
-
-    def apply(self, U_ext, mesh, side, gamma, R_gas):
-        if side == "south":
-            if self.auto_normal:
-                # j-face at J=0: n*a = (j_nxa[:,0], j_nya[:,0])
-                # This normal points from ghost INTO domain (+j direction)
-                # Outward (into ghost) = opposite
-                nxa = -mesh.j_nxa[:, 0]
-                nya = -mesh.j_nya[:, 0]
-            else:
-                nxa = np.zeros(mesh.nx); nya = -np.ones(mesh.nx)
-            dA  = np.sqrt(nxa**2 + nya**2) + _TINY
-            n_out_x = nxa / dA
-            n_out_y = nya / dA
-            U_ext[1:-1, 0] = self._reflect(U_ext[1:-1, 1], n_out_x, n_out_y)
-        elif side == "north":
-            nxa = mesh.j_nxa[:, -1]
-            nya = mesh.j_nya[:, -1]
-            dA  = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[1:-1, -1] = self._reflect(U_ext[1:-1, -2], nxa / dA, nya / dA)
-        elif side == "west":
-            nxa = -mesh.i_nxa[0, :]
-            nya = -mesh.i_nya[0, :]
-            dA  = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[0, 1:-1] = self._reflect(U_ext[1, 1:-1], nxa / dA, nya / dA)
-        elif side == "east":
-            nxa = mesh.i_nxa[-1, :]
-            nya = mesh.i_nya[-1, :]
-            dA  = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[-1, 1:-1] = self._reflect(U_ext[-2, 1:-1], nxa / dA, nya / dA)
+        U_ghost[:, RHO]  = rho
+        U_ghost[:, RHOU] = rho * u_g
+        U_ghost[:, RHOV] = rho * v_g
+        U_ghost[:, E]    = U_int[:, E]
 
 
 class Symmetry(SlipWall):
-    """Symmetry plane — identical to slip wall."""
+    """Symmetry plane — identical physics to slip wall."""
     pass
 
+
+# ── Farfield (Riemann invariants) ─────────────────────────────────────────────
 
 class Farfield(BoundaryCondition):
     """
     Riemann-invariant farfield BC.
 
-    For subsonic: uses one outgoing + one incoming characteristic.
-    For supersonic inflow:  sets all from freestream.
-    For supersonic outflow: extrapolates all from interior.
+    Supersonic inflow  → all from freestream.
+    Supersonic outflow → all extrapolated from interior.
+    Subsonic           → R+ from interior, R- from freestream.
 
     Parameters
     ----------
     M, p, T, alpha_deg : freestream conditions
     gamma, R_gas       : gas properties
     """
-
     def __init__(self, M, p, T, alpha_deg=0.0, gamma=1.4, R_gas=287.058):
-        self.M    = M
-        self.p    = p
-        self.T    = T
-        self.alpha_deg = alpha_deg
-        self.gamma = gamma
-        self.R_gas = R_gas
-        self._U_fs = BoundaryCondition._freestream_state(
-            M, p, T, alpha_deg, gamma, R_gas)
+        self._U_fs = _freestream_state(M, p, T, alpha_deg, gamma, R_gas)
+        self.gamma = float(gamma)
+        self.R_gas = float(R_gas)
+        self._M_fs = float(M)
 
-    def _farfield_ghost(self, U_int, n_out_x, n_out_y, gamma, R_gas):
-        """Compute ghost state using Riemann invariants at each face."""
-        rho_i = U_int[..., RHO]
-        u_i   = U_int[..., RHOU] / (rho_i + _TINY)
-        v_i   = U_int[..., RHOV] / (rho_i + _TINY)
-        p_i   = (gamma - 1.0) * (U_int[..., E]
-                                   - 0.5 * rho_i * (u_i**2 + v_i**2))
-        p_i   = np.maximum(p_i, _TINY)
-        a_i   = np.sqrt(gamma * p_i / (rho_i + _TINY))
-        Vn_i  = u_i * n_out_x + v_i * n_out_y
-
-        # Freestream values
-        fs = self._U_fs
+    def apply(self, U_ghost, U_int, nx_out, ny_out, gamma, R_gas):
+        g = self.gamma; R = self.R_gas
+        fs  = self._U_fs
         rho_fs = fs[RHO]
         u_fs   = fs[RHOU] / rho_fs
         v_fs   = fs[RHOV] / rho_fs
-        p_fs   = (gamma - 1.0) * (fs[E] - 0.5 * rho_fs * (u_fs**2 + v_fs**2))
-        a_fs   = np.sqrt(gamma * p_fs / rho_fs)
-        Vn_fs  = u_fs * n_out_x + v_fs * n_out_y
+        p_fs   = (g - 1.0) * (fs[E] - 0.5 * rho_fs * (u_fs**2 + v_fs**2))
+        a_fs   = np.sqrt(g * p_fs / rho_fs)
+        Vn_fs  = u_fs * nx_out + v_fs * ny_out
 
-        # Riemann invariants (characteristic variables along n_out)
-        R_plus  = Vn_i  + 2.0 * a_i   / (gamma - 1.0)    # outgoing
-        R_minus = Vn_fs - 2.0 * a_fs  / (gamma - 1.0)    # incoming from ∞
+        rho_i = U_int[:, RHO]
+        u_i   = U_int[:, RHOU] / (rho_i + _TINY)
+        v_i   = U_int[:, RHOV] / (rho_i + _TINY)
+        p_i   = np.maximum(
+            (g - 1.0) * (U_int[:, E] - 0.5 * rho_i * (u_i**2 + v_i**2)), _TINY)
+        a_i   = np.sqrt(g * p_i / (rho_i + _TINY))
+        Vn_i  = u_i * nx_out + v_i * ny_out
+
+        R_plus  = Vn_i  + 2.0 * a_i  / (g - 1.0)   # outgoing
+        R_minus = Vn_fs - 2.0 * a_fs / (g - 1.0)   # incoming from ∞
 
         Vn_g = 0.5 * (R_plus + R_minus)
-        a_g  = 0.25 * (gamma - 1.0) * (R_plus - R_minus)
-        a_g  = np.maximum(a_g, _TINY)
+        a_g  = np.maximum(0.25 * (g - 1.0) * (R_plus - R_minus), _TINY)
 
-        # Tangential velocity: from interior if outflow, freestream if inflow
         is_outflow = Vn_i >= 0
-        Vt_i_x = u_i - Vn_i * n_out_x
-        Vt_i_y = v_i - Vn_i * n_out_y
-        Vt_fs_x = u_fs - Vn_fs * n_out_x
-        Vt_fs_y = v_fs - Vn_fs * n_out_y
+        tx = -ny_out; ty = nx_out
+        Vt_i_x  = u_i  - Vn_i  * nx_out; Vt_i_y  = v_i  - Vn_i  * ny_out
+        Vt_fs_x = u_fs - Vn_fs * nx_out; Vt_fs_y = v_fs - Vn_fs * ny_out
         Vt_x = np.where(is_outflow, Vt_i_x, Vt_fs_x)
         Vt_y = np.where(is_outflow, Vt_i_y, Vt_fs_y)
 
-        u_g = Vn_g * n_out_x + Vt_x
-        v_g = Vn_g * n_out_y + Vt_y
+        u_g = Vn_g * nx_out + Vt_x
+        v_g = Vn_g * ny_out + Vt_y
 
-        # Entropy: from interior (outflow) or freestream (inflow)
-        s_i  = p_i  / (rho_i  + _TINY) ** gamma
-        s_fs = p_fs / rho_fs ** gamma
+        s_i  = p_i  / (rho_i  + _TINY) ** g
+        s_fs = p_fs / rho_fs ** g
         s_g  = np.where(is_outflow, s_i, s_fs)
 
-        rho_g = (a_g**2 / (gamma * s_g + _TINY)) ** (1.0 / (gamma - 1.0))
-        p_g   = s_g * rho_g ** gamma
-        p_g   = np.maximum(p_g, _TINY)
-        E_g   = p_g / (gamma - 1.0) + 0.5 * rho_g * (u_g**2 + v_g**2)
+        rho_g = (a_g**2 / (g * np.maximum(s_g, _TINY))) ** (1.0 / (g - 1.0))
+        p_g   = np.maximum(s_g * rho_g**g, _TINY)
+        E_g   = p_g / (g - 1.0) + 0.5 * rho_g * (u_g**2 + v_g**2)
 
-        U_g = np.zeros_like(U_int)
-        U_g[..., RHO]  = rho_g
-        U_g[..., RHOU] = rho_g * u_g
-        U_g[..., RHOV] = rho_g * v_g
-        U_g[..., E]    = E_g
-        return U_g
-
-    def apply(self, U_ext, mesh, side, gamma, R_gas):
-        g = gamma
-        if side == "west":
-            # Outward normal at west = -i direction = pointing into ghost = (-1, 0) for Cartesian
-            nxa = -mesh.i_nxa[0, :]; nya = -mesh.i_nya[0, :]
-            dA = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[0, 1:-1] = self._farfield_ghost(
-                U_ext[1, 1:-1], nxa / dA, nya / dA, g, R_gas)
-        elif side == "east":
-            nxa = mesh.i_nxa[-1, :]; nya = mesh.i_nya[-1, :]
-            dA = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[-1, 1:-1] = self._farfield_ghost(
-                U_ext[-2, 1:-1], nxa / dA, nya / dA, g, R_gas)
-        elif side == "south":
-            nxa = -mesh.j_nxa[:, 0]; nya = -mesh.j_nya[:, 0]
-            dA = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[1:-1, 0] = self._farfield_ghost(
-                U_ext[1:-1, 1], nxa / dA, nya / dA, g, R_gas)
-        elif side == "north":
-            nxa = mesh.j_nxa[:, -1]; nya = mesh.j_nya[:, -1]
-            dA = np.sqrt(nxa**2 + nya**2) + _TINY
-            U_ext[1:-1, -1] = self._farfield_ghost(
-                U_ext[1:-1, -2], nxa / dA, nya / dA, g, R_gas)
+        U_ghost[:, RHO]  = rho_g
+        U_ghost[:, RHOU] = rho_g * u_g
+        U_ghost[:, RHOV] = rho_g * v_g
+        U_ghost[:, E]    = E_g

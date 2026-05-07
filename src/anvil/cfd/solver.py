@@ -346,8 +346,38 @@ class CFDSolver:
     # ── Apply all boundary conditions ─────────────────────────────────────────
 
     def _apply_bcs(self, U_ext):
-        for side, bc in self.bcs.items():
-            bc.apply(U_ext, self.mesh, side, self.gamma, self.R_gas)
+        mesh = self.mesh
+        for patch_name, bc in self.bcs.items():
+            patch = mesh.patches.get(patch_name)
+            if patch is None:
+                continue
+            s, e, side = patch.start, patch.end, patch.side
+
+            if side == "west":
+                U_g  = U_ext[0,  s+1:e+1, :]
+                U_i  = U_ext[1,  s+1:e+1, :]
+                nxa  = -mesh.i_nxa[0,  s:e]
+                nya  = -mesh.i_nya[0,  s:e]
+            elif side == "east":
+                U_g  = U_ext[-1, s+1:e+1, :]
+                U_i  = U_ext[-2, s+1:e+1, :]
+                nxa  =  mesh.i_nxa[-1, s:e]
+                nya  =  mesh.i_nya[-1, s:e]
+            elif side == "south":
+                U_g  = U_ext[s+1:e+1, 0,  :]
+                U_i  = U_ext[s+1:e+1, 1,  :]
+                nxa  = -mesh.j_nxa[s:e, 0]
+                nya  = -mesh.j_nya[s:e, 0]
+            elif side == "north":
+                U_g  = U_ext[s+1:e+1, -1, :]
+                U_i  = U_ext[s+1:e+1, -2, :]
+                nxa  =  mesh.j_nxa[s:e, -1]
+                nya  =  mesh.j_nya[s:e, -1]
+            else:
+                continue
+
+            dA   = np.sqrt(nxa**2 + nya**2) + _TINY
+            bc.apply(U_g, U_i, nxa / dA, nya / dA, self.gamma, self.R_gas)
 
     # ── Compute residual (spatial operator) ───────────────────────────────────
 
@@ -550,7 +580,10 @@ class CFDSolver:
             monitor: bool = True, verbose: bool = True,
             print_every: int = 100,
             restart_every: int = 0,
-            restart_prefix: str = "restart") -> CFDResult:
+            restart_prefix: str = "restart",
+            save_every: int = 0,
+            save_field: str = "p",
+            save_dir: str = ".") -> CFDResult:
         """
         Run the solver until convergence or max_iter.
 
@@ -563,6 +596,9 @@ class CFDSolver:
         print_every  : int     print interval
         restart_every: int     0 = disabled; N = save restart every N iters
         restart_prefix: str    prefix for restart files
+        save_every   : int     0 = disabled; N = save PNG contour every N iters
+        save_field   : str     field to save ("p", "M", "rho", "T", "u", "v")
+        save_dir     : str     directory for saved PNG files
 
         Returns
         -------
@@ -612,6 +648,18 @@ class CFDSolver:
             if restart_every > 0 and (it + 1) % restart_every == 0:
                 write_restart(f"{restart_prefix}_{it+1:05d}.npz",
                               U_ext, it + 1, 0.0)
+
+            # PNG snapshot
+            if save_every > 0 and (it + 1) % save_every == 0:
+                import os as _os
+                from anvil.cfd.viz import save_png as _save_png
+                _os.makedirs(save_dir, exist_ok=True)
+                snap = CFDResult(U_ext, self.mesh, self.gamma, self.R_gas,
+                                 [], False, it + 1)
+                _save_png(snap, save_field,
+                          _os.path.join(save_dir,
+                                        f"{save_field}_{it+1:05d}.png"),
+                          title=f"iter {it+1}  res={res:.3e}")
 
         self._U_ext = U_ext
         return CFDResult(U_ext, self.mesh, self.gamma, self.R_gas,

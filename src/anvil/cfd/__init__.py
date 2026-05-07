@@ -56,23 +56,33 @@ Extensibility
     Real gas: replace ideal-gas EOS calls with custom EOS object
 """
 
-from anvil.cfd.mesh   import StructuredMesh2D as Mesh
+from anvil.cfd.mesh   import StructuredMesh2D as Mesh, MeshPatch
 from anvil.cfd.solver import CFDSolver, CFDResult
 from anvil.cfd.bc import (
     BoundaryCondition,
     SupersonicInlet,
     SupersonicOutlet,
+    SubsonicInlet,
     SubsonicOutlet,
+    PressureInlet,
+    PressureOutlet,
+    VelocityInlet,
+    MassFlowInlet,
     SlipWall,
     Symmetry,
     Farfield,
 )
 from anvil.cfd.io import write_vtk, write_tecplot, write_restart, load_restart
+from anvil.cfd import viz
 
 __all__ = [
-    "Mesh", "CFDSolver", "CFDResult",
+    "Mesh", "MeshPatch", "CFDSolver", "CFDResult",
     "BoundaryCondition",
-    "SupersonicInlet", "SupersonicOutlet", "SubsonicOutlet",
+    "SupersonicInlet", "SupersonicOutlet",
+    "SubsonicInlet", "SubsonicOutlet",
+    "PressureInlet", "PressureOutlet",
+    "VelocityInlet", "MassFlowInlet",
     "SlipWall", "Symmetry", "Farfield",
     "write_vtk", "write_tecplot", "write_restart", "load_restart",
+    "viz",
 ]

@@ -77,11 +77,11 @@ nx, ny = 80, 30
 i_ramp = int(nx * ramp_x0 / length)   # first ramp cell
 
 patches = {
-    "inlet":     MeshPatch("west",  0, ny),
-    "outlet":    MeshPatch("east",  0, ny),
-    "flat_wall": MeshPatch("south", 0, i_ramp),
-    "ramp":      MeshPatch("south", i_ramp, nx),
-    "ceiling":   MeshPatch("north", 0, nx),
+    "inlet":     MeshPatch("left",  0, ny),
+    "outlet":    MeshPatch("right",  0, ny),
+    "flat_wall": MeshPatch("bottom", 0, i_ramp),
+    "ramp":      MeshPatch("bottom", i_ramp, nx),
+    "ceiling":   MeshPatch("top", 0, nx),
 }
 
 mesh = Mesh.compression_ramp(
@@ -91,6 +91,7 @@ mesh = Mesh.compression_ramp(
     ramp_angle_deg  = theta_deg,
     nx              = nx,
     ny              = ny,
+    title           = "supersonic_ramp",
     patches         = patches,
 )
 
@@ -143,6 +144,8 @@ result = solver.run(
     save_every  = 500,
     save_field  = "p",
     save_dir    = snap_dir,
+    save_vmin   = 100_000,   # fixed scale for all frames
+    save_vmax   = 430_000,
 )
 
 result.summary()
@@ -203,11 +206,11 @@ def make_ramp_mesh(theta):
         length=length, height=height, ramp_x0=ramp_x0,
         ramp_angle_deg=theta, nx=40, ny=15,
         patches={
-            "inlet":     MeshPatch("west",  0, 15),
-            "outlet":    MeshPatch("east",  0, 15),
-            "flat_wall": MeshPatch("south", 0, i_r),
-            "ramp":      MeshPatch("south", i_r, 40),
-            "ceiling":   MeshPatch("north", 0, 40),
+            "inlet":     MeshPatch("left",  0, 15),
+            "outlet":    MeshPatch("right",  0, 15),
+            "flat_wall": MeshPatch("bottom", 0, i_r),
+            "ramp":      MeshPatch("bottom", i_r, 40),
+            "ceiling":   MeshPatch("top", 0, 40),
         }
     )
 

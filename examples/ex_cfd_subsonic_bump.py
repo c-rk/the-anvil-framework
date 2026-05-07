@@ -68,11 +68,12 @@ mesh = Mesh.bump(
     bump_height = 0.10,
     bump_x0     = 1.0,
     bump_sigma  = 0.20,
+    title       = "subsonic_bump",
     patches     = {
-        "inlet":   MeshPatch("west",  0, 30),
-        "outlet":  MeshPatch("east",  0, 30),
-        "wall":    MeshPatch("south", 0, 80),
-        "ceiling": MeshPatch("north", 0, 80),
+        "inlet":   MeshPatch("left",  0, 30),
+        "outlet":  MeshPatch("right",  0, 30),
+        "wall":    MeshPatch("bottom", 0, 80),
+        "ceiling": MeshPatch("top", 0, 80),
     }
 )
 
@@ -129,6 +130,8 @@ result = solver.run(
     save_every  = 600,      # save PNG every 600 iterations
     save_field  = "M",
     save_dir    = snap_dir,
+    save_vmin   = 0.3,      # fixed scale -- all frames comparable
+    save_vmax   = 1.0,
 )
 
 result.summary()
@@ -180,10 +183,10 @@ sweep_mesh = Mesh.bump(
     length=2.0, height=0.5, nx=40, ny=15,
     bump_height=0.10, bump_x0=1.0, bump_sigma=0.20,
     patches={
-        "inlet":   MeshPatch("west",  0, 15),
-        "outlet":  MeshPatch("east",  0, 15),
-        "wall":    MeshPatch("south", 0, 40),
-        "ceiling": MeshPatch("north", 0, 40),
+        "inlet":   MeshPatch("left",  0, 15),
+        "outlet":  MeshPatch("right",  0, 15),
+        "wall":    MeshPatch("bottom", 0, 40),
+        "ceiling": MeshPatch("top", 0, 40),
     }
 )
 

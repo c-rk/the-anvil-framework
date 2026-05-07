@@ -168,17 +168,17 @@ class StructuredMesh2D:
 
     @classmethod
     def cartesian(cls, x_span, y_span, nx: int, ny: int,
-                  patches=None) -> "StructuredMesh2D":
+                  patches=None, title="") -> "StructuredMesh2D":
         """Uniform Cartesian mesh."""
         x = np.linspace(x_span[0], x_span[1], nx + 1)
         y = np.linspace(y_span[0], y_span[1], ny + 1)
         X, Y = np.meshgrid(x, y, indexing='ij')
-        return cls(X, Y, patches)
+        return cls(X, Y, patches, title)
 
     @classmethod
     def wedge(cls, half_angle_deg: float, chord: float, height: float,
               nx: int, ny: int, x_start: float = 0.0,
-              patches=None) -> "StructuredMesh2D":
+              patches=None, title="") -> "StructuredMesh2D":
         """Body-fitted mesh for a 2D wedge (flat-bottom ramp)."""
         theta   = np.radians(half_angle_deg)
         x_nodes = np.linspace(x_start, x_start + chord, nx + 1)
@@ -190,22 +190,13 @@ class StructuredMesh2D:
             for j, tj in enumerate(t_nodes):
                 X[i, j] = xi
                 Y[i, j] = y_wall + tj * height
-        return cls(X, Y, patches)
+        return cls(X, Y, patches, title)
 
     @classmethod
     def bump(cls, length: float, height: float, nx: int, ny: int,
              bump_height: float = 0.1, bump_x0: float = None,
-             bump_sigma: float = None, patches=None) -> "StructuredMesh2D":
-        """
-        Channel mesh with a Gaussian bump on the lower wall.
-
-        Parameters
-        ----------
-        length, height  : domain extent in x and y
-        bump_height     : peak bump height above y=0
-        bump_x0         : bump centre x (default: length/2)
-        bump_sigma      : bump half-width (default: length/10)
-        """
+             bump_sigma: float = None, patches=None, title="") -> "StructuredMesh2D":
+        """Channel mesh with a Gaussian bump on the lower wall."""
         if bump_x0 is None:
             bump_x0 = length * 0.5
         if bump_sigma is None:
@@ -220,14 +211,14 @@ class StructuredMesh2D:
             for j, tj in enumerate(t_nodes):
                 X[i, j] = xi
                 Y[i, j] = y_wall + tj * (height - y_wall)
-        return cls(X, Y, patches)
+        return cls(X, Y, patches, title)
 
     @classmethod
     def compression_ramp(cls, length: float, height: float,
                          ramp_x0: float, ramp_angle_deg: float,
                          nx: int, ny: int,
                          smooth_width: float = None,
-                         patches=None) -> "StructuredMesh2D":
+                         patches=None, title="") -> "StructuredMesh2D":
         """
         Channel mesh with a compression ramp on the lower wall.
 
@@ -257,7 +248,7 @@ class StructuredMesh2D:
             for j, tj in enumerate(t_nodes):
                 X[i, j] = xi
                 Y[i, j] = y_wall + tj * (height - y_wall)
-        return cls(X, Y, patches)
+        return cls(X, Y, patches, title)
 
     @classmethod
     def from_arrays(cls, X, Y, patches=None, title="") -> "StructuredMesh2D":

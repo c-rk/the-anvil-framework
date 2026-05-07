@@ -85,7 +85,7 @@ solver = CFDSolver(
     flux_scheme = "roe",      # Roe approximate Riemann solver
     order       = 2,          # MUSCL + van Leer limiter
     time_scheme = "rk4",      # 4-stage Runge-Kutta
-    cfl         = 0.4,        # CFL number (reduce if diverging)
+    cfl         = 0.3,        # CFL number (0.3 recommended for 2nd order)
     transient   = False,      # local time stepping for steady-state
 )
 solver.initialize(M=M_inf, p=p_inf, T=T_inf, alpha_deg=0.0)
@@ -94,7 +94,7 @@ solver.initialize(M=M_inf, p=p_inf, T=T_inf, alpha_deg=0.0)
 print(f"\n  Running Euler solver ({mesh.nx}x{mesh.ny} cells, Roe flux, 2nd order)...")
 result = solver.run(
     max_iter    = 3000,
-    tol         = 1e-5,
+    tol         = 1e-4,   # shock residual stagnates at ~1e-4 (truncation error)
     monitor     = True,
     verbose     = True,
     print_every = 200,
@@ -147,11 +147,41 @@ print("\n" + "=" * 60)
 print("  PART 5: Mach number sweep (solver as Anvil Relation)")
 print("=" * 60)
 
+# BC factory — rebuilds BCs for each M_inf so sweep is physically correct
+sweep_mesh = Mesh.wedge(
+    half_angle_deg = theta_deg,
+    chord          = 1.0,
+    height         = 0.6,
+    nx             = 40,    # coarser for sweep speed
+    ny             = 20,
+)
+
+def wedge_bcs(M, p, T, alpha=0.0):
+    return {
+        "west":  SupersonicInlet(M=M, p=p, T=T, gamma=gamma, R_gas=R_gas),
+        "east":  SupersonicOutlet(),
+        "south": SlipWall(),
+        "north": Farfield(M=M, p=p, T=T, gamma=gamma, R_gas=R_gas),
+    }
+
+sweep_solver = CFDSolver(
+    mesh        = sweep_mesh,
+    bcs         = wedge_bcs(M_inf, p_inf, T_inf),   # placeholder; factory overrides
+    gamma       = gamma,
+    R_gas       = R_gas,
+    flux_scheme = "roe",
+    order       = 2,
+    cfl         = 0.3,
+    transient   = False,
+)
+
 # Wrap solver as a Relation: M_inf -> M_max, p_wall
-cfd_rel = solver.as_relation(
-    inputs  = ["M_inf", "p_inf", "T_inf"],
-    outputs = ["M_max", "p_wall"],
-    name    = "wedge_euler",
+cfd_rel = sweep_solver.as_relation(
+    inputs      = ["M_inf", "p_inf", "T_inf"],
+    outputs     = ["M_max", "p_wall"],
+    name        = "wedge_euler",
+    bc_factory  = wedge_bcs,
+    run_kwargs  = {"max_iter": 1500, "tol": 1e-4, "verbose": False},
 )
 
 # Build a simple System around it

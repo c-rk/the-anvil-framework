@@ -45,7 +45,9 @@ from anvil.cfd.io   import write_vtk, write_tecplot, write_restart
 
 # Conservative variable indices
 RHO = 0; RHOU = 1; RHOV = 2; E = 3
-_TINY = 1.0e-30
+_TINY    = 1.0e-30
+_RHO_MIN = 1.0e-4   # kg/m³ — floor for positivity fix
+_P_MIN   = 1.0      # Pa   — floor for positivity fix
 
 
 # ── Helper: primitive variables ───────────────────────────────────────────────
@@ -386,8 +388,10 @@ class CFDSolver:
             dC = ip1 - i0
             dR = ip2 - ip1
 
-            rL = dC / (dL + _TINY)
-            rR = dC / (dR + _TINY)
+            # r = backward/forward ratio; preserve sign of denominator
+            dC_si = dC + np.where(dC >= 0, _TINY, -_TINY)
+            rL = dL / dC_si
+            rR = dR / dC_si
             phiL = (rL + np.abs(rL)) / (1.0 + np.abs(rL) + _TINY)
             phiR = (rR + np.abs(rR)) / (1.0 + np.abs(rR) + _TINY)
 
@@ -426,8 +430,9 @@ class CFDSolver:
             dC = jp1 - j0
             dR = jp2 - jp1
 
-            rL = dC / (dL + _TINY)
-            rR = dC / (dR + _TINY)
+            dC_sj = dC + np.where(dC >= 0, _TINY, -_TINY)
+            rL = dL / dC_sj
+            rR = dR / dC_sj
             phiL = (rL + np.abs(rL)) / (1.0 + np.abs(rL) + _TINY)
             phiR = (rR + np.abs(rR)) / (1.0 + np.abs(rR) + _TINY)
 
@@ -481,6 +486,20 @@ class CFDSolver:
             return float(dt.min())
         return dt
 
+    # ── Positivity fix ────────────────────────────────────────────────────────
+
+    def _positivity_clamp(self, U_ext):
+        """Clamp interior cells to physically valid states (rho > 0, p > 0)."""
+        U = U_ext[1:-1, 1:-1]
+        np.clip(U[..., RHO], _RHO_MIN, None, out=U[..., RHO])
+        u   = U[..., RHOU] / U[..., RHO]
+        v   = U[..., RHOV] / U[..., RHO]
+        p   = (self.gamma - 1.0) * (U[..., E] - 0.5 * U[..., RHO] * (u**2 + v**2))
+        bad = p < _P_MIN
+        if bad.any():
+            U[..., E][bad] = (_P_MIN / (self.gamma - 1.0)
+                              + 0.5 * U[..., RHO][bad] * (u[bad]**2 + v[bad]**2))
+
     # ── RK4 step ──────────────────────────────────────────────────────────────
 
     def _rk4_step(self, U_ext):
@@ -490,6 +509,7 @@ class CFDSolver:
         def update(U, R, alpha):
             U_new = U_ext.copy()
             U_new[1:-1, 1:-1] = U[1:-1, 1:-1] - alpha * dt_field[..., np.newaxis] * R
+            self._positivity_clamp(U_new)
             return U_new
 
         # Stage 1
@@ -501,6 +521,7 @@ class CFDSolver:
         # Stage 4
         R4 = self._residual_with_bc(U3)
         U_ext[1:-1, 1:-1] -= dt_field[..., np.newaxis] * R4
+        self._positivity_clamp(U_ext)
         return U_ext
 
     def _euler_step(self, U_ext):
@@ -508,6 +529,7 @@ class CFDSolver:
         dt_field = self._compute_dt(U_ext)
         R = self._residual_with_bc(U_ext)
         U_ext[1:-1, 1:-1] -= dt_field[..., np.newaxis] * R
+        self._positivity_clamp(U_ext)
         return U_ext
 
     def _residual_with_bc(self, U_ext):
@@ -597,7 +619,8 @@ class CFDSolver:
 
     # ── Anvil Relation interface ───────────────────────────────────────────────
 
-    def as_relation(self, inputs=None, outputs=None, name="cfd_solver"):
+    def as_relation(self, inputs=None, outputs=None, name="cfd_solver",
+                    bc_factory=None, run_kwargs=None):
         """
         Wrap this CFDSolver as an Anvil Relation for use in System.use().
 
@@ -610,23 +633,34 @@ class CFDSolver:
         Parameters
         ----------
         inputs  : list of str, e.g. ["M_inf", "p_inf", "T_inf", "alpha_deg"]
-                  These must map to CFDSolver.initialize() parameters.
         outputs : list of str, e.g. ["CL", "CD", "M_max", "p_wall"]
         name    : str  Relation name for display
+        bc_factory : callable(M_inf, p_inf, T_inf, alpha_deg) -> dict
+            Factory to build fresh BCs for each evaluation — required when
+            inputs include M_inf / p_inf / T_inf so BCs use the correct
+            freestream. If None, the solver's existing BCs are reused (only
+            correct when BCs don't depend on freestream conditions).
+        run_kwargs : dict, optional
+            Keyword arguments forwarded to solver.run() — e.g.
+            {"max_iter": 1000, "tol": 1e-4, "verbose": False}.
         """
         from anvil.relation import Relation
         from anvil.quantity import Q
 
-        _inputs  = inputs  or ["M_inf", "p_inf", "T_inf", "alpha_deg"]
-        _outputs = outputs or ["CL", "CD", "M_max", "p_wall"]
-        _gamma   = self.gamma
-        _R_gas   = self.R_gas
-        _mesh    = self.mesh
-        _bcs     = self.bcs
-        _order   = self.order
-        _flux    = "roe"
-        _cfl     = self.cfl
-        _transient = self.transient
+        _inputs     = inputs  or ["M_inf", "p_inf", "T_inf", "alpha_deg"]
+        _outputs    = outputs or ["CL", "CD", "M_max", "p_wall"]
+        _gamma      = self.gamma
+        _R_gas      = self.R_gas
+        _mesh       = self.mesh
+        _bcs_static = self.bcs      # used only when bc_factory is None
+        _order      = self.order
+        _flux       = "roe"
+        _cfl        = self.cfl
+        _transient  = self.transient
+        _bc_factory = bc_factory
+        _run_kw     = dict(max_iter=3000, tol=1e-5, verbose=False, monitor=False)
+        if run_kwargs:
+            _run_kw.update(run_kwargs)
 
         def _fn(**kwargs):
             # Unpack Quantity or float inputs
@@ -638,13 +672,15 @@ class CFDSolver:
             T_inf     = _si(kwargs.get("T_inf",     300.0))
             alpha_deg = _si(kwargs.get("alpha_deg", 0.0))
 
+            bcs = (_bc_factory(M_inf, p_inf, T_inf, alpha_deg)
+                   if _bc_factory is not None else _bcs_static)
+
             # Build and run solver
-            solver = CFDSolver(_mesh, _bcs, gamma=_gamma, R_gas=_R_gas,
+            solver = CFDSolver(_mesh, bcs, gamma=_gamma, R_gas=_R_gas,
                                flux_scheme=_flux, order=_order,
                                cfl=_cfl, transient=_transient)
             solver.initialize(M_inf, p_inf, T_inf, alpha_deg)
-            result = solver.run(max_iter=5000, tol=1e-6,
-                                verbose=False, monitor=False)
+            result = solver.run(**_run_kw)
 
             # Compute requested outputs
             rho_ref = p_inf / (_R_gas * T_inf)

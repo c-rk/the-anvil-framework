@@ -159,8 +159,6 @@ class SlipWall(BoundaryCondition):
         rho = U_int[..., RHO]
         u   = U_int[..., RHOU] / (rho + _TINY)
         v   = U_int[..., RHOV] / (rho + _TINY)
-        p   = (1.4 - 1.0) * (U_int[..., E]          # gamma embedded; solver passes correct gamma
-                               - 0.5 * rho * (u**2 + v**2))
 
         Vn = u * nx_out + v * ny_out
         u_g = u - 2.0 * Vn * nx_out

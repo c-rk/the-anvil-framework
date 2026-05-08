@@ -12,7 +12,9 @@ from anvil.registry import _get_store
 def seed(force=False):
     """Populate the registry database with built-in RSQs."""
     store = _get_store()
-    if not force and store.count() > 0:
+    builtin_names = {e["name"] for e in _SEED_ENTRIES}
+    existing_builtins = {r["name"] for r in store.get_all(origin="builtin")}
+    if not force and builtin_names <= existing_builtins:
         return
     for entry in _SEED_ENTRIES:
         store.put(

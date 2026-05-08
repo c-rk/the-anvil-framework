@@ -1062,3 +1062,32 @@ adapter(**inputs)               Direct call
 system.use(adapter)             Use in System
 anvil.push(adapter, domain)     Register in registry
 ```
+
+---
+
+## 16. Examples
+
+All examples are in `examples/`. Run from the repo root:
+
+```bash
+python examples/ex01_rocket_nozzle.py
+```
+
+| File | Domain | Features Demonstrated |
+|------|--------|-----------------------|
+| `ex01_rocket_nozzle.py` | Propulsion | Registry, set, sweep, unit conversions |
+| `ex02_heat_exchanger.py` | Thermal | `solve_gauss_seidel()`, monitoring, diagnostics |
+| `ex03_orbital_transfer.py` | Orbital | Hohmann transfer, Tsiolkovsky, composition |
+| `ex04_beam_analysis.py` | Structures | Beams, buckling, pressure vessels |
+| `ex05_wind_tunnel.py` | Aero | Multi-RSQ composition, name mapping |
+| `ex06_two_stage_rocket.py` | Propulsion | System composition, staging optimization |
+| `ex07_combustion.py` | Combustion | Python adapter, sensitivity, export |
+| `ex08_research_workflow.py` | Multi-domain | DB lookup, coupled system, material comparison |
+| `ex09_cantera_cea.py` | Combustion | Cantera adapter, propellant comparison |
+| `ex10_detonation.py` | Combustion | NASA CEA adapter, CJ detonation, sub-system composition |
+| `ex11_ode_solvers.py` | Multi-domain | `solve_ode`, `solve_ode_stiff`, `solve_bvp`, `solve_pde_heat_1d` |
+| `ex12_project_registry.py` | Workflow | `anvil.project()`, context manager, `promote()` |
+| `ex13_controls_analysis.py` | Controls | PID, Z-N tuning, 2nd-order step response, stability |
+| `ex14_materials_fatigue.py` | Materials | Basquin fatigue, Miner's rule, fracture, composites |
+| `ex15_aero_performance.py` | Aero | ISA atmosphere, drag polar, stall speed, Breguet range |
+| `ex16_jupyter_display.ipynb` | Notebook | HTML rich display — Q, Result, SweepResult, SensitivityResult |

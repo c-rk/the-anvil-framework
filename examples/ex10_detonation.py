@@ -87,7 +87,7 @@ def h2o2_det(fuel_moles, ox_moles, T1, P1):
 
 det.use(h2o2_det)
 
-result = det.solve()
+result = det.solve_forward()
 result.summary(
     keys=[
         "fuel_moles",
@@ -201,7 +201,7 @@ def pde_performance(
 pde.use(pde_exit)
 pde.use(pde_performance)
 
-r_pde = pde.solve()
+r_pde = pde.solve_forward()
 r_pde.summary(
     keys=[
         "T1",

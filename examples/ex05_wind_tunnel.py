@@ -113,7 +113,7 @@ tunnel.use(stagnation_conditions)
 # Normal shock at test Mach
 tunnel.use("normal_shock", map={"M1": "M_test"})
 
-result = tunnel.solve()
+result = tunnel.solve_forward()
 result.summary(
     keys=[
         "M_test",

@@ -44,7 +44,7 @@ nozzle.set(
     P_amb=0,           # vacuum (space engine)
 )
 
-result = nozzle.solve()
+result = nozzle.solve_forward()
 result.summary()
 
 # --- Step 3: Unit conversions ---

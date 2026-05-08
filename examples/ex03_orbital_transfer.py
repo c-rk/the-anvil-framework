@@ -93,7 +93,7 @@ def propellant_mass(dv_total, Isp_engine, m_payload, m_structure):
     }
 
 mission.use(propellant_mass)
-result = mission.solve()
+result = mission.solve_forward()
 
 print(f"  Mass ratio:     {result['mass_ratio'].si:.2f}")
 print(f"  Propellant:     {result['m_propellant'].value:.0f} kg")

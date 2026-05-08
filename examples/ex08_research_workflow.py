@@ -118,7 +118,7 @@ wall.use(thermal_stress)
 wall.use(pressure_stress)
 wall.use(safety_factor)
 
-result = wall.solve()
+result = wall.solve_forward()
 result.summary(keys=["T_gas", "T_coolant", "t_wall", "P_chamber",
                        "q_flux", "T_hot_wall", "T_cold_wall", "delta_T_wall",
                        "sigma_thermal", "sigma_hoop", "sigma_total", "safety_factor"])
@@ -159,7 +159,7 @@ for mat_name in candidates:
         nu_poisson=m["nu_poisson"],
         sigma_y=m["sigma_y"].si,
     )
-    r = wall.solve()
+    r = wall.solve_forward()
     sf = r["safety_factor"].si
     thot = r["T_hot_wall"].si
     sig = r["sigma_total"].si / 1e6

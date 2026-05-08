@@ -72,8 +72,7 @@ for msg in diagnose(hx):
 
 # --- Solve ---
 print("\n[2] Solving (Gauss-Seidel with monitoring)...")
-result = hx.solve(
-    method="gauss_seidel",
+result = hx.solve_gauss_seidel(
     max_iter=200,
     rtol=1e-10,
     relaxation=0.5,

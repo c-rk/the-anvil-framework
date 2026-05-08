@@ -153,7 +153,7 @@ def thrust_isp(Pc, A_throat, gamma_c, R_gas_c, Tc, V_exit, P_exit, P_amb, A_exit
 engine.use(exit_analysis)
 engine.use(thrust_isp)
 
-result = engine.solve()
+result = engine.solve_forward()
 result.summary(keys=["OF", "Pc",
                        "Tc", "gamma_c", "R_gas_c", "cstar",
                        "M_exit", "V_exit", "thrust", "Isp"])
@@ -204,7 +204,7 @@ for fuel_name, ox_name, of_ratio in [
     eng2.use("nozzle_area_ratio")
     eng2.use("area_mach_supersonic", map={"gamma": "gamma_c"})
     eng2.use(exit_analysis); eng2.use(thrust_isp)
-    r = eng2.solve()
+    r = eng2.solve_forward()
     print(f"  {fuel_name + '/' + ox_name:20s} "
           f"{r['Tc'].value:8.0f} {r['gamma_c'].si:8.4f} "
           f"{r['Isp'].value:8.1f} {r['cstar'].value:8.0f}")
@@ -227,7 +227,7 @@ for inp, val in sens.top("Isp", n=5):
 # 7. Export for report
 # =====================================================
 print("\n[7] Exporting data...")
-result = engine.solve()
+result = engine.solve_forward()
 result.to_csv("engine_h2o2.csv")
 print("  Saved: engine_h2o2.csv")
 

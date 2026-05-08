@@ -68,13 +68,13 @@
       <li>RSQ Registry</li>
     </ol>
     <ol start="9">
-      <li>Built-in RSQs — full list</li>
+      <li>Built-in RSQs — full list (55+ across 10 domains)</li>
       <li>Adapters (external tools)</li>
       <li>Project registry</li>
-      <li>Visualization</li>
-      <li>Jupyter / notebook support</li>
-      <li>Parallel sweep</li>
-      <li>Full worked example</li>
+      <li>Visualization &amp; Jupyter display</li>
+      <li>Parametric sweep (parallel)</li>
+      <li>Full worked examples</li>
+      <li>Examples overview (16 examples)</li>
       <li>Packages &amp; dependencies</li>
       <li>Quick reference card</li>
     </ol>
@@ -733,6 +733,33 @@ viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp
 viz.dependency_graph(nozzle)</pre>
 </div>
 
+<!-- ===== SLIDE 14b — EXAMPLES OVERVIEW ===== -->
+<div class="slide">
+  <span class="slide-num">14b / 17</span>
+  <h1>Examples Overview</h1>
+  <p>Run any example: <code>python examples/ex01_rocket_nozzle.py</code></p>
+  <hr>
+  <table>
+    <tr><th>File</th><th>Domain</th><th>Features</th></tr>
+    <tr><td><code>ex01_rocket_nozzle.py</code></td><td>Propulsion</td><td>Registry, set, sweep, unit conversions</td></tr>
+    <tr><td><code>ex02_heat_exchanger.py</code></td><td>Thermal</td><td><code>solve_gauss_seidel()</code>, monitoring, diagnostics</td></tr>
+    <tr><td><code>ex03_orbital_transfer.py</code></td><td>Orbital</td><td>Hohmann transfer, Tsiolkovsky, composition</td></tr>
+    <tr><td><code>ex04_beam_analysis.py</code></td><td>Structures</td><td>Beams, buckling, pressure vessels</td></tr>
+    <tr><td><code>ex05_wind_tunnel.py</code></td><td>Aero</td><td>Multi-RSQ composition, name mapping</td></tr>
+    <tr><td><code>ex06_two_stage_rocket.py</code></td><td>Propulsion</td><td>System composition, staging optimization</td></tr>
+    <tr><td><code>ex07_combustion.py</code></td><td>Combustion</td><td>Python adapter, sensitivity, export</td></tr>
+    <tr><td><code>ex08_research_workflow.py</code></td><td>Multi-domain</td><td>Material DB lookup, coupled system, comparison</td></tr>
+    <tr><td><code>ex09_cantera_cea.py</code></td><td>Combustion</td><td>Cantera adapter, propellant comparison, export</td></tr>
+    <tr><td><code>ex10_detonation.py</code></td><td>Combustion</td><td>NASA CEA adapter, CJ detonation, sub-system composition</td></tr>
+    <tr><td><code>ex11_ode_solvers.py</code></td><td>Multi-domain</td><td><code>solve_ode</code>, <code>solve_ode_stiff</code>, <code>solve_bvp</code>, <code>solve_pde_heat_1d</code></td></tr>
+    <tr><td><code>ex12_project_registry.py</code></td><td>Workflow</td><td><code>anvil.project()</code>, context manager, <code>promote()</code></td></tr>
+    <tr><td><code>ex13_controls_analysis.py</code></td><td>Controls</td><td>PID, Z-N tuning, 2nd-order step response, stability</td></tr>
+    <tr><td><code>ex14_materials_fatigue.py</code></td><td>Materials</td><td>Basquin fatigue, Miner's rule, fracture, composites</td></tr>
+    <tr><td><code>ex15_aero_performance.py</code></td><td>Aero</td><td>ISA atmosphere, drag polar, stall speed, Breguet range</td></tr>
+    <tr><td><code>ex16_jupyter_display.ipynb</code></td><td>Notebook</td><td>HTML rich display — Q, Result, SweepResult, SensitivityResult</td></tr>
+  </table>
+</div>
+
 <!-- ===== SLIDE 15 — FULL EXAMPLE 2 (custom system) ===== -->
 <div class="slide">
   <span class="slide-num">15 / 17</span>
@@ -828,7 +855,7 @@ conda install -c cantera cantera   <span class="cm"># optional</span></pre>
     <tr><th>Path</th><th>Contents</th></tr>
     <tr><td><code>src/anvil/</code></td><td>Core source: quantity, units, relation, system, solvers, registry, viz, adapter, project</td></tr>
     <tr><td><code>adapters/</code></td><td>Cantera adapter (cantera_thermo.py), NASA CEA detonation</td></tr>
-    <tr><td><code>examples/</code></td><td>10 worked examples covering nozzle, heat exchanger, beam, combustion, ODE, PDE</td></tr>
+    <tr><td><code>examples/</code></td><td>16 worked examples covering nozzle, heat exchanger, beam, combustion, ODE, BVP, PDE, controls, materials fatigue, aero performance, project registry, and Jupyter notebook</td></tr>
     <tr><td><code>~/.anvil/registry.db</code></td><td>Global RSQ registry (auto-created)</td></tr>
     <tr><td><code>&lt;proj&gt;/.anvil/project_*.db</code></td><td>Project-local registry stores</td></tr>
   </table>

@@ -41,7 +41,7 @@ stage1_nozzle.set(
     P_amb=101325,     # sea-level launch
 )
 
-r1 = stage1_nozzle.solve()
+r1 = stage1_nozzle.solve_forward()
 Isp_1 = r1["Isp"].si
 
 print(f"  Isp (sea level): {Isp_1:.1f} s")
@@ -64,7 +64,7 @@ stage2_nozzle.set(
     P_amb=0,           # vacuum
 )
 
-r2 = stage2_nozzle.solve()
+r2 = stage2_nozzle.solve_forward()
 Isp_2 = r2["Isp"].si
 
 print(f"  Isp (vacuum):    {Isp_2:.1f} s")
@@ -158,7 +158,7 @@ vehicle.use(stage_2_sizing)
 vehicle.use(stage_1_sizing)
 vehicle.use(payload_fraction)
 
-result = vehicle.solve()
+result = vehicle.solve_forward()
 result.summary(keys=["Isp_1", "Isp_2", "dV_1", "dV_2",
                        "m_prop_2", "m_wet_2", "m_prop_1",
                        "m_liftoff", "payload_fraction"])
@@ -169,7 +169,7 @@ dV_splits = np.linspace(0.4, 0.8, 5)
 results = []
 for frac in dV_splits:
     vehicle.set(dV_1=frac * dV_total, dV_2=(1 - frac) * dV_total)
-    r = vehicle.solve()
+    r = vehicle.solve_forward()
     pf = r["payload_fraction"].si
     results.append(pf)
     print(f"  Stage 1 = {frac:.0%} of dV  -->  payload fraction = {pf:.4f}")

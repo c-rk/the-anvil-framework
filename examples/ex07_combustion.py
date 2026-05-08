@@ -143,7 +143,7 @@ engine.use(choked_flow)
 engine.use("rocket_thrust", map={"P_exit": "P_exit", "V_exit": "V_exit"})
 engine.use("specific_impulse")
 
-result = engine.solve()
+result = engine.solve_forward()
 result.summary(keys=["Pc", "OF", "A_throat", "A_exit",
                        "Tc", "gamma_c", "R_gas_c", "cstar",
                        "M_exit", "V_exit", "mdot", "thrust", "Isp"])

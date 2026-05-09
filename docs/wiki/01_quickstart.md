@@ -213,5 +213,5 @@ proj.promote("rayleigh_heat")  # → global registry
 - **Not a symbolic solver** — no algebraic manipulation, no CAS. Relations must be written as explicit Python functions.
 - **Not a FEA/FEM framework** — the PDE solver is limited to 1D parabolic (heat/diffusion). Complex PDEs need an external adapter.
 - **Not a unit checker for general code** — units are tracked on `Q` objects only. Raw Python floats carry no dimension information.
-- **Not DOF-aware** — Anvil does not verify that the number of equations equals the number of unknowns. Underdetermined systems silently leave variables undefined.
+- **Not fully DOF-aware** — `validate()` warns when a declared variable is overwritten by a relation or goes unused, but does not verify that equations equal unknowns in the general case. A fully underdetermined system (where nothing downstream needs the missing variable) still produces no error.
 - **Not parallel by default** — `solve_gauss_seidel` and `solve_newton` are single-threaded. Use `sweep(parallel=N)` for concurrent parametric sweeps.

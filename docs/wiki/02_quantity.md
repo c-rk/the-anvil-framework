@@ -196,10 +196,18 @@ abs(Q(-100, "N"))     # → Q(100, "N")
 ```python
 Q(100, "Pa") == Q(100, "Pa")    # True
 Q(100, "Pa") < Q(200, "Pa")     # True
+Q(100, "Pa") <= Q(200, "Pa")    # True  (__le__ supported)
+Q(200, "Pa") >= Q(100, "Pa")    # True  (__ge__ supported)
 Q(100, "Pa") == 100             # True (dimensionless check)
 ```
 
-Comparison between Q objects uses SI values. Comparing a dimensional Q with a plain float returns `NotImplemented`.
+Comparison between Q objects uses SI values. Comparing incompatible dimensions raises `TypeError`. Comparing a dimensional Q with a plain float returns `NotImplemented`.
+
+```python
+Q(10, "N") < Q(5, "K")
+# TypeError: Cannot compare [L][M][T-2] < [Θ]: incompatible dimensions.
+#            Convert to the same unit first.
+```
 
 ---
 
@@ -322,13 +330,17 @@ print(r)            # 15.0000 [T][flarps]  — custom dim preserved
 
 Custom dims propagate through arithmetic but can never be converted to a named unit.
 
-### Comparison across dimensions returns NotImplemented
+### Comparison across dimensions raises `TypeError`
 
 ```python
-Q(10, "N") < Q(5, "K")    # NotImplemented (not a bool) — no TypeError
+Q(10, "N") < Q(5, "K")
+# TypeError: Cannot compare [L][M][T-2] < [Θ]: incompatible dimensions.
+
+Q(10, "N") >= Q(5, "K")
+# TypeError: Cannot compare [L][M][T-2] >= [Θ]: incompatible dimensions.
 ```
 
-This can cause silent bugs in boolean contexts. Always compare same-dimension quantities.
+`<`, `<=`, `>`, `>=` all raise `TypeError` when dimensions differ. `==` returns `False` (no exception) for dimension mismatches — this matches Python convention where equality across types is usually `False`, not an error.
 
 ### `Q ** non-dimensionless Q` → ValueError
 

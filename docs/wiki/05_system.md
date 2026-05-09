@@ -328,15 +328,35 @@ result["M2"]     # ~0.513
 
 ---
 
-## DOF (Degrees of Freedom) Caveat
+## DOF (Degrees of Freedom) Warnings
 
-**Anvil has no DOF analysis.** `validate()` only checks that every required input is available — not that the system is square (equal equations and unknowns).
+`validate()` does not verify that the system is square (equal equations and unknowns), but it emits two targeted warnings to catch the most common mistakes:
 
-If you have 3 unknowns but only 2 relations:
-- If nothing downstream needs the 3rd unknown → no error, it just doesn't appear in results
-- If a downstream relation needs the missing unknown → `ValidationError: needs X -- not provided`
+**Warning 1 — declared variable overwritten by relation:**
+```python
+sys.add("T0_T", 999.0)       # declared as input
+sys.use("isentropic_ratios")  # also produces T0_T
 
-**No "underdetermined system" warning is ever issued.**
+sys.validate()
+# WARNING: variable(s) declared via .add() are also produced by a relation —
+#   declared value will be overwritten after solve: ['T0_T']
+#   (This is intentional for iterative initial guesses; for forward
+#   systems it may indicate a naming mismatch.)
+```
+This is intentional for Gauss-Seidel initial guesses. For forward-pass systems it usually indicates a naming bug.
+
+**Warning 2 — declared variable never used:**
+```python
+sys.add("extra_var", 42.0)  # not an input to any relation
+
+sys.validate()
+# WARNING: variable(s) declared via .add() are not used by any relation: ['extra_var']
+#   (Possible typo or unused parameter.)
+```
+
+**Suppression:** Both warnings fire only once per system instance — not on every sweep iteration or repeated solve. A fresh `anvil.system()` or `sys.copy()` resets the flag.
+
+**What is still NOT checked:** Whether the number of relation outputs equals the number of coupled unknowns. An underdetermined system (e.g. 3 unknowns, 2 equations where nothing downstream needs the 3rd) silently produces incomplete results with no error.
 
 ---
 

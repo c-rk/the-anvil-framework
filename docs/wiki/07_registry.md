@@ -146,7 +146,14 @@ anvil.R.my_drag(CL=0.5, CD0=0.02, AR=8)
 
 **Origin:** RSQs pushed via `anvil.push()` have `origin="local"`. Built-ins have `origin="builtin"`.
 
-**Duplicate warning:** Pushing a name that already exists in the local registry raises `UserWarning`. Use `anvil.update()` instead to signal intentional overwrite.
+**Duplicate warning:** Pushing a name that already exists in the local registry raises `UserWarning`. Use `anvil.update()` to signal intentional overwrite — `update()` never shows this warning.
+
+**Namespace rebuild:** `anvil.push()` and `anvil.update()` both rebuild `anvil.R.*` / `anvil.S.*` / `anvil.QDB.*` automatically. `anvil.R.<name>` is accessible immediately after the call — no session restart needed:
+
+```python
+anvil.push(my_func, name="my_rsq")
+anvil.R.my_rsq(x=1.0)   # works immediately
+```
 
 ### `anvil.update()` — update existing
 
@@ -174,7 +181,7 @@ anvil.update(my_drag_v2, name="my_drag", version="1.1.0")
 # Updated 'my_drag'.
 ```
 
-`update()` is semantically "intentional overwrite" — no warning. Under the hood it calls `register()` with the same logic, merging fields.
+`update()` is semantically "intentional overwrite" — no duplicate warning. Merges only the fields you pass; omitted fields keep their current values. Rebuilds `anvil.R.*` automatically.
 
 ---
 
@@ -273,7 +280,7 @@ anvil.fetch("aero.compressible")   # by domain — loads all in that domain
 anvil.fetch("combustion")          # by tag
 ```
 
-Primarily useful for refreshing the namespace after manual database changes.
+Primarily useful for refreshing the namespace after direct database manipulation. Not needed after `anvil.push()` or `anvil.update()` — those rebuild automatically.
 
 ---
 

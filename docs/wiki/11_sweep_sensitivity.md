@@ -8,11 +8,12 @@
 
 ```python
 sweep = sys.sweep(
-    param_name,          # str — must be in sys._quantities
-    values,              # array-like of parameter values (in original declared unit)
-    skip_errors=False,   # True: failed points → None instead of raising
-    parallel=1,          # int > 1: concurrent evaluation via ThreadPoolExecutor
-    **solve_kwargs,      # passed to sys.solve(): method, relaxation, max_iter, …
+    param_name,           # str — must be in sys._quantities
+    values,               # array-like of parameter values (in original declared unit)
+    skip_errors=False,    # True: failed points → None instead of raising
+    parallel=1,           # int > 1: concurrent evaluation via ThreadPoolExecutor
+    warm_start=False,     # True: carry computed outputs forward as initial guess
+    **solve_kwargs,       # passed to sys.solve(): method, relaxation, max_iter, …
 )
 ```
 
@@ -39,6 +40,24 @@ sys.sweep("nonexistent", values)
 #   Available inputs: P0, T0, gamma, ...
 #   Hint: use system.add('nonexistent', value) first."
 ```
+
+### Warm-start
+
+For iterative systems (Gauss-Seidel/Newton) sweeping over a slowly varying parameter, `warm_start=True` carries the previous point's computed outputs forward as initial guesses. This reduces iteration count significantly when adjacent points are close together.
+
+```python
+# Without warm_start: every point starts from declared initial guesses
+# With warm_start:    each point starts from previous solution
+
+sweep = sys.sweep("UA", np.linspace(500, 5000, 30),
+                  method="gauss_seidel", relaxation=0.7,
+                  warm_start=True)
+```
+
+**Restrictions:**
+- Incompatible with `parallel > 1` — raises `ValueError` (parallel order is undefined)
+- Only updates quantities declared with `.add()`, not purely computed intermediates
+- If a warm-started point fails and `skip_errors=True`, that point's guess is not carried forward
 
 ### Solver options in sweep
 

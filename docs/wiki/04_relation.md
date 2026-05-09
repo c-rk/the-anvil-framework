@@ -260,10 +260,15 @@ def bad(x):
     return x * 2   # not a dict
 
 sys.use(bad)
-# Output detection fails → _outputs = []
-# System solve: no outputs written to workspace
-# If downstream relation needs that output → ValidationError
+sys.solve_forward()
+# RuntimeError: Relation 'bad' returned 'Quantity' instead of a dict.
+#   Relations must return a dict mapping output names to values.
+#   Example: return {"result": Q(F, "N")}
 ```
+
+Always return `{"output_name": value}`.
+
+**Exception — single-output convenience:** If a relation has exactly one known output and returns a bare scalar, Anvil accepts it silently. This is narrow; prefer dict returns.
 
 ### Quantity as dict key
 

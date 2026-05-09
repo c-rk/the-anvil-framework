@@ -6,25 +6,31 @@ Comprehensive list of what Anvil cannot do, where it behaves unexpectedly, and h
 
 ## 1. System & Solver Limitations
 
-### No DOF analysis
+### DOF analysis — partial ✓ fixed
 
-**Problem:** Anvil validates that every required input is available, but does NOT verify that the system has as many equations as unknowns.
+`validate()` now emits warnings for two common DOF mistakes:
+
+1. **Declared variable also produced by relation** — silent overwrite (intentional for iterative initial guesses, but likely a naming bug in forward systems):
 
 ```python
-# 3 unknowns, 2 equations — no error
-sys = anvil.system("underdetermined")
-sys.add("x", 1.0); sys.add("y", 1.0); sys.add("z", 1.0)
-def rel1(x, y): return {"z_computed": x + y}
-def rel2(z): return {"w": z * 2}
-sys.use(rel1); sys.use(rel2)
-sys.validate()   # passes! "z" declared but never computed
-result = sys.solve_forward()
-# result["z"] = 1.0 (original declaration)
-# result["z_computed"] = 2.0 (from rel1)
-# Two different values for conceptually the same quantity — no warning
+sys.add("T0_T", 999.0)       # declared
+sys.use("isentropic_ratios")  # also produces T0_T
+sys.validate()
+# WARNING: variable(s) declared via .add() are also produced by a relation
+#   declared value will be overwritten after solve: ['T0_T']
 ```
 
-**Workaround:** Manually verify your equation count matches your unknown count before trusting results.
+2. **Declared variable used by no relation** — orphan / typo:
+
+```python
+sys.add("unused_var", 42.0)
+sys.validate()
+# WARNING: variable(s) declared via .add() are not used by any relation: ['unused_var']
+```
+
+Warnings fire once per system instance; suppressed on sweeps/re-solves.
+
+**Still NOT checked:** Whether n_equations == n_unknowns in the general case. An underdetermined system where nothing needs the missing variable still produces no error.
 
 ### Gauss-Seidel divergence
 
@@ -62,24 +68,17 @@ sys.solve_newton()  # may fail or find wrong root
 
 **Workaround:** Use `solve_gauss_seidel()` first to get close, then refine with `solve_newton()`.
 
-### No warm-starting between sweeps
+### Warm-starting between sweep points — ✓ fixed
 
-Each sweep point starts from the declared initial values, not the previous point's solution. For iterative solves, this means every point pays full convergence cost.
-
-**Workaround:** For sweeps over slowly varying parameters, manually loop instead of using `sweep()`:
+`sweep()` now accepts `warm_start=True`. Each successful solve's outputs are carried forward as initial guesses for the next point:
 
 ```python
-prev_result = None
-for val in values:
-    sys.set(P0=val)
-    if prev_result:
-        # Warm start: set computed outputs from last solution
-        for k, v in prev_result.to_dict(si=True).items():
-            if k in sys._quantities:
-                sys._quantities[k]._si_value = v
-    result = sys.solve_gauss_seidel()
-    prev_result = result
+sweep = sys.sweep("UA", np.linspace(500, 5000, 30),
+                  method="gauss_seidel", relaxation=0.7,
+                  warm_start=True, skip_errors=True)
 ```
+
+Reduces iteration count significantly for slowly varying parameters. Incompatible with `parallel > 1` (raises `ValueError`).
 
 ---
 
@@ -118,19 +117,17 @@ Q(3, "m") ** Q(2, "N")
 
 Even though the numerical result of `3**2=9` is fine, Anvil refuses because the dimension of `N` makes no physical sense as an exponent.
 
-### Comparison between different-dimension Q
+### Cross-dimension comparison — ✓ fixed
+
+`<`, `<=`, `>`, `>=` between incompatible-dimension Q objects now raise `TypeError`:
 
 ```python
-Q(10, "N") < Q(5, "K")   # returns NotImplemented (Python evaluates as True in boolean!)
+Q(10, "N") < Q(5, "K")
+# TypeError: Cannot compare [L][M][T-2] < [Θ]: incompatible dimensions.
+#            Convert to the same unit first.
 ```
 
-Python evaluates `NotImplemented` as truthy in boolean contexts:
-```python
-if Q(10, "N") < Q(5, "K"):    # THIS PASSES! NotImplemented is truthy
-    print("This prints")       # This runs — silent bug
-```
-
-**Workaround:** Always compare same-dimension quantities. Use explicit dimension checks if needed.
+Previously this returned `NotImplemented`, which Python treated as `True` in boolean contexts — a silent logic bug. `__le__` and `__ge__` operators also added. `==` still returns `False` (not an error) for dimension mismatches.
 
 ### `Q(None)` in arithmetic
 
@@ -156,7 +153,7 @@ print(Q(100, "N") / Q(5, "K"))  # contains [L][M][T-2][Θ-1]
 
 ## 3. Relation Gotchas
 
-### Functions that don't return a dict
+### Functions that don't return a dict — ✓ fixed
 
 ```python
 def bad(x):
@@ -164,12 +161,12 @@ def bad(x):
 
 sys.use(bad)
 sys.solve_forward()
-# No error — but workspace gets nothing
+# RuntimeError: Relation 'bad' returned 'Quantity' instead of a dict.
+#   Relations must return a dict mapping output names to values.
+#   Example: return {"result": Q(F, "N")}
 ```
 
-Output detection fails silently (`_outputs = []`). The relation is called but produces no outputs.
-
-**Workaround:** Always return `{"output_name": value}`.
+Previously this silently produced no outputs. Now raises `RuntimeError` with a clear message. Single-scalar return with exactly one known output still works as a narrow convenience.
 
 ### Dynamic dict construction
 
@@ -254,17 +251,20 @@ The global registry is per-user, not per-project. All Anvil sessions on the same
 
 **Implication:** `anvil.push()` in a script permanently modifies the shared DB. Use project registries (`anvil.project()`) for development RSQs.
 
-### `anvil.R.<name>` vs string lookup
+### `anvil.R.<name>` vs string lookup — ✓ fixed
 
-`anvil.R.*` attributes are loaded at import time and cached in the `Namespace` object. If you `anvil.push()` a new RSQ after `import anvil`, `anvil.R.new_rsq` won't be available until the namespace is rebuilt:
+`anvil.push()` and `anvil.update()` now rebuild `anvil.R.*` / `anvil.S.*` / `anvil.QDB.*` automatically. The new RSQ is accessible immediately:
 
 ```python
 import anvil
 anvil.push(my_func, name="new_rsq")
-anvil.R.new_rsq   # AttributeError — not yet in namespace
+anvil.R.new_rsq(x=1.0)   # works — no restart needed
 ```
 
-**Workaround:** Use `anvil.registry._rebuild_namespaces()` to force refresh, or restart the session. In practice, push RSQs before using them in scripts.
+Manual rebuild still available if needed (e.g. after direct DB manipulation):
+```python
+anvil.registry._rebuild_namespaces()
+```
 
 ---
 
@@ -415,13 +415,18 @@ Each sweep point stores a full Result object with all workspace variables. For l
 
 ## 9. Known Issues
 
-| Issue | Workaround |
-|-------|------------|
-| `viz.dependency_graph()` overlaps nodes for large systems | Scale figure manually: `fig.set_size_inches(20, 15)` before `plt.show()` |
-| `block` relation returns all workspace keys, not just declared outputs | Access only the keys you care about |
-| `_qty_compatible` cache is per-Relation object — copied systems start with `None` | Negligible overhead — first call recaches |
-| `ResourceWarning: unclosed database` on CPython 3.14+ | SQLite connections not explicitly closed. Harmless for scripts; use `store.close()` in long-running servers |
-| Windows cp1252 encoding breaks Dim repr with Θ symbol | Use `-X utf8` Python flag or `PYTHONIOENCODING=utf-8` |
-| `anvil.project()` prints "Project opened" even in silent scripts | No `quiet=True` option — redirect stdout if needed |
-| `as_relation()` creates a closure that re-validates on every call | Avoid composition inside tight loops |
-| `solve_ode` `success=True` for singular/ill-conditioned problems | Always check `r["message"]` and validate results physically |
+| Issue | Status | Workaround |
+|-------|--------|------------|
+| Cross-dim `<`/`<=`/`>`/`>=` silent boolean bug | ✓ **Fixed** | Now raises `TypeError` |
+| Non-dict relation return silent no-op | ✓ **Fixed** | Now raises `RuntimeError` |
+| `anvil.R.*` stale after `push()` | ✓ **Fixed** | Namespace rebuilt automatically |
+| DOF: declared var overwritten with no warning | ✓ **Fixed** | `validate()` warns once per system |
+| No warm-start between sweep points | ✓ **Fixed** | `sweep(warm_start=True)` |
+| `viz.dependency_graph()` overlaps nodes for large systems | Open | Scale figure: `fig.set_size_inches(20, 15)` |
+| `block` relation returns all workspace keys, not just declared outputs | Open | Access only the keys you care about |
+| `_qty_compatible` cache resets on `copy()` | Open | Negligible — first call recaches |
+| `ResourceWarning: unclosed database` on CPython 3.14+ | Open | Harmless for scripts; `store.close()` in servers |
+| Windows cp1252 encoding breaks Dim repr with Θ symbol | Open | Use `-X utf8` flag or `PYTHONIOENCODING=utf-8` |
+| `anvil.project()` prints "Project opened" in silent scripts | Open | Redirect stdout if needed |
+| `as_relation()` closure re-validates on every call | Open | Avoid composition inside tight loops |
+| `solve_ode` `success=True` for singular/ill-conditioned problems | Open | Check `r["message"]`; validate results physically |

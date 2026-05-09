@@ -180,7 +180,8 @@ def remove(name, origin=None):
 
 
 def register(obj, name=None, rsq_type=None, domain="", version="0.0.1",
-             description="", author="", tags=None, tests=None, depends=None):
+             description="", author="", tags=None, tests=None, depends=None,
+             _suppress_overwrite_warning=False):
     """Register a local RSQ."""
     from anvil.quantity import Quantity
     from anvil.relation import Relation
@@ -224,7 +225,7 @@ def register(obj, name=None, rsq_type=None, domain="", version="0.0.1",
         metadata["inputs"] = inputs
 
     existing = store.get(name)
-    if existing and existing.get("origin") not in ("builtin",):
+    if existing and existing.get("origin") not in ("builtin",) and not _suppress_overwrite_warning:
         import warnings
         warnings.warn(
             f"RSQ '{name}' already exists (v{existing['version']}, "
@@ -276,7 +277,8 @@ def update(obj, name=None, domain=None, version=None, description=None,
     eff_tags = tags if tags is not None else base.get("tags", [])
 
     register(obj, name=eff_name, domain=eff_domain, version=eff_version,
-             description=eff_desc, author=eff_author, tags=eff_tags)
+             description=eff_desc, author=eff_author, tags=eff_tags,
+             _suppress_overwrite_warning=True)
     print(f"  Updated '{eff_name}'.")
 
 

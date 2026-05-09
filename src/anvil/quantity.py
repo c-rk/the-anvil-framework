@@ -258,13 +258,41 @@ class Quantity:
 
     def __lt__(self, other):
         if isinstance(other, Quantity):
+            if self._dim != other._dim:
+                raise TypeError(
+                    f"Cannot compare {self._dim} < {other._dim}: incompatible dimensions. "
+                    f"Convert to the same unit first."
+                )
             return self._si_value < other._si_value
         return self._si_value < other if self.dimensionless else NotImplemented
 
+    def __le__(self, other):
+        if isinstance(other, Quantity):
+            if self._dim != other._dim:
+                raise TypeError(
+                    f"Cannot compare {self._dim} <= {other._dim}: incompatible dimensions."
+                )
+            return self._si_value <= other._si_value
+        return self._si_value <= other if self.dimensionless else NotImplemented
+
     def __gt__(self, other):
         if isinstance(other, Quantity):
+            if self._dim != other._dim:
+                raise TypeError(
+                    f"Cannot compare {self._dim} > {other._dim}: incompatible dimensions. "
+                    f"Convert to the same unit first."
+                )
             return self._si_value > other._si_value
         return self._si_value > other if self.dimensionless else NotImplemented
+
+    def __ge__(self, other):
+        if isinstance(other, Quantity):
+            if self._dim != other._dim:
+                raise TypeError(
+                    f"Cannot compare {self._dim} >= {other._dim}: incompatible dimensions."
+                )
+            return self._si_value >= other._si_value
+        return self._si_value >= other if self.dimensionless else NotImplemented
 
     def __float__(self):
         if self._si_value is None:

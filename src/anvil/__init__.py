@@ -201,6 +201,7 @@ def push(obj, name=None, domain="", version="0.0.1", description="",
     registry.register(obj, name=name, domain=domain, version=version,
                       description=description, author=author,
                       tags=tags, tests=tests, depends=depends)
+    registry._rebuild_namespaces()
 
 
 def project(name, path=None):
@@ -238,6 +239,7 @@ def update(obj, name=None, domain=None, version=None, description=None,
     """
     registry.update(obj, name=name, domain=domain, version=version,
                     description=description, author=author, tags=tags)
+    registry._rebuild_namespaces()
 
 
 def search(keyword, tags=None):

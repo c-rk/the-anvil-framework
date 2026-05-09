@@ -445,6 +445,7 @@ class System:
         self._has_cycles = False
         self._history = []
         self._output_meta = {}
+        self._dof_warned = False  # suppress repeat DOF warnings within same session
 
     def copy(self):
         """
@@ -465,6 +466,7 @@ class System:
             new._quantities[k] = new_q
         new._relations = list(self._relations)
         new._validated = False
+        new._dof_warned = self._dof_warned
         return new
 
     def add(self, name=None, value=None, unit="", *, desc="", bounds=None, role="", **quantities):
@@ -672,6 +674,38 @@ class System:
         if errors:
             raise ValidationError("Validation failed:\n" + "\n".join(f"  * {e}" for e in errors))
 
+        # === DOF analysis (warnings only — never blocks execution) ===
+        # Suppress after first validation so sweep/iterative solvers aren't noisy.
+        if not self._dof_warned:
+            all_rel_outputs = set()
+            all_rel_inputs = set()
+            for rel in self._relations:
+                all_rel_outputs.update(rel._outputs)
+                all_rel_inputs.update(rel._inputs)
+
+            # Declared variables that a relation will overwrite — silent in forward pass,
+            # intentional in iterative (initial guess). Warn so the user knows.
+            overwritten = [k for k in self._quantities if k in all_rel_outputs]
+            if overwritten:
+                msg = (f"  WARNING: variable(s) declared via .add() are also produced by a "
+                       f"relation — declared value will be overwritten after solve: {overwritten}\n"
+                       f"    (This is intentional for iterative initial guesses; for forward "
+                       f"systems it may indicate a naming mismatch.)")
+                print(msg)
+                warnings.append(f"Overwritten declared variables: {overwritten}")
+
+            # Declared variables used by no relation at all (not an input, not an output)
+            isolated = [k for k in self._quantities
+                        if k not in all_rel_inputs and k not in all_rel_outputs]
+            if isolated and self._relations:
+                msg = (f"  WARNING: variable(s) declared via .add() are not used by any "
+                       f"relation: {isolated}\n"
+                       f"    (Possible typo or unused parameter.)")
+                print(msg)
+                warnings.append(f"Unused declared variables: {isolated}")
+
+            self._dof_warned = True
+
         self._build_exec_order()
         self._validated = True
         return warnings
@@ -802,6 +836,8 @@ class System:
                     else:
                         ws[k] = float(v)
             elif len(rel._outputs) == 1:
+                # Single-value convenience: relation has exactly one known output,
+                # returned as a bare scalar rather than a dict.
                 v = result
                 if isinstance(v, Quantity):
                     ws[rel._outputs[0]] = float(v._si_value)
@@ -810,6 +846,15 @@ class System:
                     ws[rel._outputs[0]] = v
                 else:
                     ws[rel._outputs[0]] = float(v)
+            else:
+                # result is not a dict and not a single-output scalar
+                raise RuntimeError(
+                    f"Relation '{rel.name}' returned {type(result).__name__!r} "
+                    f"instead of a dict. Relations must return a dict mapping "
+                    f"output names to values.\n"
+                    f"  Example: return {{\"thrust\": Q(F, \"N\")}}\n"
+                    f"  Got: {result!r:.100}"
+                )
 
     def _iterate(self, ws, max_iter, rtol, relaxation, monitor, verbose, t0):
         for iteration in range(max_iter):
@@ -951,7 +996,8 @@ class System:
 
     # === Sweep ===
 
-    def sweep(self, param_name, values, skip_errors=False, parallel=1, **solve_kwargs):
+    def sweep(self, param_name, values, skip_errors=False, parallel=1,
+              warm_start=False, **solve_kwargs):
         """
         Sweep a parameter over a range of values.
 
@@ -967,6 +1013,11 @@ class System:
             Number of parallel workers (>1 enables concurrent evaluation).
             Uses thread-based concurrency — best for numpy/scipy workloads.
             For pure-Python heavy loops, set parallel=1.
+        warm_start : bool
+            If True, carry computed outputs from the previous successful solve
+            as initial values for the next point. Useful for iterative systems
+            (gauss_seidel / newton) sweeping over a slowly varying parameter —
+            reduces iteration count per point. Incompatible with parallel > 1.
         **solve_kwargs
             Passed to solve() (method, relaxation, max_iter, verbose, ...).
         """
@@ -978,6 +1029,12 @@ class System:
                 f"  Available inputs: {available}\n"
                 f"  Hint: use system.add('{param_name}', value) first."
             )
+        if warm_start and parallel > 1:
+            raise ValueError(
+                "warm_start=True is incompatible with parallel > 1 "
+                "(solve order is undefined in parallel mode)."
+            )
+
         orig = self._quantities[param_name]
         if orig._unit_hint and orig._unit_hint in _u.db._forward:
             scale = _u.db._forward[orig._unit_hint][0]
@@ -1000,8 +1057,16 @@ class System:
                 unit_hint=orig._unit_hint)
             self._validated = False
             try:
-                results.append(self.solve(**solve_kwargs))
+                result = self.solve(**solve_kwargs)
+                results.append(result)
                 values_used.append(v)
+                if warm_start:
+                    # Carry solved values forward as initial guess for next point.
+                    # Only update declared quantities (the ones iterated on in GS/Newton).
+                    for k, q_res in result._data.items():
+                        if k in self._quantities and k != param_name:
+                            if isinstance(q_res, Quantity) and q_res._si_value is not None:
+                                self._quantities[k]._si_value = q_res._si_value
             except RuntimeError as e:
                 if skip_errors:
                     _warnings_mod.warn(

@@ -163,6 +163,84 @@ Output column (12 nodes): area_ratio, M_exit, T0_T, P0_P, rho0_rho, T_exit, P_ex
 
 ---
 
+## `viz.pod_energy(pod_result, ax=None, show=True, threshold=0.99)`
+
+Two-panel figure showing POD singular value spectrum and cumulative energy. Used to select the truncation rank for reconstruction or reduced-order modeling.
+
+```python
+from anvil import viz, decomp
+
+pod = decomp.pod(X, r=20)
+viz.pod_energy(pod)
+viz.pod_energy(pod, threshold=0.999)   # mark 99.9% instead of 99%
+```
+
+**Left panel:** Bar chart of singular values on a log scale. A steep drop indicates low-rank structure in the data.
+
+**Right panel:** Cumulative energy (%) as a function of mode count. A green dashed line marks `threshold`. A vertical dotted line and annotation show how many modes achieve that threshold.
+
+**Parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `pod_result` | required | Dict from `anvil.decomp.pod()` |
+| `ax` | None | Array of 2 Axes `[ax_left, ax_right]`; creates figure if None |
+| `show` | True | Call `plt.show()` |
+| `threshold` | 0.99 | Energy threshold for the guide line |
+
+**Returns:** The Figure object.
+
+```python
+# Save to file
+fig = viz.pod_energy(pod, show=False)
+fig.savefig("pod_energy.png", dpi=150, bbox_inches="tight")
+```
+
+---
+
+## `viz.dmd_spectrum(dmd_result, ax=None, show=True, unit_circle=True)`
+
+Scatter plot of DMD eigenvalues in the complex plane. Marker size and color encode normalized mode amplitude, making the dominant modes immediately visible.
+
+```python
+from anvil import viz, decomp
+
+dmd_r = decomp.dmd(H, dt=0.005, r=12)
+viz.dmd_spectrum(dmd_r)
+```
+
+**Stability interpretation:**
+- Eigenvalues **inside** the unit circle (`|λ|<1`): stable, decaying modes
+- Eigenvalues **on** the unit circle (`|λ|≈1`): neutrally stable, purely oscillatory
+- Eigenvalues **outside** the unit circle (`|λ|>1`): unstable, growing modes
+
+**Frequency:** The angle `arg(λ)` encodes frequency. Eigenvalues at `±iy` on the unit circle are at frequency `y/(2π dt)` Hz.
+
+**Parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `dmd_result` | required | Dict from `anvil.decomp.dmd()` |
+| `ax` | None | Existing Axes; creates figure if None |
+| `show` | True | Call `plt.show()` |
+| `unit_circle` | True | Draw `|λ|=1` circle as dashed line |
+
+**Returns:** The Figure object.
+
+```python
+# Two spectra side by side
+import matplotlib.pyplot as plt
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+viz.dmd_spectrum(dmd_before, ax=axes[0], show=False)
+viz.dmd_spectrum(dmd_after,  ax=axes[1], show=False)
+axes[0].set_title("Before treatment")
+axes[1].set_title("After treatment")
+plt.tight_layout()
+plt.show()
+```
+
+---
+
 ## Saving Figures
 
 All functions return an object (Axes or Figure) that can be used for further customization:

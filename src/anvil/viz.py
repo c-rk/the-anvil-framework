@@ -320,3 +320,121 @@ def dependency_graph(system, show=True, save=None):
     if show:
         plt.show()
     return fig
+
+
+def pod_energy(pod_result, ax=None, show=True, threshold=0.99):
+    """
+    Plot POD singular value spectrum and cumulative energy.
+
+    Parameters
+    ----------
+    pod_result : dict
+        From anvil.decomp.pod().
+    threshold : float
+        Horizontal guide line at this cumulative energy level (default 0.99).
+    ax : array of 2 Axes, optional
+        If provided, plots into ax[0] and ax[1].
+    show : bool
+    """
+    plt = _get_plt()
+    import numpy as np
+
+    s = pod_result["singular_values"]
+    ce = pod_result["cumulative_energy"]
+    r = pod_result["rank"]
+    modes = np.arange(1, r + 1)
+
+    if ax is None:
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    else:
+        axes = ax
+        fig = axes[0].figure
+
+    # Singular value spectrum
+    axes[0].bar(modes, s, color="#2E75B6", alpha=0.8, width=0.7)
+    axes[0].set_xlabel("Mode")
+    axes[0].set_ylabel("Singular value")
+    axes[0].set_title("POD Singular Value Spectrum")
+    axes[0].set_yscale("log")
+    axes[0].grid(True, alpha=0.3, axis="y")
+
+    # Cumulative energy
+    axes[1].plot(modes, ce * 100, "o-", color="#E05C2A", linewidth=2, markersize=4)
+    axes[1].axhline(y=threshold * 100, color="#4CAF50", linestyle="--",
+                    alpha=0.8, label=f"{threshold*100:.0f}% energy")
+    n_thresh = min(int(np.searchsorted(ce, threshold)) + 1, r)
+    axes[1].axvline(x=n_thresh, color="#4CAF50", linestyle=":", alpha=0.7)
+    axes[1].annotate(
+        f"{n_thresh} modes",
+        xy=(n_thresh, threshold * 100),
+        xytext=(n_thresh + max(1, r * 0.03), threshold * 100 - 6),
+        fontsize=9, color="#2a6e2a",
+    )
+    axes[1].set_xlabel("Mode")
+    axes[1].set_ylabel("Cumulative energy [%]")
+    axes[1].set_title("POD Cumulative Energy")
+    axes[1].set_ylim(0, 105)
+    axes[1].legend(fontsize=9)
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if show:
+        plt.show()
+    return fig
+
+
+def dmd_spectrum(dmd_result, ax=None, show=True, unit_circle=True):
+    """
+    Plot DMD eigenvalue spectrum in the complex plane.
+
+    Marker size and color represent normalized mode amplitude.
+    Modes inside the unit circle are stable; outside are growing.
+
+    Parameters
+    ----------
+    dmd_result : dict
+        From anvil.decomp.dmd().
+    unit_circle : bool
+        Draw the unit circle (|λ|=1 = neutrally stable).
+    ax : matplotlib Axes, optional
+    show : bool
+    """
+    plt = _get_plt()
+    import numpy as np
+
+    evals = dmd_result["eigenvalues"]
+    amps = np.abs(dmd_result["amplitudes"])
+    amps_norm = amps / (amps.max() + 1e-30)
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 6))
+    else:
+        fig = ax.figure
+
+    if unit_circle:
+        theta = np.linspace(0, 2 * np.pi, 400)
+        ax.plot(np.cos(theta), np.sin(theta), "k--", linewidth=0.8,
+                alpha=0.4, label="Unit circle (|λ|=1)")
+
+    sc = ax.scatter(
+        evals.real, evals.imag,
+        c=amps_norm, cmap="plasma",
+        s=40 + 140 * amps_norm,
+        edgecolors="k", linewidths=0.5,
+        zorder=3, vmin=0, vmax=1,
+    )
+    plt.colorbar(sc, ax=ax, label="Normalized amplitude")
+
+    ax.axhline(0, color="#aaa", linewidth=0.5)
+    ax.axvline(0, color="#aaa", linewidth=0.5)
+    ax.set_xlabel("Re(λ)")
+    ax.set_ylabel("Im(λ)")
+    ax.set_title("DMD Eigenvalue Spectrum")
+    ax.set_aspect("equal")
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.2)
+
+    plt.tight_layout()
+    if show:
+        plt.show()
+    return fig

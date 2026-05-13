@@ -278,6 +278,124 @@ If `inputs` or `outputs` are omitted:
 
 ---
 
+## `.optimize()` — Design Optimization
+
+Vary design variables to minimize (or maximize) a system output, running `solve()` inside the optimizer loop.
+
+```python
+opt = sys.optimize(
+    objective,          # str — output quantity name to optimize
+    design_vars,        # dict — {var_name: (lo, hi)}
+    minimize=True,      # False = maximize
+    method="differential_evolution",
+    seed=None,          # int — random seed for reproducibility
+    tol=1e-6,
+    maxiter=1000,
+    verbose=False,      # print progress every 25 evals
+    **solver_kwargs,    # passed to System.solve() for every evaluation
+)
+```
+
+**`design_vars`** bounds are in the **declared display unit** of each variable (same convention as `sweep()`). The variable must already exist in the system via `.add()`.
+
+**`**solver_kwargs`** are forwarded to every `solve()` call — use this for `method="gauss_seidel"`, `relaxation=0.7`, `max_iter=200` etc. on coupled systems.
+
+**Global methods** (no gradient, find global optimum):
+- `"differential_evolution"` (default) — robust, 10–20 variables
+- `"dual_annealing"` — fewer evaluations, good for noisy objectives
+- `"shgo"` — for tightly bounded or constrained problems
+- `"basinhopping"` — smooth, multi-modal landscapes
+
+**Gradient methods** (faster, smooth objectives only):
+- `"L-BFGS-B"`, `"SLSQP"`, `"Nelder-Mead"`
+
+**Solve failures:** If `solve()` raises inside the optimizer loop, that evaluation returns a large penalty value (`1e30`) rather than crashing the optimization. Passes with `verbose=True` print the failure. If all evaluations fail, `opt.success` is still `True` (from the optimizer's perspective) but `opt._result` will be `None`.
+
+### Returns: `OptimizeResult`
+
+```python
+opt.x           # dict: {var_name: optimal_value_in_display_units}
+opt.fun         # objective value at optimum
+opt.success     # bool
+opt.message     # str — optimizer message
+opt.nit         # optimizer iterations
+opt.nfev        # total System.solve() calls performed
+
+opt["thrust"]   # Quantity at optimum — same as result["thrust"]
+"Isp" in opt    # bool — check if key exists in optimum result
+
+opt.summary()   # print design vars + full result table
+```
+
+**Jupyter display:** `opt` renders as an HTML table showing status, objective, and design variables.
+
+### Examples
+
+```python
+import numpy as np
+import anvil
+
+# --- Maximize nozzle thrust ---
+nozzle = anvil.S.rocket_nozzle.copy()
+nozzle.set(P0=8e6, T0=3200, gamma=1.25, R_gas=400, P_amb=101325)
+
+opt = nozzle.optimize(
+    objective="thrust",
+    design_vars={
+        "A_throat": (0.002, 0.030),   # bounds in m² (declared unit)
+        "A_exit":   (0.010, 0.300),
+    },
+    minimize=False,
+    method="differential_evolution",
+    seed=42,
+    maxiter=400,
+    verbose=True,
+)
+
+opt.summary()
+print(f"Thrust: {opt.fun/1000:.2f} kN")
+print(f"A_throat: {opt.x['A_throat']*1e4:.1f} cm²")
+print(f"Isp: {float(opt['Isp'].value):.1f} s")   # subscript access
+
+# --- Gradient method for smooth landscapes ---
+opt_fast = nozzle.optimize(
+    objective="Isp",
+    design_vars={"A_throat": (0.005, 0.020), "A_exit": (0.05, 0.25)},
+    minimize=False,
+    method="L-BFGS-B",
+    maxiter=200,
+)
+
+# --- Coupled system: pass solver_kwargs ---
+hx = anvil.system("heat_exchanger")
+# ... setup ...
+opt_hx = hx.optimize(
+    objective="Q_duty",
+    design_vars={"mdot_h": (0.1, 2.0), "mdot_c": (0.1, 2.0)},
+    minimize=False,
+    method="differential_evolution",
+    # These go to System.solve():
+    method_solve="gauss_seidel",   # ← note: solver_kwargs cannot reuse 'method'
+    relaxation=0.7,
+    max_iter=200,
+)
+```
+
+> **`method` collision:** `System.optimize()` takes its own `method` for the optimizer. To control the inner `solve()` method, wrap it: pass `solve_method="gauss_seidel"` and do `sys.solve(method=solver_kwargs.pop("solve_method", None), **solver_kwargs)`. Or subclass with a custom `solve_for_opt()` method.
+
+### Performance
+
+| Situation | Typical evals |
+|-----------|--------------|
+| 2 design vars, DE | 500–2000 |
+| 4 design vars, DE | 2000–8000 |
+| Any n vars, L-BFGS-B (smooth) | 50–500 |
+| Noisy objective | Prefer DA or increase DE population |
+
+Each eval is one `System.solve()` call. For coupled systems (Gauss-Seidel), this is `O(max_iter × n_relations)` function evaluations per optimizer step.
+
+---
+
 ## `.info()` — Print Summary
 
 ```python

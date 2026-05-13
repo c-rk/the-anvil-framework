@@ -21,17 +21,18 @@ Anvil is an engineering computation framework: write physics as plain Python fun
 | [Quantity](02_quantity.md) | `Q`, `Dim`, `UnitStub`, arithmetic, conversions — complete API |
 | [Unit Engine](03_units.md) | All 80+ units, compound parsing, categories, custom dims |
 | [Relation](04_relation.md) | `Relation`, `@anvil.relation`, `Relation.block`, input/output detection |
-| [System](05_system.md) | `add`, `set`, `use`, `solve`, `sweep`, `sensitivity`, `as_relation` — full API |
-| [Solvers](06_solvers.md) | `find_root`, `solve_nonlinear`, `solve_ode`, `solve_ode_stiff`, `solve_bvp`, `solve_pde_heat_1d`, `minimize` |
+| [System](05_system.md) | `add`, `set`, `use`, `solve`, `sweep`, `sensitivity`, `optimize`, `as_relation` — full API |
+| [Solvers](06_solvers.md) | `find_root`, `solve_nonlinear`, `solve_ode`, `solve_ode_stiff`, `solve_bvp`, `solve_pde_heat_1d`, `minimize`, `minimize_global` |
 | [Registry](07_registry.md) | SQLite store, `push`, `update`, `search`, `list`, `info`, `export`, `remove`, `check` |
 | [Project Registry](08_project.md) | `anvil.project()`, isolated stores, context manager, `promote` |
 | [Built-in RSQs](09_builtin_rsqs.md) | All 57 RSQs — signatures, domains, example outputs |
 | [Adapters](10_adapters.md) | `Adapter`, python/CLI backends, unit handling |
 | [Sweep & Sensitivity](11_sweep_sensitivity.md) | `sys.sweep()`, `sys.sensitivity()`, result objects, parallel |
-| [Visualization](12_visualization.md) | `viz.convergence`, `viz.sweep_plot`, `viz.variable_trace`, `viz.dependency_graph` |
+| [Visualization](12_visualization.md) | `viz.convergence`, `viz.sweep_plot`, `viz.variable_trace`, `viz.dependency_graph`, `viz.pod_energy`, `viz.dmd_spectrum` |
 | [Databases](13_databases.md) | `fluids`, `materials`, `const` — built-in property tables |
 | [Limits & Gotchas](14_limits.md) | What fails, edge cases, accuracy, known issues |
 | [Advanced](15_advanced.md) | Composition, cycles, block relations, CFD module, Watchdog |
+| [Decomposition](16_decomp.md) | `anvil.decomp` — POD, DMD, Hankel embedding, signal analysis |
 
 ---
 
@@ -98,10 +99,11 @@ src/anvil/
 ├── quantity.py          Quantity (Q), Dim arithmetic
 ├── units.py             UnitDB, UnitStub, all unit definitions
 ├── relation.py          Relation class, Relation.block()
-├── system.py            System, Result, SweepResult, SensitivityResult
+├── system.py            System, Result, SweepResult, SensitivityResult, OptimizeResult
 ├── solvers/
 │   └── __init__.py      find_root, solve_nonlinear, solve_ode, solve_ode_stiff,
-│                        solve_bvp, solve_pde_heat_1d, minimize
+│                        solve_bvp, solve_pde_heat_1d, minimize, minimize_global
+├── decomp.py            POD, DMD, hankel, pod_reconstruct, dmd_reconstruct, pod_rank
 ├── registry/
 │   ├── __init__.py      push, search, list, info, export, remove
 │   ├── store.py         SQLite backend (Store class)
@@ -110,7 +112,8 @@ src/anvil/
 ├── seed.py              57 built-in RSQs seeded on first import
 ├── project.py           Project class (isolated registry)
 ├── adapter.py           Adapter class (python + cli backends)
-├── viz.py               convergence, sweep_plot, variable_trace, dependency_graph
+├── viz.py               convergence, sweep_plot, variable_trace, dependency_graph,
+│                        pod_energy, dmd_spectrum
 ├── inspect.py           anvil.check()
 ├── watchdog.py          Watchdog convergence tracker
 ├── db/
@@ -126,7 +129,8 @@ src/anvil/
 
 | Version | Key additions |
 |---------|--------------|
-| 1.1.0   | Current. CFD module, Watchdog, help_ |
+| 1.2.0   | Current. `minimize_global` (DE/DA/SHGO/BH), `System.optimize()`, `OptimizeResult`, `anvil.decomp` (POD/DMD), `viz.pod_energy`, `viz.dmd_spectrum` |
+| 1.1.0   | CFD module, Watchdog, help_ |
 | 1.0.0   | Project registry, Jupyter display, parallel sweep, 57 RSQs |
 | 0.x     | Core Q/Relation/System, basic registry |
 

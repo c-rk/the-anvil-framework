@@ -448,3 +448,105 @@ def minimize(func, x0, method="L-BFGS-B", bounds=None, tol=1e-8, maxiter=500, ja
         "message": result.message,
         "nit": result.nit,
     }
+
+
+def minimize_global(func, bounds, method="differential_evolution", seed=None,
+                    maxiter=1000, tol=1e-6, workers=1, callback=None, verbose=False):
+    """
+    Global minimization — no gradient needed, population-based search.
+
+    Parameters
+    ----------
+    func : callable
+        f(x) → float. Must accept a 1D numpy array.
+        For workers != 1 with "differential_evolution", must be picklable
+        (module-level function, not a closure).
+    bounds : list of (lo, hi)
+        Search bounds per dimension. Required.
+    method : str
+        "differential_evolution" (default) — population DE, robust, parallelizable
+        "dual_annealing"                   — simulated annealing + local polish
+        "shgo"                             — simplicial homology, handles constraints well
+        "basinhopping"                     — multi-start gradient descent
+    seed : int or None
+        Random seed for reproducibility.
+    maxiter : int
+        Maximum iterations (DE) or function evaluations (DA/BH).
+    tol : float
+        Convergence tolerance.
+    workers : int
+        Parallel workers for "differential_evolution" only (-1 = all CPUs).
+        Requires func to be picklable (module-level, not a closure).
+    callback : callable or None
+        Called each iteration. Signature is method-specific (passed through to scipy).
+    verbose : bool
+        Print start/finish summary.
+
+    Returns
+    -------
+    dict with keys: x, fun, success, message, nit, nfev
+
+    Examples
+    --------
+    Minimize Rosenbrock over [-2, 2]^2:
+
+        from scipy.optimize import rosen
+        result = anvil.solvers.minimize_global(rosen, bounds=[(-2, 2), (-2, 2)])
+        print(result["x"], result["fun"])
+
+    Maximize thrust by passing negated objective:
+
+        result = anvil.solvers.minimize_global(
+            lambda x: -thrust(x), bounds=[(0.01, 0.1), (0.5, 5.0)],
+            method="dual_annealing", seed=42,
+        )
+    """
+    bounds = [tuple(b) for b in bounds]
+    ndim = len(bounds)
+
+    if verbose:
+        print(f"  minimize_global: method={method!r}  ndim={ndim}  maxiter={maxiter}")
+
+    if method == "differential_evolution":
+        result = _opt.differential_evolution(
+            func, bounds, seed=seed, maxiter=maxiter, tol=tol,
+            workers=workers, callback=callback, polish=True,
+        )
+    elif method == "dual_annealing":
+        result = _opt.dual_annealing(
+            func, bounds, seed=seed, maxiter=maxiter, callback=callback,
+        )
+    elif method == "shgo":
+        result = _opt.shgo(
+            func, bounds,
+            options={"maxiter": maxiter, "ftol": tol},
+            callback=callback,
+        )
+    elif method == "basinhopping":
+        x0 = np.array([0.5 * (lo + hi) for lo, hi in bounds])
+        result = _opt.basinhopping(
+            func, x0, niter=maxiter, seed=seed,
+            minimizer_kwargs={"method": "L-BFGS-B", "bounds": bounds},
+            callback=callback,
+        )
+    else:
+        raise ValueError(
+            f"Unknown global method: '{method}'. "
+            f"Choose: 'differential_evolution', 'dual_annealing', 'shgo', 'basinhopping'."
+        )
+
+    if verbose:
+        ok = getattr(result, "success", True)
+        status = "converged" if ok else "FAILED"
+        print(f"  minimize_global {status}: "
+              f"{getattr(result, 'nfev', '?')} evals  "
+              f"f_best = {result.fun:.6g}")
+
+    return {
+        "x": result.x,
+        "fun": result.fun,
+        "success": getattr(result, "success", True),
+        "message": getattr(result, "message", ""),
+        "nit": getattr(result, "nit", 0),
+        "nfev": getattr(result, "nfev", 0),
+    }

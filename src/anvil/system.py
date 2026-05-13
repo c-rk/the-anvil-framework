@@ -425,6 +425,75 @@ class SensitivityResult:
         )
 
 
+class OptimizeResult:
+    """Result from System.optimize()."""
+
+    def __init__(self, best_result, best_x, best_fun, design_var_names,
+                 success, message, nit, nfev, system_name=""):
+        self._result = best_result
+        self.x = best_x           # {var_name: value in declared display units}
+        self.fun = best_fun       # objective value at optimum
+        self.success = success
+        self.message = message
+        self.nit = nit
+        self.nfev = nfev
+        self._system_name = system_name
+        self._design_var_names = design_var_names
+
+    def __getitem__(self, key):
+        if self._result is None:
+            raise KeyError(f"No successful solve in optimization; cannot get '{key}'")
+        return self._result[key]
+
+    def __contains__(self, key):
+        return self._result is not None and key in self._result
+
+    def summary(self):
+        print(f"\n{'=' * 56}")
+        if self._system_name:
+            print(f"  {self._system_name} -- optimization")
+        status = "CONVERGED" if self.success else "NOT CONVERGED"
+        print(f"  Status   : {status}  ({self.message})")
+        print(f"  Evals    : {self.nfev}   Iterations: {self.nit}")
+        print(f"  Objective: {self.fun:.6g}")
+        print(f"{'=' * 56}")
+        print(f"  Design variables at optimum:")
+        for name, val in self.x.items():
+            print(f"    {name:22s}  {val:.6g}")
+        if self._result is not None:
+            print()
+            self._result.summary()
+
+    def _repr_html_(self):
+        status_color = "#2a7a2a" if self.success else "#cc3333"
+        status_text = "&#10003; Converged" if self.success else "&#10007; Not converged"
+        rows = [
+            f'<tr><td colspan="2" style="padding:4px 10px;color:{status_color};'
+            f'font-weight:bold">{status_text} &mdash; {self.nfev} evaluations, '
+            f'{self.nit} iterations</td></tr>',
+            f'<tr style="background:#eef6ee">'
+            f'<td style="padding:4px 10px;color:#555;font-size:.85em">objective</td>'
+            f'<td style="padding:4px 10px;text-align:right;font-family:monospace;'
+            f'font-weight:bold">{self.fun:.6g}</td></tr>',
+        ]
+        for name, val in self.x.items():
+            rows.append(
+                f'<tr><td style="padding:4px 10px;color:#555;font-size:.85em">'
+                f'design: <b>{name}</b></td>'
+                f'<td style="padding:4px 10px;text-align:right;font-family:monospace">'
+                f'{val:.6g}</td></tr>'
+            )
+        title = (f"{self._system_name} &mdash; Optimization"
+                 if self._system_name else "Optimization Result")
+        return (
+            f'<div style="font-family:sans-serif">'
+            f'<div style="font-weight:bold;margin-bottom:6px">{title}</div>'
+            f'<table style="border-collapse:collapse;font-size:.9em">'
+            f'<tbody>{"".join(rows)}</tbody>'
+            f'</table></div>'
+        )
+
+
 class System:
     """
     A solvable engineering problem.
@@ -1197,6 +1266,153 @@ class System:
                     sensitivities[out][inp_name] = 0.0
 
         return SensitivityResult(sensitivities, self.name)
+
+    # === Optimization ===
+
+    def optimize(self, objective, design_vars, minimize=True,
+                 method="differential_evolution", seed=None,
+                 tol=1e-6, maxiter=1000, verbose=False, **solver_kwargs):
+        """
+        Optimize a system output by varying design variables.
+
+        Parameters
+        ----------
+        objective : str
+            Name of the output Quantity to optimize (must appear in solve result).
+        design_vars : dict
+            {var_name: (lo, hi)} — bounds in the declared unit of each variable.
+            Variable must already exist in the system via .add().
+        minimize : bool
+            True (default) = minimize; False = maximize.
+        method : str
+            Global (no gradient):
+                "differential_evolution" (default) — robust, good for ≤20 vars
+                "dual_annealing"                   — fast for noisy landscapes
+                "shgo"                             — tight bounds, constrained problems
+                "basinhopping"                     — smooth multi-modal
+            Gradient-based (faster, needs smooth objective):
+                "L-BFGS-B", "SLSQP", "Nelder-Mead"
+        tol : float
+            Convergence tolerance.
+        maxiter : int
+            Maximum optimizer iterations.
+        verbose : bool
+            Print progress every 25 evaluations.
+        **solver_kwargs
+            Passed to System.solve() for every evaluation
+            (e.g. method="gauss_seidel", relaxation=0.7, max_iter=200).
+
+        Returns
+        -------
+        OptimizeResult
+            .x        — dict of design variable values at optimum (display units)
+            .fun      — objective value at optimum
+            .success  — bool
+            .nfev     — total system solves performed
+            [key]     — subscript access to any Result quantity at optimum
+
+        Examples
+        --------
+        Maximize nozzle thrust by tuning exit area and chamber pressure:
+
+            opt = nozzle.optimize(
+                objective="thrust",
+                design_vars={"Ae": (0.01, 0.20), "P0": (3e6, 10e6)},
+                minimize=False,
+                method="differential_evolution",
+                maxiter=500,
+                verbose=True,
+            )
+            opt.summary()
+            print(opt["Isp"])   # any other result quantity at optimum
+        """
+        from anvil.solvers import minimize_global, minimize as _minimize_grad
+
+        dv_names = list(design_vars.keys())
+        scales = []
+        si_bounds = []
+
+        for name in dv_names:
+            if name not in self._quantities:
+                raise KeyError(
+                    f"Design variable '{name}' not in system. "
+                    f"Add it with .add('{name}', value, unit) first."
+                )
+            lo, hi = design_vars[name][0], design_vars[name][1]
+            q = self._quantities[name]
+            scale = 1.0
+            if q._unit_hint and q._unit_hint in _u.db._forward:
+                scale = _u.db._forward[q._unit_hint][0]
+            scales.append((scale, q))
+            si_bounds.append((float(lo) * scale, float(hi) * scale))
+
+        sign = 1.0 if minimize else -1.0
+        best = {"val": np.inf, "result": None}
+        nfev = [0]
+
+        def objective_fn(x_si):
+            nfev[0] += 1
+            sys_copy = self.copy()
+            for i, name in enumerate(dv_names):
+                scale, q = scales[i]
+                sys_copy._quantities[name] = Quantity._raw(
+                    float(x_si[i]), q._dim, name=name, unit_hint=q._unit_hint)
+            sys_copy._validated = False
+            try:
+                result = sys_copy.solve(**solver_kwargs)
+            except Exception as e:
+                if verbose:
+                    print(f"  [eval {nfev[0]}] solve failed: {e}")
+                return 1e30
+
+            if objective not in result:
+                raise KeyError(
+                    f"Objective '{objective}' not in solve result. "
+                    f"Available: {list(result.keys())}"
+                )
+            obj_q = result[objective]
+            obj_val = (float(obj_q._si_value) if isinstance(obj_q, Quantity)
+                       else float(obj_q))
+            signed_val = sign * obj_val
+
+            if signed_val < best["val"]:
+                best["val"] = signed_val
+                best["result"] = result
+
+            if verbose and nfev[0] % 25 == 0:
+                print(f"  [eval {nfev[0]:4d}]  {objective} = {obj_val:.6g}")
+
+            return signed_val
+
+        global_methods = {"differential_evolution", "dual_annealing",
+                          "shgo", "basinhopping"}
+        if method in global_methods:
+            opt = minimize_global(
+                objective_fn, si_bounds, method=method,
+                seed=seed, maxiter=maxiter, tol=tol, workers=1,
+                verbose=verbose,
+            )
+        else:
+            x0 = np.array([0.5 * (lo + hi) for lo, hi in si_bounds])
+            opt = _minimize_grad(objective_fn, x0, method=method,
+                                 bounds=si_bounds, tol=tol, maxiter=maxiter)
+
+        best_x = {}
+        for i, name in enumerate(dv_names):
+            scale, _ = scales[i]
+            best_x[name] = opt["x"][i] / scale
+
+        return OptimizeResult(
+            best_result=best["result"],
+            best_x=best_x,
+            best_fun=best["val"] * sign,
+            design_var_names=dv_names,
+            success=opt["success"],
+            message=opt["message"],
+            nit=opt.get("nit", 0),
+            nfev=nfev[0],
+            system_name=self.name,
+        )
 
     # === Monitoring ===
 

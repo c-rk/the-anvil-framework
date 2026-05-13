@@ -39,17 +39,17 @@ Anvil: From equations to engineering tools.
     viz.dependency_graph(system)
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # Core primitives
 from anvil.quantity import Quantity, Q
 from anvil.units import Dim
 from anvil.relation import Relation
-from anvil.system import System, Result, SweepResult, SensitivityResult, ValidationError
+from anvil.system import System, Result, SweepResult, SensitivityResult, OptimizeResult, ValidationError
 from anvil.adapter import Adapter
 from anvil.watchdog import Watchdog
 from anvil.inspect import check
-from anvil import units, solvers, viz
+from anvil import units, solvers, viz, decomp
 from anvil import cfd
 from anvil.project import Project, get_active_project
 from anvil.help_ import lookup

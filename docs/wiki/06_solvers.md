@@ -485,6 +485,101 @@ r = solvers.minimize(
 
 ---
 
+## `minimize_global` — Global Optimization
+
+Minimize `f(x)` over bounded domains without requiring gradients. Uses population-based and stochastic methods that can escape local minima.
+
+```python
+r = solvers.minimize_global(func, bounds,
+    method="differential_evolution",
+    seed=None,
+    maxiter=1000,
+    tol=1e-6,
+    workers=1,
+    callback=None,
+    verbose=False)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `func` | required | `f(x) → float`. Must accept a 1D numpy array |
+| `bounds` | required | `[(lo, hi), ...]` — one per dimension |
+| `method` | `"differential_evolution"` | See table below |
+| `seed` | None | Integer seed for reproducibility |
+| `maxiter` | 1000 | Maximum iterations (DE) or function evals (DA/BH) |
+| `tol` | 1e-6 | Convergence tolerance |
+| `workers` | 1 | Parallel workers for `"differential_evolution"` only. `-1` = all CPUs. Requires `func` to be picklable (module-level, not a closure). |
+| `callback` | None | Called each iteration; signature is method-specific (passed through to scipy) |
+| `verbose` | False | Print start/finish summary |
+
+**Returns dict:** same shape as `minimize()`:
+
+| Key | Description |
+|-----|-------------|
+| `"x"` | Optimal solution array |
+| `"fun"` | Objective value at optimum |
+| `"success"` | bool |
+| `"message"` | str — solver message |
+| `"nit"` | Iterations (0 for methods that don't track this) |
+| `"nfev"` | Function evaluations |
+
+**Methods:**
+
+| Method | Best for | Gradient | Parallelizable |
+|--------|---------|----------|---------------|
+| `"differential_evolution"` | Continuous, multi-modal, general (default) | No | Yes (picklable func only) |
+| `"dual_annealing"` | Escaping deep local minima, fewer evals | No | No |
+| `"shgo"` | Constrained global opt, tight bounds | No | No |
+| `"basinhopping"` | Smooth multi-modal, needs gradient descent | No | No |
+
+**SciPy backends:** `differential_evolution`, `dual_annealing`, `shgo`, `basinhopping`
+
+**vs `minimize()`:** Use `minimize_global` when you don't know where the global optimum is or when the objective has multiple local minima. It is slower (many function evaluations) but does not need a starting point or gradient. Use `minimize()` when you have a good initial guess and the landscape is smooth.
+
+### Examples
+
+```python
+# Himmelblau's function — 4 global minima at f=0
+def himmelblau(x):
+    return (x[0]**2 + x[1] - 11)**2 + (x[0] + x[1]**2 - 7)**2
+
+r = solvers.minimize_global(himmelblau, bounds=[(-5,5),(-5,5)], seed=0)
+# r["fun"] ≈ 0.0,  r["x"] ≈ [3.0, 2.0]  (one of four minima)
+
+# Maximize thrust: pass negated objective
+def neg_thrust(x):
+    A_throat, A_exit = x[0], x[1]
+    # ... compute thrust ...
+    return -thrust
+
+r = solvers.minimize_global(neg_thrust, bounds=[(0.002, 0.05), (0.01, 0.3)],
+                            method="dual_annealing", seed=42)
+best_thrust = -r["fun"]
+
+# Reproducible: same seed → same result
+r1 = solvers.minimize_global(rosen, [(-2,2),(-2,2)], seed=7)
+r2 = solvers.minimize_global(rosen, [(-2,2),(-2,2)], seed=7)
+assert r1["fun"] == r2["fun"]
+
+# Verbose summary
+r = solvers.minimize_global(func, bounds, method="differential_evolution",
+                            verbose=True)
+# Output:
+#   minimize_global: method='differential_evolution'  ndim=2  maxiter=1000
+#   minimize_global converged: 4023 evals  f_best = 1.23e-08
+```
+
+### Limits
+
+| Issue | Detail |
+|-------|--------|
+| `workers != 1` + closure | DE with `workers>1` uses `ProcessPoolExecutor`; closures aren't picklable. Use `workers=1` or a module-level function. |
+| No gradient | All methods are gradient-free → many more evaluations than `minimize()`. |
+| `shgo` on high dimensions | SHGO memory usage grows exponentially with dimension. Use DE or DA for `ndim > 6`. |
+| `basinhopping` | Uses L-BFGS-B locally; very noisy objectives may not converge. |
+
+---
+
 ## Summary Table
 
 | Solver | Problem type | SciPy backend | Key params |
@@ -495,7 +590,8 @@ r = solvers.minimize(
 | `solve_ode_stiff` | `dy/dt=f`, stiff | `solve_ivp` | `method`, `jac` |
 | `solve_bvp` | BVP | `solve_bvp` | `tol`, `max_nodes` |
 | `solve_pde_heat_1d` | 1D parabolic PDE | tridiagonal (scipy) | `alpha`, `nx`, `bc_*` |
-| `minimize` | `min f(x)` | `minimize` | `method`, `bounds`, `jac` |
+| `minimize` | `min f(x)`, gradient-based | `minimize` | `method`, `bounds`, `jac` |
+| `minimize_global` | `min f(x)`, global | `de`, `da`, `shgo`, `bh` | `method`, `bounds`, `seed` |
 
 ---
 

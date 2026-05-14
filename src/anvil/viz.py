@@ -427,12 +427,67 @@ def dmd_spectrum(dmd_result, ax=None, show=True, unit_circle=True):
 
     ax.axhline(0, color="#aaa", linewidth=0.5)
     ax.axvline(0, color="#aaa", linewidth=0.5)
-    ax.set_xlabel("Re(λ)")
-    ax.set_ylabel("Im(λ)")
+    ax.set_xlabel("Re(lambda)")
+    ax.set_ylabel("Im(lambda)")
     ax.set_title("DMD Eigenvalue Spectrum")
     ax.set_aspect("equal")
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.2)
+
+    plt.tight_layout()
+    if show:
+        plt.show()
+    return fig
+
+
+def abel_compare(image, abel_result, ax=None, show=True, cmap="hot", log_scale=False):
+    """
+    Side-by-side comparison: raw projection vs Abel-inverted radial distribution.
+
+    Parameters
+    ----------
+    image : ndarray, shape (n_rows, n_cols)
+        Original camera image (projection).
+    abel_result : dict
+        From anvil.decomp.abel_image().
+    ax : array of 2 Axes, optional
+        If provided, uses ax[0] for raw and ax[1] for radial.
+    show : bool
+    cmap : str
+        Colormap. Default "hot". Try "inferno", "viridis", "gray".
+    log_scale : bool
+        Apply log1p to both images (useful for high dynamic-range data).
+    """
+    plt = _get_plt()
+    import numpy as np
+
+    radial = abel_result["radial"]
+    _, cc = abel_result["center"]
+    method = abel_result["method"]
+
+    if ax is None:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    else:
+        axes = ax
+        fig = axes[0].figure
+
+    def _imshow(ax_, data, title):
+        d = np.log1p(np.maximum(data, 0.0)) if log_scale else data
+        finite = d[np.isfinite(d)]
+        vmax = float(np.percentile(finite, 99)) if finite.size > 0 else 1.0
+        im = ax_.imshow(d, cmap=cmap, origin="upper",
+                        vmin=0.0, vmax=max(vmax, 1e-30), aspect="auto")
+        ax_.axvline(cc, color="cyan", linewidth=0.8, alpha=0.7, linestyle="--",
+                    label=f"axis col {cc}")
+        ax_.set_title(title)
+        ax_.set_xlabel("x [px]")
+        ax_.set_ylabel("y [px]")
+        ax_.legend(fontsize=8, loc="upper right")
+        plt.colorbar(im, ax=ax_, fraction=0.03, pad=0.02)
+
+    scale_label = " (log1p)" if log_scale else ""
+    _imshow(axes[0], image,  f"Projection{scale_label}")
+    _imshow(axes[1], radial, f"Abel inverse: {method}{scale_label}")
 
     plt.tight_layout()
     if show:

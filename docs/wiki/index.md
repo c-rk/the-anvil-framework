@@ -33,6 +33,7 @@ Anvil is an engineering computation framework: write physics as plain Python fun
 | [Limits & Gotchas](14_limits.md) | What fails, edge cases, accuracy, known issues |
 | [Advanced](15_advanced.md) | Composition, cycles, block relations, CFD module, Watchdog |
 | [Decomposition](16_decomp.md) | `anvil.decomp` — POD, DMD, Hankel embedding, signal analysis |
+| [Abel Transform](17_abel.md) | `abel_forward`, `abel_three_point`, `abel_onion`, `abel_image`, `abel_center` |
 
 ---
 

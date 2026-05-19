@@ -2,7 +2,7 @@
 
 **From equations to engineering tools.**
 
-Anvil is a computation framework for engineering and scientific research. Write physics as plain Python functions, wire them into solvable systems, and get results with proper units -- automatically.
+Anvil is a computation framework for engineering and scientific research. Write physics as plain Python functions, wire them into solvable systems, and get results with proper units automatically.
 
 ## Install
 

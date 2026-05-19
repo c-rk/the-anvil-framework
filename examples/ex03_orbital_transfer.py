@@ -43,15 +43,15 @@ print(f"  GEO: {h_GEO/1e3:.0f} km altitude, r = {r_GEO/1e3:.0f} km")
 print(f"\n[2] Orbital velocities:")
 leo_v = anvil.R.vis_viva(mu=mu_earth, r=r_LEO, a=r_LEO)
 geo_v = anvil.R.vis_viva(mu=mu_earth, r=r_GEO, a=r_GEO)
-print(f"  V_LEO = {leo_v['V_orbital'].to('km/s').value:.3f} km/s")
-print(f"  V_GEO = {geo_v['V_orbital'].to('km/s').value:.3f} km/s")
+print(f"  V_LEO = {leo_v['V_orbital'].to("km/s")}")
+print(f"  V_GEO = {geo_v['V_orbital'].to("km/s")}")
 
 # --- Step 3: Hohmann transfer ---
 print(f"\n[3] Hohmann transfer:")
 transfer = anvil.R.hohmann_transfer(mu=mu_earth, r1=r_LEO, r2=r_GEO)
-print(f"  dV1 (LEO departure):  {transfer['dv1'].to('km/s').value:.3f} km/s")
-print(f"  dV2 (GEO insertion):  {transfer['dv2'].to('km/s').value:.3f} km/s")
-print(f"  Total delta-V:        {transfer['dv_total'].to('km/s').value:.3f} km/s")
+print(f"  dV1 (LEO departure):  {transfer['dv1'].to("km/s")}")
+print(f"  dV2 (GEO insertion):  {transfer['dv2'].to("km/s")}")
+print(f"  Total delta-V:        {transfer['dv_total'].to("km/s")}")
 print(f"  Transfer time:        {transfer['tof'].value / 3600:.2f} hours")
 
 # --- Step 4: Orbital periods ---
@@ -95,8 +95,8 @@ mission.use(propellant_mass)
 result = mission.solve_forward()
 
 print(f"  Mass ratio:     {result['mass_ratio'].si:.2f}")
-print(f"  Propellant:     {result['m_propellant'].value:.0f} kg")
-print(f"  Wet mass:       {result['m_wet'].value:.0f} kg")
+print(f"  Propellant:     {result['m_propellant']}")
+print(f"  Wet mass:       {result['m_wet']}")
 print(f"  Payload frac:   {2000 / result['m_wet'].si:.1%}")
 
 # --- Step 6: Sweep over engine Isp ---

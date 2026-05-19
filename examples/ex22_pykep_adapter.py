@@ -162,7 +162,7 @@ else:
     traj.use(lambert_transfer)
 
     res = traj.solve_forward()
-    print(f"  Departure  : epoch {res['epoch_dep'].value:.1f} MJD2000")
+    print(f"  Departure  : epoch {res['epoch_dep']}")
     print(f"  TOF        : {res['tof'].si / 86400:.1f} days")
     print(f"  dv_dep     : {res['dv_dep'].value/1e3:.3f} km/s")
     print(f"  dv_arr     : {res['dv_arr'].value/1e3:.3f} km/s")

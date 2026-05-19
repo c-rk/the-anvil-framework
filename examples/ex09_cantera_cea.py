@@ -103,10 +103,10 @@ else:
 # =====================================================
 print("\n[1] H2/O2 combustion at O/F=5, Pc=20 MPa:")
 r = cea_rocket(fuel="H2", oxidizer="O2", OF=5.0, Pc=20e6)
-print(f"  Tc     = {r['Tc'].value:.0f} K")
+print(f"  Tc     = {r['Tc']}")
 print(f"  gamma  = {r['gamma_c']:.4f}")
-print(f"  R_gas  = {r['R_gas_c'].value:.1f} J/kg/K")
-print(f"  c*     = {r['cstar'].value:.0f} m/s")
+print(f"  R_gas  = {r['R_gas_c']}")
+print(f"  c*     = {r['cstar']}")
 
 
 # =====================================================
@@ -157,9 +157,9 @@ result.summary(keys=["OF", "Pc",
                        "M_exit", "V_exit", "thrust", "Isp"])
 
 print(f"\n  Performance:")
-print(f"    Thrust (vac): {result['thrust'].to('kN').value:.1f} kN")
-print(f"    Isp (vac):    {result['Isp'].value:.1f} s")
-print(f"    c*:           {result['cstar'].value:.0f} m/s")
+print(f"    Thrust (vac): {result['thrust'].to("kN")}")
+print(f"    Isp (vac):    {result['Isp']}")
+print(f"    c*:           {result['cstar']}")
 
 
 # =====================================================
@@ -204,8 +204,8 @@ for fuel_name, ox_name, of_ratio in [
     eng2.use(exit_analysis); eng2.use(thrust_isp)
     r = eng2.solve_forward()
     print(f"  {fuel_name + '/' + ox_name:20s} "
-          f"{r['Tc'].value:8.0f} {r['gamma_c'].si:8.4f} "
-          f"{r['Isp'].value:8.1f} {r['cstar'].value:8.0f}")
+          f"{r['Tc']} {r['gamma_c'].si:8.4f} "
+          f"{r['Isp']} {r['cstar']}")
 
 
 # =====================================================

@@ -172,11 +172,11 @@ result.summary()
 
 # --- Unit conversions on results ---
 print("\n  Key results:")
-print(f"    Re         = {result['Re'].value:.0f}  (turbulent: {'yes' if result['Re'].si > 2300 else 'no'})")
-print(f"    f_darcy    = {result['f_darcy'].value:.5f}")
-print(f"    dP         = {result['dP'].to('kPa').value:.3f} kPa")
-print(f"    W_shaft    = {result['W_shaft'].to('kW').value:.4f} kW")
-print(f"    Q_vol      = {result['Q_vol'].value:.6f} m^3/s"
+print(f"    Re         = {result['Re']}  (turbulent: {'yes' if result['Re'].si > 2300 else 'no'})")
+print(f"    f_darcy    = {result['f_darcy']}")
+print(f"    dP         = {result['dP'].to("kPa")}")
+print(f"    W_shaft    = {result['W_shaft'].to("kW")}")
+print(f"    Q_vol      = {result['Q_vol']}"
       f"  ({result['Q_vol'].si * 1000:.2f} L/s)")
 
 

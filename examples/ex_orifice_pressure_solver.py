@@ -198,13 +198,13 @@ def find_pressure_settings(phi, fuel_gas, ox_gas, fuel_formula,
         return None
 
     return {
-        "d_fuel":    round(opt.x["d_fuel"], 4),
-        "d_ox":      round(opt.x["d_O2"],   4),
-        "P0_fuel":   float(opt["P0_fuel"].si) / 1e5,
-        "P0_ox":     opt.x["P0_O2"] / 1e5,
-        "mdot_fuel": float(opt["mdot_fuel"].si) * 1e3,
-        "mdot_ox":   float(opt["mdot_O2"].si) * 1e3,
-        "margin":    opt.fun / 1e5,
+        "d_fuel":    Q(opt.x["d_fuel"] * 1e-3, "m"),
+        "d_ox":      Q(opt.x["d_O2"]   * 1e-3, "m"),
+        "P0_fuel":   opt["P0_fuel"],
+        "P0_ox":     Q(opt.x["P0_O2"],          "Pa"),
+        "mdot_fuel": opt["mdot_fuel"],
+        "mdot_ox":   opt["mdot_O2"],
+        "margin":    Q(opt.fun,                  "Pa"),
     }
 
 
@@ -217,69 +217,49 @@ print("=" * W)
 print("  Orifice Pressure Solver")
 print("=" * W)
 
+def _show(r):
+    if r:
+        print(f"  d_fuel  = {r['d_fuel'].to("mm")}   d_ox    = {r['d_ox'].to("mm")}")
+        print(f"  P0_fuel = {r['P0_fuel'].to("bar")}   P0_ox   = {r['P0_ox'].to("bar")}")
+        print(f"  mdot_fuel = {r['mdot_fuel']}   mdot_ox = {r['mdot_ox']}")
+        print(f"  margin  = {r['margin'].to("bar")}")
+
+
 # ── Single solve ──────────────────────────────────────────────────────────────
 print("\n[1] H2/O2  phi=1.0  |  orifice 0.5-2.0 mm  |  both lines 3-20 bar")
-
-r = find_pressure_settings(
-    phi=1.0,
-    fuel_gas="hydrogen",
-    ox_gas="oxygen",
-    fuel_formula="H2",
-    orifice_range=(0.5, 2.0),
-    P0_bounds={"fuel": (3e5, 20e5), "ox": (3e5, 20e5)},
-)
-if r:
-    print(f"  d_fuel  = {r['d_fuel']:.3f} mm     d_ox    = {r['d_ox']:.3f} mm")
-    print(f"  P0_fuel = {r['P0_fuel']:.3f} bar    P0_ox   = {r['P0_ox']:.3f} bar")
-    print(f"  mdot_fuel = {r['mdot_fuel']:.4f} g/s   mdot_ox = {r['mdot_ox']:.4f} g/s")
-    print(f"  margin  = {r['margin']:.4f} bar")
+_show(find_pressure_settings(
+    phi=1.0, fuel_gas="hydrogen", ox_gas="oxygen", fuel_formula="H2",
+    orifice_range=(0.5, 2.0), P0_bounds={"fuel": (3e5, 20e5), "ox": (3e5, 20e5)},
+))
 
 # ── phi sweep ─────────────────────────────────────────────────────────────────
 print(f"\n[2] phi sweep  (0.5 to 2.5)")
-print(f"  {'phi':>6}  {'d_fuel':>8}  {'d_ox':>6}  "
-      f"{'P0_fuel':>10}  {'P0_ox':>8}  {'margin':>8}")
-print(f"  {'-'*6}  {'-'*8}  {'-'*6}  {'-'*10}  {'-'*8}  {'-'*8}")
-
+print(f"  {'phi':>6}  {'d_fuel':>12}  {'d_ox':>12}  {'P0_fuel':>16}  {'P0_ox':>16}")
+print(f"  {'-'*6}  {'-'*12}  {'-'*12}  {'-'*16}  {'-'*16}")
 for phi_val in np.linspace(0.5, 2.5, 9):
     r = find_pressure_settings(
-        phi=phi_val,
-        fuel_gas="hydrogen", ox_gas="oxygen", fuel_formula="H2",
-        orifice_range=(0.5, 2.0),
-        P0_bounds={"fuel": (3e5, 20e5), "ox": (3e5, 20e5)},
+        phi=phi_val, fuel_gas="hydrogen", ox_gas="oxygen", fuel_formula="H2",
+        orifice_range=(0.5, 2.0), P0_bounds={"fuel": (3e5, 20e5), "ox": (3e5, 20e5)},
     )
     if r:
-        print(f"  {phi_val:>6.2f}  {r['d_fuel']:>8.3f}  {r['d_ox']:>6.3f}  "
-              f"  {r['P0_fuel']:>8.3f}  {r['P0_ox']:>8.3f}  {r['margin']:>8.4f}")
+        print(f"  {phi_val:>6.2f}  {r['d_fuel'].to("mm")!s:>12}  {r['d_ox'].to("mm")!s:>12}  "
+              f"{r['P0_fuel'].to("bar")!s:>16}  {r['P0_ox'].to("bar")!s:>16}")
     else:
-        print(f"  {phi_val:>6.2f}  {'-- no feasible solution --':>42}")
+        print(f"  {phi_val:>6.2f}  -- no feasible solution --")
 
 # ── asymmetric bounds ─────────────────────────────────────────────────────────
-print(f"\n[3] Asymmetric bounds: H2 regulator 3-10 bar,  O2 regulator 3-20 bar")
-
-r = find_pressure_settings(
-    phi=1.0,
-    fuel_gas="hydrogen", ox_gas="oxygen", fuel_formula="H2",
-    orifice_range=(0.5, 2.0),
-    P0_bounds={"fuel": (3e5, 10e5), "ox": (3e5, 20e5)},
-)
-if r:
-    print(f"  d_fuel  = {r['d_fuel']:.3f} mm     d_ox    = {r['d_ox']:.3f} mm")
-    print(f"  P0_fuel = {r['P0_fuel']:.3f} bar    P0_ox   = {r['P0_ox']:.3f} bar")
-    print(f"  margin  = {r['margin']:.4f} bar")
+print(f"\n[3] Asymmetric bounds: H2 3-10 bar,  O2 3-20 bar")
+_show(find_pressure_settings(
+    phi=1.0, fuel_gas="hydrogen", ox_gas="oxygen", fuel_formula="H2",
+    orifice_range=(0.5, 2.0), P0_bounds={"fuel": (3e5, 10e5), "ox": (3e5, 20e5)},
+))
 
 # ── CH4 / O2 ─────────────────────────────────────────────────────────────────
 print(f"\n[4] CH4/O2  phi=0.8  |  orifice 0.5-3.0 mm  |  5-25 bar")
-
-r = find_pressure_settings(
-    phi=0.8,
-    fuel_gas="methane", ox_gas="oxygen", fuel_formula="CH4",
-    orifice_range=(0.5, 3.0),
-    P0_bounds={"fuel": (5e5, 25e5), "ox": (5e5, 25e5)},
-)
-if r:
-    print(f"  d_fuel  = {r['d_fuel']:.3f} mm     d_ox    = {r['d_ox']:.3f} mm")
-    print(f"  P0_fuel = {r['P0_fuel']:.3f} bar    P0_ox   = {r['P0_ox']:.3f} bar")
-    print(f"  margin  = {r['margin']:.4f} bar")
+_show(find_pressure_settings(
+    phi=0.8, fuel_gas="methane", ox_gas="oxygen", fuel_formula="CH4",
+    orifice_range=(0.5, 3.0), P0_bounds={"fuel": (5e5, 25e5), "ox": (5e5, 25e5)},
+))
 
 print(f"\n{'='*W}")
 print("  Done.")

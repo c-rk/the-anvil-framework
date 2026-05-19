@@ -119,8 +119,8 @@ print(f"  mu_air   = {mu_air}")
 V_jet = 550.0 * (ft / s)  # -> Q(550, "ft/s")  -- SI internally
 F_drag = 150.0 * lbf  # -> Q(150 lbf in N)
 L_wing = 12.5 * ft
-print(f"\n  V_jet  = {V_jet}  ->  {V_jet.to('m/s')}")
-print(f"  F_drag = {F_drag} ->  {F_drag.to('N')}")
+print(f"\n  V_jet  = {V_jet}  ->  {V_jet.to("m/s")}")
+print(f"  F_drag = {F_drag} ->  {F_drag.to("N")}")
 
 # --- 1c. Quantity arithmetic ---
 KE = 0.5 * rho_air * v_sound**2  # dynamic pressure
@@ -143,7 +143,7 @@ print(f"  {P_Pa} ->  {P_bar}  =  {P_psi}  =  {P_MPa}")
 
 # --- 1e. SI access ---
 print(f"\n  cp_air.si    = {cp_air.si:.2f}  (always in SI: J/kg/K)")
-print(f"  cp_air.value = {cp_air.value:.2f} {cp_air.unit}")
+print(f"  cp_air.value = {cp_air} {cp_air.unit}")
 
 
 # =========================================================================
@@ -268,10 +268,10 @@ mdot_r = result["mdot"]
 V_exit = result["V_exit"]
 
 print(f"\nKey outputs:")
-print(f"  Thrust = {thrust.to('kN')}")
+print(f"  Thrust = {thrust.to("kN")}")
 print(f"  Isp    = {Isp}")
 print(f"  mdot   = {mdot_r}")
-print(f"  V_exit = {V_exit.to('km/s')}")
+print(f"  V_exit = {V_exit.to("km/s")}")
 
 # --- 4c. Export results ---
 result.to_csv(os.path.join(OUT_DIR, "nozzle_result.csv"))
@@ -306,9 +306,9 @@ mu_earth = 3.986e14  # m^3/s^2
 r1 = R_earth + 400e3
 r2 = R_earth + 35786e3
 r_hohmann = anvil.R.hohmann_transfer(mu=mu_earth, r1=r1, r2=r2)
-print(f"  DV1    = {r_hohmann['dv1'].to('km/s')}")
-print(f"  DV2    = {r_hohmann['dv2'].to('km/s')}")
-print(f"  DV_tot = {r_hohmann['dv_total'].to('km/s')}")
+print(f"  DV1    = {r_hohmann['dv1'].to("km/s")}")
+print(f"  DV2    = {r_hohmann['dv2'].to("km/s")}")
+print(f"  DV_tot = {r_hohmann['dv_total'].to("km/s")}")
 print(f"  TOF    = {Q(float(r_hohmann['tof']._si_value) / 3600, 'hr')}")
 
 # --- 5b. Pre-built rocket nozzle System ---
@@ -719,20 +719,20 @@ core_keys = ["D_CJ", "T_CJ", "P_CJ", "P_ratio", "rho_CJ", "gamma_CJ", "a_CJ", "u
 for k in core_keys:
     v = cea_r[k]
     if isinstance(v, Q):
-        print(f"    {k:10s} = {v.value:.4g} {v.unit}")
+        print(f"    {k:10s} = {v} {v.unit}")
     else:
         print(f"    {k:10s} = {v:.4f}")
 
 print("\n  Thermochemical:")
 for k in ["cp_CJ", "cv_CJ", "e_CJ", "h_CJ"]:
     v = cea_r[k]
-    print(f"    {k:10s} = {v.value:.4g} {v.unit}")
+    print(f"    {k:10s} = {v} {v.unit}")
 
 print("\n  Transport:")
 for k in ["mu_CJ", "k_CJ", "Pr_CJ"]:
     v = cea_r[k]
     if isinstance(v, Q):
-        print(f"    {k:10s} = {v.value:.4e} {v.unit}")
+        print(f"    {k:10s} = {v} {v.unit}")
     else:
         print(f"    {k:10s} = {v:.4f}")
 

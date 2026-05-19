@@ -35,7 +35,7 @@ P_init = Q(1, "atm")  # define pressure with units
 T_init = Q(300, "K")
 
 print(
-    f"  Initial: P = {P_init.value} {P_init.unit} ({P_init.to('Pa').value:.0f} Pa), T = {T_init.value} {T_init.unit}"
+    f"  Initial: P = {P_init} {P_init.unit} ({P_init.to("Pa")}), T = {T_init} {T_init.unit}"
 )
 print()
 print(f"  {'Mixture':25s} {'D_CJ':>10s} {'T_CJ':>10s} {'P2/P1':>8s} {'P_CJ':>10s}")
@@ -59,8 +59,8 @@ for label, fuel, ox, fm, om, extra in cases:
         extra_species=extra,
     )
     print(
-        f"  {label:25s} {r['D_CJ'].value:10.0f} m/s {r['T_CJ'].value:10.0f} K "
-        f"{r['P_ratio']:8.1f} {r['P_CJ'].to('atm').value:10.2f} atm"
+        f"  {label:25s} {r['D_CJ']} {r['T_CJ']} "
+        f"{r['P_ratio']:8.1f} {r['P_CJ'].to("atm")}"
     )
 
 
@@ -105,11 +105,11 @@ result.summary(
 # Unit conversions using the engine
 print(f"\n  Key results (unit engine conversions):")
 print(
-    f"    D_CJ  = {result['D_CJ'].value:.0f} {result['D_CJ'].unit}  ({result['D_CJ'].to('km/s').value:.3f} km/s)"
+    f"    D_CJ  = {result['D_CJ']} {result['D_CJ'].unit}  ({result['D_CJ'].to("km/s")})"
 )
-print(f"    T_CJ  = {result['T_CJ'].value:.0f} {result['T_CJ'].unit}")
+print(f"    T_CJ  = {result['T_CJ']} {result['T_CJ'].unit}")
 print(
-    f"    P_CJ  = {result['P_CJ'].to('atm').value:.2f} atm  ({result['P_CJ'].to('bar').value:.2f} bar)"
+    f"    P_CJ  = {result['P_CJ'].to("atm")}  ({result['P_CJ'].to("bar")})"
 )
 
 
@@ -219,10 +219,10 @@ r_pde.summary(
 
 print(f"\n  PDE performance (unit conversions):")
 print(
-    f"    Thrust = {r_pde['thrust_pde'].to('kN').value:.2f} kN ({r_pde['thrust_pde'].to('lbf').value:.0f} lbf)"
+    f"    Thrust = {r_pde['thrust_pde'].to("kN")} ({r_pde['thrust_pde'].to("lbf")})"
 )
-print(f"    Isp    = {r_pde['Isp_pde'].value:.1f} {r_pde['Isp_pde'].unit}")
-print(f"    V_exit = {r_pde['V_exit'].to('km/s').value:.3f} km/s")
+print(f"    Isp    = {r_pde['Isp_pde']} {r_pde['Isp_pde'].unit}")
+print(f"    V_exit = {r_pde['V_exit'].to("km/s")}")
 
 # Sweep the PDE over initial pressure
 print(f"\n  Sweep: PDE performance vs initial pressure...")

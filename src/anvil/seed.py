@@ -610,9 +610,7 @@ _SEED_ENTRIES = [
          '    d_RAAN = fac*np.cos(i)\n'
          '    d_omega = -0.5*fac*(5*np.cos(i)**2-1)\n'
          '    return {"d_RAAN_dt":Q(float(d_RAAN),"rad/s"),\n'
-         '            "d_omega_dt":Q(float(d_omega),"rad/s"),\n'
-         '            "d_RAAN_deg_per_day":float(np.degrees(d_RAAN)*86400),\n'
-         '            "d_omega_deg_per_day":float(np.degrees(d_omega)*86400)}\n'
+         '            "d_omega_dt":Q(float(d_omega),"rad/s")}\n'
          'export = j2_precession'
      )},
     {"name": "eclipse_fraction", "type": "R", "domain": "orbital",
@@ -837,7 +835,7 @@ _SEED_ENTRIES = [
          '    A_panel=P_from_panel/(float(eta_solar)*float(flux_solar))\n'
          '    E_bat_Wh=P_load*t_ecl/3600/float(DOD)\n'
          '    m_bat=E_bat_Wh/120  # 120 Wh/kg Li-ion\n'
-         '    return {"A_panel_m2":Q(A_panel,"m^2"),"E_bat_Wh":E_bat_Wh,\n'
+         '    return {"A_panel_m2":Q(A_panel,"m^2"),"E_bat_Wh":Q(E_bat_Wh,"Wh"),\n'
          '            "m_bat_kg":Q(m_bat,"kg"),"P_from_panel_W":Q(P_from_panel,"W")}\n'
          'export = power_budget'
      )},

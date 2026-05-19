@@ -54,7 +54,7 @@ print(f"    TSFC   = {TSFC:.2e} kg/N/s")
 
 # Demonstrate in_ alias (inches as a unit)
 wing_chord = 5.5 * in_    # 5.5 inches (model scale test)
-print(f"\n  Model scale test chord: {5.5} in = {wing_chord.to('m').value:.4f} m")
+print(f"\n  Model scale test chord: {5.5} in = {wing_chord.to("m")}")
 print(f"  (in_ alias used since 'in' is a Python keyword)")
 
 

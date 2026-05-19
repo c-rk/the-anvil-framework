@@ -189,8 +189,8 @@ r_foul = proj2.R.fouling_resistance(
 print(f"\n  Fouling study (D={20}mm, L=2m):")
 print(f"    Re      = {r_foul['Re_tube']:.0f}")
 print(f"    Nu      = {r_foul['Nu_tube']:.0f}")
-print(f"    h       = {r_foul['h_tube'].value:.0f} W/m²/K")
-print(f"    UA_foul = {r_foul['UA_fouled'].value:.1f} W/K")
+print(f"    h       = {r_foul['h_tube']}")
+print(f"    UA_foul = {r_foul['UA_fouled']}")
 
 
 # =====================================================
@@ -222,7 +222,7 @@ if not existing:
         T_cold_in=result["T_cold_in"].si,
         T_cold_out=result["T_cold_out"].si,
     )
-    print(f"\n  LMTD via global registry: {r_lmtd['LMTD'].value:.2f} K")
+    print(f"\n  LMTD via global registry: {r_lmtd['LMTD']}")
 
     # Clean up global registry
     anvil.registry.remove("log_mean_temp")

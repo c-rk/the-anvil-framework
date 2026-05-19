@@ -95,7 +95,7 @@ print("\n[1] Direct combustion call (O/F = 2.7, Pc = 10 MPa):")
 r = combustion(Pc=10e6, OF=2.7)
 for k, v in r.items():
     if isinstance(v, Q):
-        print(f"  {k:12s} = {v.value:.2f} {v.unit}")
+        print(f"  {k:12s} = {v} {v.unit}")
     else:
         print(f"  {k:12s} = {v:.4f}")
 
@@ -149,10 +149,10 @@ result.summary(keys=["Pc", "OF", "A_throat", "A_exit",
 
 # --- Unit conversions ---
 print(f"\n[3] Engine performance:")
-print(f"  Thrust (SL):  {result['thrust'].to('kN').value:.1f} kN")
-print(f"  Isp (SL):     {result['Isp'].value:.1f} s")
-print(f"  c*:           {result['cstar'].value:.0f} m/s")
-print(f"  Mass flow:    {result['mdot'].value:.1f} kg/s")
+print(f"  Thrust (SL):  {result['thrust'].to("kN")}")
+print(f"  Isp (SL):     {result['Isp']}")
+print(f"  c*:           {result['cstar']}")
+print(f"  Mass flow:    {result['mdot']}")
 
 # --- O/F ratio trade study ---
 print(f"\n[4] Sweep: Isp vs O/F ratio...")

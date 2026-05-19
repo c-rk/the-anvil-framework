@@ -518,11 +518,13 @@ _r("psia", 6894.757293168, dict(L=-1, M=1, T=-2))
 _r("torr", 133.32236842105, dict(L=-1, M=1, T=-2))
 
 # --- Energy ---
-_r("J",    1.0,    dict(L=2, M=1, T=-2), si=True, imp_name="BTU")
-_r("kJ",   1e3,    dict(L=2, M=1, T=-2))
-_r("MJ",   1e6,    dict(L=2, M=1, T=-2))
-_r("cal",  4.184,  dict(L=2, M=1, T=-2))
-_r("kcal", 4184.0, dict(L=2, M=1, T=-2))
+_r("J",    1.0,        dict(L=2, M=1, T=-2), si=True, imp_name="BTU")
+_r("kJ",   1e3,        dict(L=2, M=1, T=-2))
+_r("MJ",   1e6,        dict(L=2, M=1, T=-2))
+_r("Wh",   3600.0,     dict(L=2, M=1, T=-2))
+_r("kWh",  3.6e6,      dict(L=2, M=1, T=-2))
+_r("cal",  4.184,      dict(L=2, M=1, T=-2))
+_r("kcal", 4184.0,     dict(L=2, M=1, T=-2))
 _r("BTU",  1055.06,dict(L=2, M=1, T=-2))
 _r("eV",   1.602176634e-19, dict(L=2, M=1, T=-2))
 

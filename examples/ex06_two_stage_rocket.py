@@ -44,7 +44,7 @@ r1 = stage1_nozzle.solve_forward()
 Isp_1 = r1["Isp"].si
 
 print(f"  Isp (sea level): {Isp_1:.1f} s")
-print(f"  Thrust:          {r1['thrust'].to('kN').value:.0f} kN")
+print(f"  Thrust:          {r1['thrust'].to("kN")}")
 print(f"  Exit Mach:       {r1['M_exit'].si:.2f}")
 
 # ==========================================
@@ -67,7 +67,7 @@ r2 = stage2_nozzle.solve_forward()
 Isp_2 = r2["Isp"].si
 
 print(f"  Isp (vacuum):    {Isp_2:.1f} s")
-print(f"  Thrust:          {r2['thrust'].to('kN').value:.0f} kN")
+print(f"  Thrust:          {r2['thrust'].to("kN")}")
 print(f"  Exit Mach:       {r2['M_exit'].si:.2f}")
 
 # ==========================================

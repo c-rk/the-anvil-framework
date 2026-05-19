@@ -36,8 +36,8 @@ gamma = 1.4
 
 print(f"\n[1] Test section requirements:")
 print(f"  Mach   = {M_test}")
-print(f"  T_test = {T_test.value} {T_test.unit}")
-print(f"  P_test = {P_test.value} {P_test.unit} ({P_test.to('atm').value:.3f} atm)")
+print(f"  T_test = {T_test} {T_test.unit}")
+print(f"  P_test = {P_test} {P_test.unit} ({P_test.to("atm")})")
 
 # --- Step 2: Compute stagnation conditions ---
 print(f"\n[2] Stagnation conditions (from isentropic ratios):")
@@ -46,9 +46,9 @@ ratios = anvil.R.isentropic_ratios(M=M_test, gamma=gamma)
 T0 = Q(T_test.si * ratios["T0_T"], "K")
 P0 = Q(P_test.si * ratios["P0_P"], "Pa")
 
-print(f"  T0/T = {ratios['T0_T']:.4f}  -->  T0 = {T0.value:.1f} {T0.unit}")
+print(f"  T0/T = {ratios['T0_T']:.4f}  -->  T0 = {T0} {T0.unit}")
 print(
-    f"  P0/P = {ratios['P0_P']:.4f}  -->  P0 = {P0.to('kPa').value:.1f} kPa ({P0.to('atm').value:.2f} atm)"
+    f"  P0/P = {ratios['P0_P']:.4f}  -->  P0 = {P0.to("kPa")} ({P0.to("atm")})"
 )
 
 # --- Step 3: Normal shock at test section Mach ---
@@ -60,7 +60,7 @@ print(f"  T2/T1 = {shock['T2_T1']:.3f}")
 print(f"  Stagnation pressure recovery = {shock['P02_P01']:.4f}")
 
 P0_recovered = Q(P0.si * shock["P02_P01"], "Pa")
-print(f"  --> Diffuser exit P0 = {P0_recovered.to('kPa').value:.1f} kPa")
+print(f"  --> Diffuser exit P0 = {P0_recovered.to("kPa")}")
 
 # --- Step 4: Prandtl-Meyer expansion ---
 print(f"\n[4] Maximum turning angle (Prandtl-Meyer):")
@@ -133,13 +133,13 @@ result.summary(
 # --- Unit conversions using the unit engine ---
 print(f"\n  Key results (converted via unit engine):")
 print(
-    f"  T0 = {result['T0'].value:.1f} {result['T0'].unit}  ({result['T0'].to('R').value:.1f} R)"
+    f"  T0 = {result['T0']} {result['T0'].unit}  ({result['T0'].to("R")})"
 )
 print(
-    f"  P0 = {result['P0'].to('kPa').value:.1f} kPa  ({result['P0'].to('atm').value:.2f} atm)"
+    f"  P0 = {result['P0'].to("kPa")}  ({result['P0'].to("atm")})"
 )
-print(f"  V_test = {result['V_test'].value:.1f} {result['V_test'].unit}")
-print(f"  q_inf  = {result['q_inf'].to('kPa').value:.2f} kPa")
+print(f"  V_test = {result['V_test']} {result['V_test'].unit}")
+print(f"  q_inf  = {result['q_inf'].to("kPa")}")
 
 # --- Step 6: Sweep test Mach ---
 print(f"\n[6] Sweep: tunnel conditions vs test Mach...")
@@ -155,7 +155,7 @@ Re_result = anvil.R.reynolds_number(
     L_char=0.2,
     mu=mu_result["mu"].si,
 )
-print(f"  mu_air(300 K) = {mu_result['mu'].value:.3e} {mu_result['mu'].unit}")
+print(f"  mu_air(300 K) = {mu_result['mu']} {mu_result['mu'].unit}")
 print(f"  Re (20 cm model) = {Re_result['Re']:.3e}")
 
 print("\n" + "=" * 60)

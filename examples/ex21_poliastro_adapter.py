@@ -66,7 +66,7 @@ print(f"  {'-'*14}  {'-'*10}  {'-'*6}  {'-'*8}  {'-'*9}")
 for label, a, ecc, inc in orbits:
     r = poliastro_orbit(a=a, ecc=ecc, inc=inc, raan=0.0, argp=0.0, nu=0.0)
     print(f"  {label:14s}  {a/1e3:10.1f}  {ecc:6.4f}  "
-          f"{r['period'].to('min').value:8.2f}  {r['v_mag'].value:9.1f}")
+          f"{r['period'].to("min")}  {r['v_mag']}")
 
 
 # ── 2. Hohmann transfers ──────────────────────────────────────────────────────
@@ -83,8 +83,8 @@ print(f"  {'Transfer':28s}  {'dv1 (m/s)':>10s}  {'dv2 (m/s)':>10s}  "
 print(f"  {'-'*28}  {'-'*10}  {'-'*10}  {'-'*11}  {'-'*8}")
 for label, a_i, a_f in transfers:
     r = poliastro_hohmann(a_i=a_i, a_f=a_f)
-    print(f"  {label:28s}  {r['dv_1'].value:10.1f}  {r['dv_2'].value:10.1f}  "
-          f"  {r['dv_total'].value:9.1f}  {r['t_transfer'].to('hr').value:8.2f}")
+    print(f"  {label:28s}  {r['dv_1']}  {r['dv_2']}  "
+          f"  {r['dv_total']}  {r['t_transfer'].to("hr")}")
 
 
 # ── 3. Orbit System -- chain with propellant_mass RSQ ────────────────────────
@@ -111,11 +111,11 @@ mission.use(rocket_budget)
 result = mission.solve_forward()
 result.summary(keys=["a_i", "a_f", "dv_total", "t_transfer", "m_prop", "m_dry"])
 
-print(f"\n  Total dv   = {result['dv_total'].to('km/s').value:.3f} km/s")
-print(f"  Transfer   = {result['t_transfer'].to('hr').value:.1f} h")
-print(f"  Propellant = {result['m_prop'].value:.1f} kg  "
+print(f"\n  Total dv   = {result['dv_total'].to("km/s")}")
+print(f"  Transfer   = {result['t_transfer'].to("hr")}")
+print(f"  Propellant = {result['m_prop']}  "
       f"({result['m_prop'].value / 5000.0 * 100:.1f}% of wet mass)")
-print(f"  Dry mass   = {result['m_dry'].value:.1f} kg")
+print(f"  Dry mass   = {result['m_dry']}")
 
 
 # ── 4. Sweep: transfer dv vs target altitude ──────────────────────────────────
@@ -126,8 +126,8 @@ print(f"  {'Alt (km)':>10s}  {'dv_total (m/s)':>15s}  {'TOF (h)':>8s}")
 print(f"  {'-'*10}  {'-'*15}  {'-'*8}")
 for alt in altitudes_km:
     r = poliastro_hohmann(a_i=R_E + 200e3, a_f=R_E + alt * 1e3)
-    print(f"  {alt:10.0f}  {r['dv_total'].value:15.1f}  "
-          f"{r['t_transfer'].to('hr').value:8.2f}")
+    print(f"  {alt:10.0f}  {r['dv_total']}  "
+          f"{r['t_transfer'].to("hr")}")
 
 
 # ── 5. Sensitivity analysis ───────────────────────────────────────────────────

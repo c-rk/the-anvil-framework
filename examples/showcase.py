@@ -177,13 +177,13 @@ nozzle.set(P0=6.9e6)
 r = nozzle.solve()
 
 F = r["thrust"]
-print(f"  Thrust:  {F}  →  {F.to('kN')}  →  {F.to('lbf')}")
+print(f"  Thrust:  {F}  →  {F.to("kN")}  →  {F.to("lbf")}")
 
 T = r["T_exit"]
-print(f"  T_exit:  {T}  →  {T.to('R')}")
+print(f"  T_exit:  {T}  →  {T.to("R")}")
 
 V = r["V_exit"]
-print(f"  V_exit:  {V}  →  {V.to('ft/s')}")
+print(f"  V_exit:  {V}  →  {V.to("ft/s")}")
 
 print("\n" + "=" * 60)
 print("  Done.")

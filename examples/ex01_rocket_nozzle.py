@@ -48,11 +48,11 @@ result.summary()
 
 # --- Step 3: Unit conversions ---
 print("\n[3] Key results in different units:")
-print(f"  Thrust:  {result['thrust'].to('kN').value:.1f} kN")
-print(f"           {result['thrust'].to('lbf').value:.0f} lbf")
-print(f"  Isp:     {result['Isp'].value:.1f} s")
-print(f"  Exit V:  {result['V_exit'].to('km/s').value:.2f} km/s")
-print(f"  mdot:    {result['mdot'].value:.2f} kg/s")
+print(f"  Thrust:  {result['thrust'].to("kN")}")
+print(f"           {result['thrust'].to("lbf")}")
+print(f"  Isp:     {result['Isp']}")
+print(f"  Exit V:  {result['V_exit'].to("km/s")}")
+print(f"  mdot:    {result['mdot']}")
 
 # --- Step 4: Trade study -- chamber pressure ---
 print("\n[4] Sweep: Thrust and Isp vs chamber pressure...")

@@ -171,8 +171,8 @@ result = rocket.solve_forward()
 result.summary(keys=["F_thrust", "m_dry", "m_prop",
                       "v_burnout", "h_burnout", "t_burnout", "h_apogee"])
 
-print(f"\n  Apogee: {result['h_apogee'].to('km').value:.3f} km")
-print(f"  Burnout velocity: {result['v_burnout'].value:.1f} m/s")
+print(f"\n  Apogee: {result['h_apogee'].to("km")}")
+print(f"  Burnout velocity: {result['v_burnout']}")
 
 
 print("\n" + "=" * 60)

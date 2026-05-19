@@ -24,9 +24,7 @@ MOCK MODE:
     Keplerian motion. Replace the library when perturbations are needed.
 
 USAGE:
-    import sys
-    sys.path.insert(0, "adapters")
-    from poliastro_orbits import poliastro_orbit, poliastro_hohmann, poliastro_propagate
+    from anvil.adapters.poliastro_orbits import poliastro_orbit, poliastro_hohmann, poliastro_propagate
 
     r = poliastro_orbit(a=6778e3, ecc=0.0, inc=0.9, raan=0.0, argp=0.0, nu=0.0)
     print(r["period"])    # Q(5556.6, "s")

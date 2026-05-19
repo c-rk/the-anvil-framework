@@ -26,7 +26,6 @@ WHAT THIS EXAMPLE DOES:
 
 import sys, os
 import numpy as np
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import anvil
 from anvil import Q, System, Adapter
@@ -55,8 +54,7 @@ print("=" * 60)
 
 if not USE_MOCK:
     # Real Cantera adapter
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from adapters.cantera_thermo import cea_rocket
+    from anvil.adapters.cantera_thermo import cea_rocket
 else:
     # Mock adapter using curve fits (same interface as real)
     def _mock_cea(fuel="H2", oxidizer="O2", OF=6.0, Pc=10e6, **kw):

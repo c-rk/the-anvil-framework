@@ -3,25 +3,31 @@
 ## Installation
 
 ```bash
-# Editable install from source (recommended for development)
-cd anvil-03-1
-pip install -e .
+git clone https://github.com/c-rk/the-anvil-framework
+cd the-anvil-framework/anvil-03-1
 
-# Install all dependencies
-pip install numpy scipy matplotlib jupyter
+# Core + visualization
+pip install -e ".[viz]"
 
-# Optional: Cantera for combustion adapters
+# Core + specific adapter dependencies
+pip install -e ".[poliastro]"   # poliastro + astropy
+pip install -e ".[pykep]"       # pykep
+pip install -e ".[adapters]"    # all adapter deps
+
+# Cantera (conda recommended)
 conda install -c cantera cantera
 ```
 
-**No Cantera?** All built-in RSQs work without it. The Cantera adapters in `adapters/cantera_thermo.py` fall back to a mock if Cantera isn't installed (`examples/ex09_cantera_cea.py` demonstrates this).
+After install, `import anvil` works from any directory and any script. No `sys.path` manipulation needed.
 
-**Without pip install** — add `src/` to path directly:
-```python
-import sys
-sys.path.insert(0, "path/to/anvil-03-1/src")
-import anvil
-```
+| Extra | What it enables |
+|-------|----------------|
+| (none) | All built-in RSQs, all solvers, registry |
+| `viz` | `anvil.viz.*` plots (requires matplotlib) |
+| `poliastro` | `anvil.adapters.poliastro_orbits` |
+| `pykep` | `anvil.adapters.pykep_trajectories` |
+| `adapters` | All adapter optional deps |
+| `all` | viz + all adapters |
 
 ---
 

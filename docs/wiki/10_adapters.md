@@ -316,11 +316,9 @@ Use this as a recipe when asking an LLM or writing an adapter from scratch.
 
 ## Built-in Cantera Adapters
 
-Located in `adapters/cantera_thermo.py`. Require `conda install -c cantera cantera`.
+Located in `anvil/adapters/cantera_thermo.py`. Require `conda install -c cantera cantera`.
 
 ```python
-import sys
-sys.path.insert(0, "adapters")
 from cantera_thermo import cea_rocket, equilibrium_flame, register
 ```
 
@@ -455,13 +453,11 @@ def _wrapper(T):   # T arrives in Kelvin (SI)
 
 ## poliastro Adapter (Orbital Mechanics)
 
-Located in `adapters/poliastro_orbits.py`. Require `pip install poliastro astropy`.
+Located in `anvil/adapters/poliastro_orbits.py`. Require `pip install poliastro astropy`.
 All three adapters fall back to exact analytical two-body solutions when poliastro is not installed.
 
 ```python
-import sys
-sys.path.insert(0, "adapters")
-from poliastro_orbits import poliastro_orbit, poliastro_hohmann, poliastro_propagate, register
+from anvil.adapters.poliastro_orbits import poliastro_orbit, poliastro_hohmann, poliastro_propagate, register
 ```
 
 ### `poliastro_orbit` — Keplerian elements to ECI state
@@ -510,14 +506,12 @@ See `examples/ex21_poliastro_adapter.py` for a full demonstration including Syst
 
 ## pykep Adapter (Trajectory Design)
 
-Located in `adapters/pykep_trajectories.py`. Require `pip install pykep`.
+Located in `anvil/adapters/pykep_trajectories.py`. Require `pip install pykep`.
 `pykep_propagate` and `pykep_planet_state` have analytical mock fallbacks.
 `pykep_lambert` requires pykep (no clean fallback for Lambert's problem).
 
 ```python
-import sys
-sys.path.insert(0, "adapters")
-from pykep_trajectories import pykep_lambert, pykep_propagate, pykep_planet_state, register
+from anvil.adapters.pykep_trajectories import pykep_lambert, pykep_propagate, pykep_planet_state, register
 ```
 
 All inputs and outputs are in SI (m, m/s, s, m³/s²). pykep uses SI natively.

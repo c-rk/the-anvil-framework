@@ -1,6 +1,5 @@
 """Quick regression test for bugs_29th.md fixes."""
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import anvil
 from anvil import Q, m, s, cm, kg, g, inch, in_
 from anvil.units import Dim

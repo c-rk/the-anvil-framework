@@ -26,13 +26,11 @@ import os
 import math
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import anvil
 from anvil import Q
 
-from adapters.poliastro_orbits import (
+from anvil.adapters.poliastro_orbits import (
     poliastro_orbit, poliastro_hohmann, poliastro_propagate, register
 )
 

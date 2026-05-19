@@ -1,5 +1,4 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import anvil
 from anvil.seed import seed; seed(force=True)
 from anvil.registry import _rebuild_namespaces; _rebuild_namespaces()

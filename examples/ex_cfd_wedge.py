@@ -18,7 +18,6 @@ Tip: run  anvil.lookup('CFDSolver')  to see all solver parameters.
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import numpy as np
 import anvil

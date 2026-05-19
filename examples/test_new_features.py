@@ -1,6 +1,5 @@
 """Test new features: parallel sweep, new RSQs, project registry, Jupyter repr."""
 import sys, os, time
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import anvil
 import numpy as np
 

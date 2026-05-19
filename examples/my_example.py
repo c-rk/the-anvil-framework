@@ -4,8 +4,6 @@ import sys
 import numpy as np
 
 # --- path setup ----------------------------------------------------------
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "adapters"))
 
 import anvil
 from anvil import (
@@ -50,4 +48,4 @@ from anvil import (
 OUT_DIR = os.path.dirname(__file__)  # save PNGs next to this file
 
 
-anvil.db.list()
+anvil.registry.list()

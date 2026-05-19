@@ -26,16 +26,14 @@ import os
 import math
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import anvil
 from anvil import Q
 
-from adapters.pykep_trajectories import (
+from anvil.adapters.pykep_trajectories import (
     pykep_lambert, pykep_propagate, pykep_planet_state, register
 )
-from adapters.poliastro_orbits import poliastro_hohmann
+from anvil.adapters.poliastro_orbits import poliastro_hohmann
 
 W      = 64
 AU     = 1.495978707e11

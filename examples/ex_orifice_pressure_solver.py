@@ -23,7 +23,6 @@ import math
 import re
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import anvil
 from anvil import Q

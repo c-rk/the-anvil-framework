@@ -32,8 +32,6 @@ import sys
 import numpy as np
 
 # --- path setup ----------------------------------------------------------
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "adapters"))
 
 import anvil
 from anvil import (
@@ -703,7 +701,7 @@ except Exception as e:
 # =========================================================================
 section("13. NASA CEA -- Chapman-Jouguet Detonation")
 
-from nasa_cea_detonation import cea_detonation
+from anvil.adapters.nasa_cea_detonation import cea_detonation
 
 # Single call -- full output
 print("\n--- H2/O2 stoichiometric at 1 atm, 300 K ---")

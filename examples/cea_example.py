@@ -3,11 +3,9 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import anvil
-from adapters.nasa_cea_detonation import cea_detonation
+from anvil.adapters.nasa_cea_detonation import cea_detonation
 from anvil import Q, System
 
 det = System("h2o2_detonation")

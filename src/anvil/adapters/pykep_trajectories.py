@@ -34,9 +34,7 @@ ALL UNITS:
     boundary.
 
 USAGE:
-    import sys
-    sys.path.insert(0, "adapters")
-    from pykep_trajectories import pykep_lambert, pykep_propagate, pykep_planet_state
+    from anvil.adapters.pykep_trajectories import pykep_lambert, pykep_propagate, pykep_planet_state
 
     # Earth position now
     r = pykep_planet_state(planet="earth", epoch_mjd2000=0.0)

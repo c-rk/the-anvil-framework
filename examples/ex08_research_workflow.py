@@ -38,7 +38,7 @@ materials.compare("Copper-C101", "Inconel-718", "Steel-304")
 mat = materials.get("Copper-C101")
 print(f"  Selected: Copper-C101")
 print(f"    k = {mat['k']} (high conductivity)")
-print(f"    sigma_y = {mat['sigma_y'].si/1e6:.0f} MPa")
+print(f"    sigma_y = {mat['sigma_y'].to('MPa')}")
 print(f"    T_max = {mat['T_max']}")
 
 # =====================================================
@@ -48,7 +48,7 @@ print(f"\n[2] Coolant: RP-1 (modeled as air-like for demo)")
 coolant = fluids.get("air", T=400)  # RP-1 approximation
 print(f"  rho = {coolant['rho']}")
 print(f"  cp  = {coolant['cp']}")
-print(f"  mu  = {coolant['mu'].si:.3e} Pa*s")
+print(f"  mu  = {coolant['mu']}")
 
 # =====================================================
 # Step 3: Build thermal-structural wall system

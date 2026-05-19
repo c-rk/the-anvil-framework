@@ -311,8 +311,8 @@ Pass a category name as the unit string to get the default SI unit for that dime
 | `Hz` | 1.0 | Frequency [T-1] |
 | `kHz` | 1000.0 | |
 | `MHz` | 1e6 | |
-| `rad` | 1.0 | Angle (dimensionless) |
-| `deg` | π/180 | Angle (dimensionless) |
+| `rad` | 1.0 | Angle (dimensionless); SI value is radians |
+| `deg` | π/180 | Angle (dimensionless); `.si` returns radians |
 | `A` | 1.0 | Current [I] |
 | `mA` | 0.001 | |
 
@@ -396,6 +396,26 @@ r2 = q1 / Q(2, "s")    # Dim(T=-1, flarps=1) → "[T-1][flarps]"
 ```
 
 Custom dims propagate correctly through all arithmetic but can never be displayed as a named unit.
+
+---
+
+## Angles and RSQ Conventions
+
+Angles are dimensionless in Anvil's dimension system. `Q(45, "deg").si` returns 0.7854 (radians). `Q(1, "rad").si` returns 1.0.
+
+Built-in RSQs that accept angles in degrees (parameters named `_deg`) accept **either** a plain `float` (treated as degrees) **or** a `Q(value, "deg")` object:
+
+```python
+# Both are equivalent:
+anvil.R.j2_precession(a=6878e3, e=0.001, i_deg=97.4)
+anvil.R.j2_precession(a=6878e3, e=0.001, i_deg=Q(97.4, "deg"))
+
+# Also works from a System:
+sys.add("i_deg", 97.4, "deg")   # stored as Q(97.4, "deg")
+sys.use("j2_precession")         # RSQ receives the Q and converts correctly
+```
+
+When a System stores an angle as `Q(97.4, "deg")`, `.si` = 1.699 rad. The RSQ uses `.si` directly (skips the degrees→radians conversion) so results are correct either way.
 
 ---
 

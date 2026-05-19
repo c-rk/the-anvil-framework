@@ -89,7 +89,19 @@ def _build_namespace():
     """Build the execution namespace with standard anvil imports."""
     import numpy as np
     import math
-    ns = {"np": np, "numpy": np, "math": math}
+
+    def _rad(v):
+        """Convert angle parameter to radians.
+        Accepts Q objects (uses .si which is already in radians) or plain
+        floats (treated as degrees and converted with np.radians).
+        This lets RSQs with _deg parameters work correctly whether called
+        directly with float degrees or from a System with Q('deg') values.
+        """
+        if hasattr(v, 'si'):
+            return float(v.si)           # Q → SI value is already radians
+        return np.radians(float(v))      # plain float → assume degrees
+
+    ns = {"np": np, "numpy": np, "math": math, "_rad": _rad}
     try:
         from anvil.quantity import Quantity, Q
         from anvil.relation import Relation

@@ -10,12 +10,26 @@ from anvil.registry import _get_store
 
 
 def seed(force=False):
-    """Populate the registry database with built-in RSQs."""
+    """Populate the registry database with built-in RSQs.
+
+    Built-in RSQs are always updated so that source-code fixes (e.g. bug
+    fixes in seed.py) take effect immediately without needing force=True.
+    User-registered RSQs are never overwritten.
+    """
     store = _get_store()
-    builtin_names = {e["name"] for e in _SEED_ENTRIES}
     existing_builtins = {r["name"] for r in store.get_all(origin="builtin")}
-    if not force and builtin_names <= existing_builtins:
-        return
+    # Always reseed if any entries are missing; always update existing ones
+    # so fixes to seed.py propagate on next import.
+    if not force and existing_builtins and existing_builtins >= {e["name"] for e in _SEED_ENTRIES}:
+        # All present -- check if any source has changed
+        changed = False
+        for entry in _SEED_ENTRIES:
+            rec = store.get(entry["name"])
+            if rec and rec.get("source") != entry["source"]:
+                changed = True
+                break
+        if not changed:
+            return
     for entry in _SEED_ENTRIES:
         store.put(
             name=entry["name"], rsq_type=entry["type"], source=entry["source"],
@@ -148,11 +162,11 @@ _SEED_ENTRIES = [
     {"name": "beam_deflection_cantilever", "type": "R", "domain": "structures",
      "desc": "Cantilever beam tip deflection under point load: delta = F*L^3 / (3*E*I)",
      "tags": ["structures", "beam", "deflection", "cantilever"],
-     "source": 'from anvil import Q\ndef beam_deflection_cantilever(F_tip, L_beam, E, I_moment):\n    delta = F_tip * L_beam**3 / (3 * E * I_moment)\n    return {"deflection": Q(delta, "m"), "max_moment": Q(F_tip * L_beam, "N")}\nexport = beam_deflection_cantilever'},
+     "source": 'from anvil import Q\ndef beam_deflection_cantilever(F_tip, L_beam, E, I_moment):\n    delta = F_tip * L_beam**3 / (3 * E * I_moment)\n    return {"deflection": Q(delta, "m"), "max_moment": Q(F_tip * L_beam, "N*m")}\nexport = beam_deflection_cantilever'},
     {"name": "beam_deflection_simply_supported", "type": "R", "domain": "structures",
      "desc": "Simply supported beam center deflection under uniform load: delta = 5*w*L^4 / (384*E*I)",
      "tags": ["structures", "beam", "deflection"],
-     "source": 'from anvil import Q\ndef beam_deflection_simply_supported(w_load, L_beam, E, I_moment):\n    delta = 5 * w_load * L_beam**4 / (384 * E * I_moment)\n    max_M = w_load * L_beam**2 / 8\n    return {"deflection": Q(delta, "m"), "max_moment": Q(max_M, "N")}\nexport = beam_deflection_simply_supported'},
+     "source": 'from anvil import Q\ndef beam_deflection_simply_supported(w_load, L_beam, E, I_moment):\n    delta = 5 * w_load * L_beam**4 / (384 * E * I_moment)\n    max_M = w_load * L_beam**2 / 8\n    return {"deflection": Q(delta, "m"), "max_moment": Q(max_M, "N*m")}\nexport = beam_deflection_simply_supported'},
     {"name": "buckling_euler", "type": "R", "domain": "structures",
      "desc": "Euler buckling critical load: Pcr = pi^2 * E * I / L_eff^2",
      "tags": ["structures", "buckling", "stability"],
@@ -175,7 +189,7 @@ _SEED_ENTRIES = [
          '    below theta for attached shocks, so we sample to find the sign-change\n'
          '    bracket near the weak-shock crossing.\n'
          '    """\n'
-         '    theta = np.radians(theta_deg)\n'
+         '    theta = _rad(theta_deg)\n'
          '    mu = np.arcsin(1.0 / M1)\n'
          '    def tbm(beta):\n'
          '        sb2 = np.sin(beta)**2\n'
@@ -272,8 +286,8 @@ _SEED_ENTRIES = [
          'import numpy as np\n'
          'def thin_airfoil_cl(alpha_deg, alpha_L0_deg=0.0, M=0.0):\n'
          '    """Thin airfoil CL with optional Prandtl-Glauert compressibility correction."""\n'
-         '    alpha = np.radians(alpha_deg)\n'
-         '    alpha_L0 = np.radians(alpha_L0_deg)\n'
+         '    alpha = _rad(alpha_deg)\n'
+         '    alpha_L0 = _rad(alpha_L0_deg)\n'
          '    CL_inc = 2 * np.pi * (alpha - alpha_L0)\n'
          '    beta = max((1 - min(M, 0.7)**2)**0.5, 0.1)\n'
          '    CL = CL_inc / beta\n'
@@ -310,7 +324,7 @@ _SEED_ENTRIES = [
          'import numpy as np\n'
          'def oswald_efficiency(AR, sweep_deg=0.0, taper=1.0):\n'
          '    """Raymer/Hoak empirical fit for Oswald efficiency factor."""\n'
-         '    sweep_rad = np.radians(sweep_deg)\n'
+         '    sweep_rad = _rad(sweep_deg)\n'
          '    e = 1.78 * (1 - 0.045 * AR**0.68) - 0.64\n'
          '    e = max(0.5, min(e, 1.0))\n'
          '    return {"e_oswald": e}\n'
@@ -503,8 +517,8 @@ _SEED_ENTRIES = [
          '    Returns r_eci [m] and v_eci [m/s] as 3-element lists.\n'
          '    """\n'
          '    a=float(a); e=float(e); mu=float(mu)\n'
-         '    i=np.radians(float(i_deg)); W=np.radians(float(RAAN_deg))\n'
-         '    w=np.radians(float(omega_deg)); nu=np.radians(float(nu_deg))\n'
+         '    i=_rad(i_deg); W=_rad(RAAN_deg)\n'
+         '    w=_rad(omega_deg); nu=_rad(nu_deg)\n'
          '    p = a*(1-e**2)\n'
          '    r = p/(1+e*np.cos(nu))\n'
          '    r_pf = r*np.array([np.cos(nu), np.sin(nu), 0.0])\n'
@@ -569,7 +583,7 @@ _SEED_ENTRIES = [
          '    v: orbital speed [m/s], delta_i_deg: inclination change [deg].\n'
          '    Most efficient at apoapsis (lowest v).\n'
          '    """\n'
-         '    dv = 2*float(v)*math.sin(math.radians(float(delta_i_deg))/2)\n'
+         '    dv = 2*float(v)*math.sin(_rad(delta_i_deg)/2)\n'
          '    return {"dv_plane_change": Q(dv,"m/s")}\n'
          'export = plane_change_dv'
      )},
@@ -604,7 +618,7 @@ _SEED_ENTRIES = [
          '    """J2 secular precession rates for Earth orbit.\n'
          '    Returns RAAN and argument-of-perigee drift in rad/s and deg/day.\n'
          '    """\n'
-         '    a=float(a); e=float(e); i=np.radians(float(i_deg))\n'
+         '    a=float(a); e=float(e); i=_rad(i_deg)\n'
          '    n=np.sqrt(float(mu)/a**3); p=a*(1-e**2)\n'
          '    fac=-1.5*n*float(J2)*(float(R_body)/p)**2\n'
          '    d_RAAN = fac*np.cos(i)\n'
@@ -622,7 +636,7 @@ _SEED_ENTRIES = [
          '    """Cylindrical shadow model. beta_deg: sun-orbit plane angle.\n'
          '    Returns eclipse_frac=0 when |beta|>beta_max (no eclipse season).\n'
          '    """\n'
-         '    a=float(a); R_body=float(R_body); beta=np.radians(float(beta_deg))\n'
+         '    a=float(a); R_body=float(R_body); beta=_rad(beta_deg)\n'
          '    rho=np.arcsin(min(R_body/a,1.0))\n'
          '    beta_max_deg=float(np.degrees(rho))\n'
          '    if abs(beta)>=rho:\n'
@@ -760,7 +774,7 @@ _SEED_ENTRIES = [
          '    Small-angle linearisation. T_gg_max is worst-case (45 deg) peak.\n'
          '    """\n'
          '    omega2=float(mu)/float(r)**3\n'
-         '    theta=np.radians(float(theta_pitch_deg)); phi=np.radians(float(phi_roll_deg))\n'
+         '    theta=_rad(theta_pitch_deg); phi=_rad(phi_roll_deg)\n'
          '    Ix,Iy,Iz=float(Ix),float(Iy),float(Iz)\n'
          '    T_roll =3*omega2*(Iz-Iy)*phi\n'
          '    T_pitch=3*omega2*(Iy-Ix)*theta\n'
@@ -782,7 +796,7 @@ _SEED_ENTRIES = [
          '    theta_slew_deg [deg]: slew angle. t_slew [s]: slew time.\n'
          '    margin: design margin factor (1.5 = 50% margin).\n'
          '    """\n'
-         '    theta=np.radians(float(theta_slew_deg))\n'
+         '    theta=_rad(theta_slew_deg)\n'
          '    omega_max=2*theta/float(t_slew)\n'
          '    alpha_max=omega_max/(float(t_slew)/2)\n'
          '    tau_max=float(I_sc)*alpha_max\n'

@@ -50,11 +50,11 @@ print(f"\n  ωn = {omega_n_plant} rad/s,  ζ_ol = {zeta_plant},  K = {K_plant}")
 print(f"  Open-loop step response characteristics:")
 
 r_ol = anvil.R.second_order_metrics(omega_n=omega_n_plant, zeta=zeta_plant)
-print(f"    Overshoot:  {r_ol['overshoot_pct'].si:.1f}%")
-print(f"    t_settle:   {r_ol['t_settle'].si:.3f} s  (2% criterion)")
-print(f"    t_rise:     {r_ol['t_rise'].si:.3f} s")
-print(f"    t_peak:     {r_ol['t_peak'].si:.3f} s")
-print(f"    ωd:         {r_ol['omega_d'].si:.3f} rad/s")
+print(f"    Overshoot:  {r_ol['overshoot_pct']}%")
+print(f"    t_settle:   {r_ol['t_settle']}  (2% criterion)")
+print(f"    t_rise:     {r_ol['t_rise']}")
+print(f"    t_peak:     {r_ol['t_peak']}")
+print(f"    ωd:         {r_ol['omega_d']}")
 
 
 # =====================================================

@@ -130,10 +130,11 @@ src/anvil/
 
 | Version | Key additions |
 |---------|--------------|
-| 1.2.0   | Current. `minimize_global` (DE/DA/SHGO/BH), `System.optimize()`, `OptimizeResult`, `anvil.decomp` (POD/DMD), `viz.pod_energy`, `viz.dmd_spectrum` |
+| 1.3.0   | Current. pip-installable, adapters in `anvil.adapters`, poliastro/pykep adapters, angle Q(deg) inputs fixed in all RSQs, `Wh`/`kWh` energy units, beam RSQ unit bug fixed, auto-update seed on source change |
+| 1.2.1   | +19 RSQs: orbital extended, attitude/ADCS, mission budgets, controls extended. Total 76. |
+| 1.2.0   | `minimize_global` (DE/DA/SHGO/BH), `System.optimize()`, `OptimizeResult`, `anvil.decomp` (POD/DMD), `viz.pod_energy`, `viz.dmd_spectrum` |
 | 1.1.0   | CFD module, Watchdog, help_ |
 | 1.0.0   | Project registry, Jupyter display, parallel sweep, 57 RSQs |
-| 1.2.1   | +19 RSQs: orbital extended, attitude/ADCS, mission budgets, controls extended. Total 76. |
 | 0.x     | Core Q/Relation/System, basic registry |
 
 ---

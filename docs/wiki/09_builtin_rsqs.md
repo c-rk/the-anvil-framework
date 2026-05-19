@@ -945,15 +945,16 @@ Secular nodal (RAAN) and apsidal (argument-of-perigee) drift from Earth's J2 obl
 Inputs:  a [m], e [-], i_deg [deg]
          mu=3.986e14, R_body=6.371e6, J2=1.08263e-3  (Earth defaults)
 Outputs: d_RAAN_dt [rad/s], d_omega_dt [rad/s]
-         d_RAAN_deg_per_day, d_omega_deg_per_day
 ```
 
 ```python
 r = anvil.R.j2_precession(a=6771e3, e=0.001, i_deg=97.4)
-# d_RAAN ≈ +0.987 deg/day  (Sun-synchronous condition)
+# d_RAAN_dt ≈ 1.98e-7 rad/s  (SSO: ~+0.987 deg/day)
 ```
 
-**Note:** SSO condition is d_RAAN/dt = +0.9856 deg/day. Solve for `i_deg` numerically with `solvers.find_root`.
+**Note:** SSO condition is d_RAAN/dt ≈ +0.9856 deg/day = 1.991e-7 rad/s.
+**Angle inputs:** accept either plain `float` in degrees or `Q(value, "deg")`. All angle RSQs follow this convention.
+**Note:** SSO condition Solve for `i_deg` numerically with `solvers.find_root`.
 
 ---
 

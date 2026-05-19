@@ -4,136 +4,105 @@ Example 4: Structural Beam Analysis
 
 Demonstrates:
     - Using built-in structures RSQs
-    - Building custom Relations from scratch
-    - Bounds checking and diagnostics
-    - Comparing analytical solutions
+    - Working with physical quantities (Q objects carry units)
+    - Beam deflection, buckling, and pressure vessel analysis
+    - Sweep over beam length to find safe working range
 
 Engineering context:
-    Analyze a cantilever beam and a simply-supported beam under load.
-    Check safety margins against yield stress. Sweep beam length
-    to find the maximum span before yield.
+    Analyze aluminum beams under various loading conditions.
+    All physical quantities declared as Q objects -- units propagate
+    automatically through calculations and appear in output.
 """
 
-import sys, os
 import numpy as np
-
 import anvil
 from anvil import Q, System
-from anvil.monitor import diagnose
 
 print("=" * 60)
 print("  Example 4: Structural Beam Analysis")
 print("=" * 60)
 
-# --- Material: Aluminum 6061-T6 ---
-E_al     = 68.9e9    # Pa (Young's modulus)
-sigma_y  = 276e6     # Pa (yield strength)
-rho_al   = 2700      # kg/m^3
+# Material: Aluminum 6061-T6
+E        = Q(68.9e9,  "Pa")      # Young's modulus
+sigma_y  = Q(276e6,   "Pa")      # yield strength
+rho      = Q(2700,    "kg/m^3")  # density
 
-# --- Cross section: rectangular beam 50mm wide x 100mm tall ---
-b = 0.050   # width, m
-h = 0.100   # height, m
-A = b * h   # cross-sectional area
-I = b * h**3 / 12  # second moment of area
+# Cross section: 50 mm x 100 mm rectangular
+b = Q(0.050, "m")
+h = Q(0.100, "m")
+A = b * h                        # m^2
+I = b * h**3 / 12                # m^4
 
 print(f"\n[1] Beam properties:")
-print(f"  Material:  Al 6061-T6 (E = {E_al/1e9:.1f} GPa, sigma_y = {sigma_y/1e6:.0f} MPa)")
-print(f"  Section:   {b*1000:.0f} mm x {h*1000:.0f} mm rectangular")
-print(f"  Area:      {A*1e4:.2f} cm^2")
-print(f"  I:         {I*1e8:.4f} cm^4")
+print(f"  E        = {E.to('GPa')}")
+print(f"  sigma_y  = {sigma_y.to('MPa')}")
+print(f"  section  = {b.to('mm')} x {h.to('mm')}")
+print(f"  Area     = {A}")
+print(f"  I        = {I}")
 
-# ==========================================
-# Part A: Cantilever Beam with Tip Load
-# ==========================================
-print(f"\n{'='*40}")
-print(f"  Part A: Cantilever Beam")
-print(f"{'='*40}")
 
-F_tip = 5000  # N
-L = 2.0       # m
+# ── Part A: Cantilever under tip load ────────────────────────────────────────
+print(f"\n[A] Cantilever beam, 5 kN tip load:")
 
-result = anvil.R.beam_deflection_cantilever(
-    F_tip=F_tip, L_beam=L, E=E_al, I_moment=I
+F = Q(5000, "N")
+L = Q(2.0,  "m")
+
+r = anvil.R.beam_deflection_cantilever(
+    F_tip=F.si, L_beam=L.si, E=E.si, I_moment=I.si
 )
+max_stress = r["max_moment"] * (h / 2) / I
 
-deflection = result["deflection"].si
-max_moment = result["max_moment"].si
-max_stress = max_moment * (h/2) / I  # sigma = M*c/I
+print(f"  deflection  = {r['deflection'].to('mm')}")
+print(f"  max moment  = {r['max_moment']}")
+print(f"  max stress  = {max_stress.to('MPa')}")
+print(f"  safety vs yield = {(sigma_y / max_stress):.2f}x")
 
-print(f"\n  Load:       {F_tip} N at tip")
-print(f"  Length:     {L} m")
-print(f"  Deflection: {deflection*1000:.2f} mm")
-print(f"  Max moment: {max_moment:.0f} N*m")
-print(f"  Max stress: {max_stress/1e6:.1f} MPa")
-print(f"  Safety margin: {sigma_y / max_stress:.2f}x")
-
-# --- Sweep: deflection vs beam length ---
-print(f"\n  Sweep: deflection vs length...")
-
+# Sweep beam length
+print(f"\n  Sweep: deflection vs length (0.5 to 4 m):")
 cant = System("cantilever")
-cant.add("F_tip",    F_tip, "N")
-cant.add("L_beam",   L,     "m")
-cant.add("E",        E_al,  "Pa")
-cant.add("I_moment", I,     "m")     # m^4 but Anvil tracks dims automatically
+cant.add("F_tip",    F.si,  "N")
+cant.add("L_beam",   L.si,  "m")
+cant.add("E",        E.si,  "Pa")
+cant.add("I_moment", I.si,  "m^4")
 cant.use("beam_deflection_cantilever")
+cant.sweep("L_beam", np.linspace(0.5, 4.0, 8)).summary(
+    outputs=["deflection", "max_moment"])
 
-sweep = cant.sweep("L_beam", np.linspace(0.5, 4.0, 8))
-sweep.summary(outputs=["deflection", "max_moment"])
 
-# ==========================================
-# Part B: Simply Supported Beam Under Uniform Load
-# ==========================================
-print(f"\n{'='*40}")
-print(f"  Part B: Simply Supported Beam")
-print(f"{'='*40}")
+# ── Part B: Simply-supported under uniform load ───────────────────────────────
+print(f"\n[B] Simply-supported beam, 2 kN/m uniform load:")
 
-w_load = 2000  # N/m (distributed load)
-L_ss = 3.0     # m
+w = Q(2000, "N/m")
+L_ss = Q(3.0, "m")
 
-result_ss = anvil.R.beam_deflection_simply_supported(
-    w_load=w_load, L_beam=L_ss, E=E_al, I_moment=I
+r_ss = anvil.R.beam_deflection_simply_supported(
+    w_load=w.si, L_beam=L_ss.si, E=E.si, I_moment=I.si
 )
+print(f"  max deflection = {r_ss['deflection'].to('mm')}")
+print(f"  max moment     = {r_ss['max_moment']}")
 
-print(f"\n  Load:       {w_load} N/m uniform")
-print(f"  Length:     {L_ss} m")
-print(f"  Max deflection: {result_ss['deflection'].si*1000:.2f} mm")
-print(f"  Max moment:     {result_ss['max_moment'].si:.0f} N*m")
 
-# ==========================================
-# Part C: Euler Buckling
-# ==========================================
-print(f"\n{'='*40}")
-print(f"  Part C: Column Buckling")
-print(f"{'='*40}")
+# ── Part C: Euler column buckling ─────────────────────────────────────────────
+print(f"\n[C] Column buckling (fixed-free, K=2):")
 
-# Fixed-free column (K=2, so L_eff = 2*L)
-L_col = 1.5  # m
-L_eff = 2.0 * L_col  # fixed-free end condition
+L_col = Q(1.5, "m")
+L_eff = Q(2.0 * L_col.si, "m")   # effective length for fixed-free
 
-result_buck = anvil.R.buckling_euler(E=E_al, I_moment=I, L_eff=L_eff)
-P_cr = result_buck["P_critical"].si
+r_buck = anvil.R.buckling_euler(E=E.si, I_moment=I.si, L_eff=L_eff.si)
+print(f"  critical load = {r_buck['P_critical'].to('kN')}")
+print(f"  safety at 50 kN = {r_buck['P_critical'] / Q(50e3,'N'):.2f}x")
 
-print(f"\n  Column length:      {L_col} m (fixed-free, K=2)")
-print(f"  Effective length:   {L_eff} m")
-print(f"  Critical load:      {P_cr/1000:.1f} kN")
-print(f"  Safety factor at 50 kN: {P_cr / 50000:.2f}x")
 
-# ==========================================
-# Part D: Pressure Vessel
-# ==========================================
-print(f"\n{'='*40}")
-print(f"  Part D: Pressure Vessel")
-print(f"{'='*40}")
+# ── Part D: Thin-wall pressure vessel ─────────────────────────────────────────
+print(f"\n[D] Thin-wall pressure vessel:")
 
-result_pv = anvil.R.thin_wall_hoop_stress(
-    P_internal=5e6, r_inner=0.3, t_wall=0.005
+r_pv = anvil.R.thin_wall_hoop_stress(
+    P_internal=Q(5e6,"Pa").si, r_inner=Q(0.3,"m").si, t_wall=Q(0.005,"m").si
 )
+print(f"  hoop stress  = {r_pv['sigma_hoop'].to('MPa')}")
+print(f"  axial stress = {r_pv['sigma_axial'].to('MPa')}")
+print(f"  safety (yield / hoop) = {sigma_y / r_pv['sigma_hoop']:.2f}x")
 
-print(f"\n  Internal pressure: 5 MPa")
-print(f"  Radius: 300 mm, Wall: 5 mm")
-print(f"  Hoop stress:   {result_pv['sigma_hoop'].si/1e6:.0f} MPa")
-print(f"  Axial stress:  {result_pv['sigma_axial'].si/1e6:.0f} MPa")
-print(f"  Safety (hoop): {sigma_y / result_pv['sigma_hoop'].si:.2f}x")
 
 print("\n" + "=" * 60)
 print("  Done.")

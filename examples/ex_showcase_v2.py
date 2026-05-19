@@ -142,7 +142,7 @@ print(f"  {T_K}  ->  {T_R}")
 print(f"  {P_Pa} ->  {P_bar}  =  {P_psi}  =  {P_MPa}")
 
 # --- 1e. SI access ---
-print(f"\n  cp_air.si    = {cp_air.si:.2f}  (always in SI: J/kg/K)")
+print(f"\n  cp_air.si    = {cp_air}  (always in SI: J/kg/K)")
 print(f"  cp_air.value = {cp_air} {cp_air.unit}")
 
 

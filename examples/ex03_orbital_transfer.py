@@ -14,7 +14,9 @@ Engineering context:
     time, and propellant mass using the Tsiolkovsky equation.
 """
 
-import sys, os
+import os
+import sys
+
 import numpy as np
 
 import anvil
@@ -25,56 +27,57 @@ print("  Example 3: LEO to GEO Orbital Transfer")
 print("=" * 60)
 
 # --- Constants ---
-mu_earth = 3.986004418e14   # m^3/s^2
-R_earth  = 6371e3           # m
+mu_earth = 3.986004418e14  # m^3/s^2
+R_earth = 6371e3  # m
 
 # --- Step 1: Define the orbits ---
-h_LEO = 400e3    # 400 km altitude
+h_LEO = 400e3  # 400 km altitude
 h_GEO = 35786e3  # geostationary altitude
 
 r_LEO = R_earth + h_LEO
 r_GEO = R_earth + h_GEO
 
 print(f"\n[1] Orbit definitions:")
-print(f"  LEO: {h_LEO/1e3:.0f} km altitude, r = {r_LEO/1e3:.0f} km")
-print(f"  GEO: {h_GEO/1e3:.0f} km altitude, r = {r_GEO/1e3:.0f} km")
+print(f"  LEO: {Q(h_LEO,'m').to('km')} altitude, r = {Q(r_LEO,'m').to('km')}")
+print(f"  GEO: {Q(h_GEO,'m').to('km')} altitude, r = {Q(r_GEO,'m').to('km')}")
 
 # --- Step 2: Orbital velocities ---
 print(f"\n[2] Orbital velocities:")
 leo_v = anvil.R.vis_viva(mu=mu_earth, r=r_LEO, a=r_LEO)
 geo_v = anvil.R.vis_viva(mu=mu_earth, r=r_GEO, a=r_GEO)
-print(f"  V_LEO = {leo_v['V_orbital'].to("km/s")}")
-print(f"  V_GEO = {geo_v['V_orbital'].to("km/s")}")
+print(f"  V_LEO = {leo_v['V_orbital'].to('km/s')}")
+print(f"  V_GEO = {geo_v['V_orbital'].to('km/s')}")
 
 # --- Step 3: Hohmann transfer ---
 print(f"\n[3] Hohmann transfer:")
 transfer = anvil.R.hohmann_transfer(mu=mu_earth, r1=r_LEO, r2=r_GEO)
-print(f"  dV1 (LEO departure):  {transfer['dv1'].to("km/s")}")
-print(f"  dV2 (GEO insertion):  {transfer['dv2'].to("km/s")}")
-print(f"  Total delta-V:        {transfer['dv_total'].to("km/s")}")
-print(f"  Transfer time:        {transfer['tof'].value / 3600:.2f} hours")
+print(f"  dV1 (LEO departure):  {transfer['dv1'].to('km/s')}")
+print(f"  dV2 (GEO insertion):  {transfer['dv2'].to('km/s')}")
+print(f"  Total delta-V:        {transfer['dv_total'].to('km/s')}")
+print(f"  Transfer time:        {transfer['tof'].to('hr')}")
 
 # --- Step 4: Orbital periods ---
 print(f"\n[4] Orbital periods:")
 T_LEO = anvil.R.orbital_period(mu=mu_earth, a=r_LEO)
 T_GEO = anvil.R.orbital_period(mu=mu_earth, a=r_GEO)
-print(f"  LEO period: {T_LEO['T_orbital'].value / 60:.1f} min")
-print(f"  GEO period: {T_GEO['T_orbital'].value / 3600:.2f} hrs (should be ~24)")
+print(f"  LEO period: {T_LEO['T_orbital'].to('min')}")
+print(f"  GEO period: {T_GEO['T_orbital'].to('hr')} hrs (should be ~24)")
 
 # --- Step 5: Propellant budget using Tsiolkovsky ---
 print(f"\n[5] Propellant budget (bipropellant engine, Isp = 320 s):")
 
 # Build a mission system
 mission = System("leo_to_geo")
-mission.add("mu",         mu_earth)
-mission.add("r_LEO",      r_LEO,   "m")
-mission.add("r_GEO",      r_GEO,   "m")
-mission.add("Isp_engine",  320,     "s",    desc="Engine specific impulse")
-mission.add("m_payload",   2000,    "kg",   desc="Payload mass")
-mission.add("m_structure",  500,    "kg",   desc="Structure mass (dry)")
+mission.add("mu", mu_earth)
+mission.add("r_LEO", r_LEO, "m")
+mission.add("r_GEO", r_GEO, "m")
+mission.add("Isp_engine", 320, "s", desc="Engine specific impulse")
+mission.add("m_payload", 2000, "kg", desc="Payload mass")
+mission.add("m_structure", 500, "kg", desc="Structure mass (dry)")
 
 # Delta-V
 mission.use("hohmann_transfer", map={"r1": "r_LEO", "r2": "r_GEO"})
+
 
 # Propellant mass from Tsiolkovsky (inverted)
 def propellant_mass(dv_total, Isp_engine, m_payload, m_structure):
@@ -91,18 +94,21 @@ def propellant_mass(dv_total, Isp_engine, m_payload, m_structure):
         "m_wet": Q(m_wet, "kg"),
     }
 
+
 mission.use(propellant_mass)
 result = mission.solve_forward()
 
-print(f"  Mass ratio:     {result['mass_ratio'].si:.2f}")
+print(f"  Mass ratio:     {result['mass_ratio']}")
 print(f"  Propellant:     {result['m_propellant']}")
 print(f"  Wet mass:       {result['m_wet']}")
-print(f"  Payload frac:   {2000 / result['m_wet'].si:.1%}")
+print(f"  Payload frac:   {2000 / result['m_wet']}")
 
 # --- Step 6: Sweep over engine Isp ---
 print(f"\n[6] Sweep: propellant mass vs engine Isp...")
 sweep = mission.sweep("Isp_engine", np.linspace(250, 450, 5))
 sweep.summary(outputs=["m_propellant", "mass_ratio", "m_wet"])
+sweep_payload = mission.sweep("m_payload", np.linspace(1000, 4000, 5))
+sweep_payload.summary(outputs=["m_propellant", "mass_ratio", "m_wet"])
 
 print("\n" + "=" * 60)
 print("  Done.")

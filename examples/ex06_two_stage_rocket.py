@@ -45,7 +45,7 @@ Isp_1 = r1["Isp"].si
 
 print(f"  Isp (sea level): {Isp_1:.1f} s")
 print(f"  Thrust:          {r1['thrust'].to("kN")}")
-print(f"  Exit Mach:       {r1['M_exit'].si:.2f}")
+print(f"  Exit Mach:       {r1['M_exit']}")
 
 # ==========================================
 # Stage 2: LOX/LH2 upper stage
@@ -68,7 +68,7 @@ Isp_2 = r2["Isp"].si
 
 print(f"  Isp (vacuum):    {Isp_2:.1f} s")
 print(f"  Thrust:          {r2['thrust'].to("kN")}")
-print(f"  Exit Mach:       {r2['M_exit'].si:.2f}")
+print(f"  Exit Mach:       {r2['M_exit']}")
 
 # ==========================================
 # Vehicle sizing with Tsiolkovsky

@@ -87,7 +87,7 @@ Q_cold = result["mdot_cold"].si * result["Cp_cold"].si * (result["T_cold_out"].s
 print(f"  Q_hot  = {Q_hot:.2f} W")
 print(f"  Q_cold = {Q_cold:.2f} W")
 print(f"  Error  = {abs(Q_hot - Q_cold):.4f} W")
-print(f"  Effectiveness = {result['effectiveness'].si:.4f}")
+print(f"  Effectiveness = {result['effectiveness']}")
 
 # --- Convergence info ---
 hist = hx.history()

@@ -204,7 +204,7 @@ for fuel_name, ox_name, of_ratio in [
     eng2.use(exit_analysis); eng2.use(thrust_isp)
     r = eng2.solve_forward()
     print(f"  {fuel_name + '/' + ox_name:20s} "
-          f"{r['Tc']} {r['gamma_c'].si:8.4f} "
+          f"{r['Tc']} {r['gamma_c']} "
           f"{r['Isp']} {r['cstar']}")
 
 

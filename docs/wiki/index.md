@@ -25,7 +25,7 @@ Anvil is an engineering computation framework: write physics as plain Python fun
 | [Solvers](06_solvers.md) | `find_root`, `solve_nonlinear`, `solve_ode`, `solve_ode_stiff`, `solve_bvp`, `solve_pde_heat_1d`, `minimize`, `minimize_global` |
 | [Registry](07_registry.md) | SQLite store, `push`, `update`, `search`, `list`, `info`, `export`, `remove`, `check` |
 | [Project Registry](08_project.md) | `anvil.project()`, isolated stores, context manager, `promote` |
-| [Built-in RSQs](09_builtin_rsqs.md) | All 57 RSQs — signatures, domains, example outputs |
+| [Built-in RSQs](09_builtin_rsqs.md) | All 76 RSQs — signatures, domains, example outputs |
 | [Adapters](10_adapters.md) | `Adapter`, python/CLI backends, unit handling |
 | [Sweep & Sensitivity](11_sweep_sensitivity.md) | `sys.sweep()`, `sys.sensitivity()`, result objects, parallel |
 | [Visualization](12_visualization.md) | `viz.convergence`, `viz.sweep_plot`, `viz.variable_trace`, `viz.dependency_graph`, `viz.pod_energy`, `viz.dmd_spectrum` |
@@ -110,7 +110,7 @@ src/anvil/
 │   ├── store.py         SQLite backend (Store class)
 │   ├── namespace.py     R., S., QDB. dot-access namespaces
 │   └── loader.py        RSQ source → live object
-├── seed.py              57 built-in RSQs seeded on first import
+├── seed.py              76 built-in RSQs seeded on first import
 ├── project.py           Project class (isolated registry)
 ├── adapter.py           Adapter class (python + cli backends)
 ├── viz.py               convergence, sweep_plot, variable_trace, dependency_graph,
@@ -133,6 +133,7 @@ src/anvil/
 | 1.2.0   | Current. `minimize_global` (DE/DA/SHGO/BH), `System.optimize()`, `OptimizeResult`, `anvil.decomp` (POD/DMD), `viz.pod_energy`, `viz.dmd_spectrum` |
 | 1.1.0   | CFD module, Watchdog, help_ |
 | 1.0.0   | Project registry, Jupyter display, parallel sweep, 57 RSQs |
+| 1.2.1   | +19 RSQs: orbital extended, attitude/ADCS, mission budgets, controls extended. Total 76. |
 | 0.x     | Core Q/Relation/System, basic registry |
 
 ---

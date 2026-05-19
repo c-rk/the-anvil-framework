@@ -489,4 +489,422 @@ _SEED_ENTRIES = [
          '    return {"E1": E1, "E2": E2, "G12": G12, "nu12": nu12}\n'
          'export = composite_laminate_stiffness'
      )},
+
+    # ==================== ORBITAL MECHANICS (EXTENDED) ====================
+    {"name": "keplerian_to_cartesian", "type": "R", "domain": "orbital",
+     "desc": "Convert Keplerian elements to ECI Cartesian state (r, v vectors)",
+     "tags": ["orbital", "keplerian", "cartesian", "state_vector"],
+     "source": (
+         'import numpy as np\n'
+         'from anvil import Q\n'
+         'def keplerian_to_cartesian(a, e, i_deg, RAAN_deg, omega_deg, nu_deg, mu):\n'
+         '    """Convert classical orbital elements to ECI position and velocity.\n'
+         '    a: semi-major axis [m], e: eccentricity, angles in degrees, mu [m³/s²].\n'
+         '    Returns r_eci [m] and v_eci [m/s] as 3-element lists.\n'
+         '    """\n'
+         '    a=float(a); e=float(e); mu=float(mu)\n'
+         '    i=np.radians(float(i_deg)); W=np.radians(float(RAAN_deg))\n'
+         '    w=np.radians(float(omega_deg)); nu=np.radians(float(nu_deg))\n'
+         '    p = a*(1-e**2)\n'
+         '    r = p/(1+e*np.cos(nu))\n'
+         '    r_pf = r*np.array([np.cos(nu), np.sin(nu), 0.0])\n'
+         '    v_pf = np.sqrt(mu/p)*np.array([-np.sin(nu), e+np.cos(nu), 0.0])\n'
+         '    cW,sW=np.cos(W),np.sin(W); ci,si=np.cos(i),np.sin(i)\n'
+         '    cw,sw=np.cos(w),np.sin(w)\n'
+         '    Q_mat = np.array([\n'
+         '        [cW*cw-sW*sw*ci, -cW*sw-sW*cw*ci,  sW*si],\n'
+         '        [sW*cw+cW*sw*ci, -sW*sw+cW*cw*ci, -cW*si],\n'
+         '        [sw*si,           cw*si,             ci  ]])\n'
+         '    r_eci = Q_mat @ r_pf\n'
+         '    v_eci = Q_mat @ v_pf\n'
+         '    return {"r_eci": r_eci.tolist(), "v_eci": v_eci.tolist(),\n'
+         '            "r_mag": Q(float(r), "m"), "v_mag": Q(float(np.linalg.norm(v_eci)), "m/s")}\n'
+         'export = keplerian_to_cartesian'
+     )},
+    {"name": "cartesian_to_keplerian", "type": "R", "domain": "orbital",
+     "desc": "Convert ECI Cartesian state vector to Keplerian orbital elements",
+     "tags": ["orbital", "keplerian", "cartesian", "orbit_determination"],
+     "source": (
+         'import numpy as np\n'
+         'from anvil import Q\n'
+         'def cartesian_to_keplerian(r_vec, v_vec, mu):\n'
+         '    """Convert ECI position+velocity to classical orbital elements.\n'
+         '    r_vec, v_vec: 3-element lists [m] and [m/s]. mu in m³/s².\n'
+         '    """\n'
+         '    r=np.array(r_vec,dtype=float); v=np.array(v_vec,dtype=float)\n'
+         '    mu=float(mu)\n'
+         '    r_m=np.linalg.norm(r); v_m=np.linalg.norm(v)\n'
+         '    eps = v_m**2/2 - mu/r_m\n'
+         '    a = -mu/(2*eps)\n'
+         '    h = np.cross(r,v); h_m=np.linalg.norm(h)\n'
+         '    e_vec = np.cross(v,h)/mu - r/r_m\n'
+         '    e = np.linalg.norm(e_vec)\n'
+         '    i_deg = float(np.degrees(np.arccos(np.clip(h[2]/h_m,-1,1))))\n'
+         '    N = np.cross(np.array([0,0,1.0]),h); N_m=np.linalg.norm(N)\n'
+         '    RAAN_deg = 0.0\n'
+         '    if N_m > 1e-10:\n'
+         '        RAAN_deg = float(np.degrees(np.arccos(np.clip(N[0]/N_m,-1,1))))\n'
+         '        if N[1] < 0: RAAN_deg = 360-RAAN_deg\n'
+         '    omega_deg = 0.0\n'
+         '    if N_m > 1e-10 and e > 1e-10:\n'
+         '        omega_deg = float(np.degrees(np.arccos(np.clip(np.dot(N,e_vec)/(N_m*e),-1,1))))\n'
+         '        if e_vec[2] < 0: omega_deg = 360-omega_deg\n'
+         '    nu_deg = 0.0\n'
+         '    if e > 1e-10:\n'
+         '        nu_deg = float(np.degrees(np.arccos(np.clip(np.dot(e_vec,r)/(e*r_m),-1,1))))\n'
+         '        if np.dot(r,v) < 0: nu_deg = 360-nu_deg\n'
+         '    return {"a": Q(float(a),"m"), "e": float(e), "i_deg": i_deg,\n'
+         '            "RAAN_deg": RAAN_deg, "omega_deg": omega_deg, "nu_deg": nu_deg,\n'
+         '            "h_mag": Q(float(h_m),"m^2/s")}\n'
+         'export = cartesian_to_keplerian'
+     )},
+    {"name": "plane_change_dv", "type": "R", "domain": "orbital",
+     "desc": "Delta-V for a pure orbital plane change (inclination change)",
+     "tags": ["orbital", "plane_change", "inclination", "delta_v"],
+     "source": (
+         'import math\n'
+         'from anvil import Q\n'
+         'def plane_change_dv(v, delta_i_deg):\n'
+         '    """Delta-V for a pure inclination change.\n'
+         '    v: orbital speed [m/s], delta_i_deg: inclination change [deg].\n'
+         '    Most efficient at apoapsis (lowest v).\n'
+         '    """\n'
+         '    dv = 2*float(v)*math.sin(math.radians(float(delta_i_deg))/2)\n'
+         '    return {"dv_plane_change": Q(dv,"m/s")}\n'
+         'export = plane_change_dv'
+     )},
+    {"name": "bielliptic_transfer", "type": "R", "domain": "orbital",
+     "desc": "Bi-elliptic transfer delta-V between two circular orbits via intermediate radius",
+     "tags": ["orbital", "bielliptic", "transfer", "delta_v"],
+     "source": (
+         'import numpy as np\n'
+         'from anvil import Q\n'
+         'def bielliptic_transfer(mu, r1, r2, rb):\n'
+         '    """Bi-elliptic transfer r1 -> rb -> r2. More efficient than Hohmann when r2/r1 > 11.94.\n'
+         '    rb: intermediate apoapsis radius [m]. Must be >= max(r1,r2).\n'
+         '    """\n'
+         '    mu=float(mu); r1=float(r1); r2=float(r2); rb=float(rb)\n'
+         '    a1=(r1+rb)/2; a2=(rb+r2)/2\n'
+         '    v1=np.sqrt(mu/r1)\n'
+         '    vt1a=np.sqrt(mu*(2/r1-1/a1)); dv1=abs(vt1a-v1)\n'
+         '    vt1b=np.sqrt(mu*(2/rb-1/a1)); vt2b=np.sqrt(mu*(2/rb-1/a2)); dv2=abs(vt2b-vt1b)\n'
+         '    vt2a=np.sqrt(mu*(2/r2-1/a2)); v2=np.sqrt(mu/r2); dv3=abs(v2-vt2a)\n'
+         '    tof=np.pi*((a1**3/mu)**0.5+(a2**3/mu)**0.5)\n'
+         '    return {"dv1":Q(dv1,"m/s"),"dv2":Q(dv2,"m/s"),"dv3":Q(dv3,"m/s"),\n'
+         '            "dv_total":Q(dv1+dv2+dv3,"m/s"),"tof":Q(tof,"s")}\n'
+         'export = bielliptic_transfer'
+     )},
+    {"name": "j2_precession", "type": "R", "domain": "orbital",
+     "desc": "J2 oblateness nodal (RAAN) and apsidal (perigee) precession rates",
+     "tags": ["orbital", "J2", "precession", "perturbation"],
+     "source": (
+         'import numpy as np\n'
+         'from anvil import Q\n'
+         'def j2_precession(a, e, i_deg, mu=3.986004418e14, R_body=6.371e6, J2=1.08263e-3):\n'
+         '    """J2 secular precession rates for Earth orbit.\n'
+         '    Returns RAAN and argument-of-perigee drift in rad/s and deg/day.\n'
+         '    """\n'
+         '    a=float(a); e=float(e); i=np.radians(float(i_deg))\n'
+         '    n=np.sqrt(float(mu)/a**3); p=a*(1-e**2)\n'
+         '    fac=-1.5*n*float(J2)*(float(R_body)/p)**2\n'
+         '    d_RAAN = fac*np.cos(i)\n'
+         '    d_omega = -0.5*fac*(5*np.cos(i)**2-1)\n'
+         '    return {"d_RAAN_dt":Q(float(d_RAAN),"rad/s"),\n'
+         '            "d_omega_dt":Q(float(d_omega),"rad/s"),\n'
+         '            "d_RAAN_deg_per_day":float(np.degrees(d_RAAN)*86400),\n'
+         '            "d_omega_deg_per_day":float(np.degrees(d_omega)*86400)}\n'
+         'export = j2_precession'
+     )},
+    {"name": "eclipse_fraction", "type": "R", "domain": "orbital",
+     "desc": "Fraction of circular orbit spent in planet shadow (cylindrical model)",
+     "tags": ["orbital", "eclipse", "shadow", "power"],
+     "source": (
+         'import numpy as np\n'
+         'def eclipse_fraction(a, R_body=6.371e6, beta_deg=0.0):\n'
+         '    """Cylindrical shadow model. beta_deg: sun-orbit plane angle.\n'
+         '    Returns eclipse_frac=0 when |beta|>beta_max (no eclipse season).\n'
+         '    """\n'
+         '    a=float(a); R_body=float(R_body); beta=np.radians(float(beta_deg))\n'
+         '    rho=np.arcsin(min(R_body/a,1.0))\n'
+         '    beta_max_deg=float(np.degrees(rho))\n'
+         '    if abs(beta)>=rho:\n'
+         '        return {"eclipse_frac":0.0,"beta_max_deg":beta_max_deg,"in_eclipse_season":False}\n'
+         '    eclipse_frac=float(np.arccos(np.cos(rho)/np.cos(beta))/np.pi)\n'
+         '    return {"eclipse_frac":eclipse_frac,"beta_max_deg":beta_max_deg,"in_eclipse_season":True}\n'
+         'export = eclipse_fraction'
+     )},
+    {"name": "sphere_of_influence", "type": "R", "domain": "orbital",
+     "desc": "Laplace sphere of influence radius: r_SOI = a*(m_body/m_parent)^(2/5)",
+     "tags": ["orbital", "SOI", "patched_conic", "gravity_assist"],
+     "source": (
+         'from anvil import Q\n'
+         'def sphere_of_influence(a_body, m_body, m_parent):\n'
+         '    """Sphere of influence for patched-conic trajectory design.\n'
+         '    a_body: semi-major axis of body around parent [m],\n'
+         '    m_body, m_parent: masses [kg].\n'
+         '    """\n'
+         '    r_SOI=float(a_body)*(float(m_body)/float(m_parent))**0.4\n'
+         '    return {"r_SOI":Q(r_SOI,"m")}\n'
+         'export = sphere_of_influence'
+     )},
+    {"name": "propellant_mass", "type": "R", "domain": "orbital",
+     "desc": "Propellant mass from delta-V requirement via Tsiolkovsky equation (inverse)",
+     "tags": ["orbital", "propulsion", "propellant", "tsiolkovsky", "delta_v"],
+     "source": (
+         'import math\n'
+         'from anvil import Q\n'
+         'def propellant_mass(dv, Isp, m_dry):\n'
+         '    """Compute propellant mass from delta-V, Isp, and dry mass.\n'
+         '    dv [m/s], Isp [s], m_dry [kg].\n'
+         '    """\n'
+         '    mass_ratio=math.exp(float(dv)/(float(Isp)*9.80665))\n'
+         '    m_wet=float(m_dry)*mass_ratio\n'
+         '    return {"m_propellant":Q(m_wet-float(m_dry),"kg"),"m_wet":Q(m_wet,"kg"),"mass_ratio":mass_ratio}\n'
+         'export = propellant_mass'
+     )},
+    {"name": "delta_v_budget", "type": "R", "domain": "orbital",
+     "desc": "Aggregate mission delta-V budget across up to 6 phases with margin",
+     "tags": ["orbital", "delta_v", "budget", "mission"],
+     "source": (
+         'from anvil import Q\n'
+         'def delta_v_budget(dv1, dv2=0, dv3=0, dv4=0, dv5=0, dv6=0, margin_pct=5.0):\n'
+         '    """Sum delta-V phases and apply a percentage margin.\n'
+         '    dv1..dv6 [m/s]: mission phase delta-Vs. margin_pct: design margin [%].\n'
+         '    """\n'
+         '    tot=float(dv1)+float(dv2)+float(dv3)+float(dv4)+float(dv5)+float(dv6)\n'
+         '    margin=tot*float(margin_pct)/100\n'
+         '    return {"dv_total":Q(tot,"m/s"),"dv_with_margin":Q(tot+margin,"m/s"),\n'
+         '            "dv_margin":Q(margin,"m/s")}\n'
+         'export = delta_v_budget'
+     )},
+
+    # ==================== ATTITUDE & ADCS ====================
+    {"name": "euler_equations", "type": "R", "domain": "attitude",
+     "desc": "Euler's equations of motion for rigid body rotation in principal axes",
+     "tags": ["attitude", "rigid_body", "euler", "rotation", "dynamics"],
+     "source": (
+         'from anvil import Q\n'
+         'def euler_equations(omega_x, omega_y, omega_z, Ix, Iy, Iz,\n'
+         '                    tau_x=0.0, tau_y=0.0, tau_z=0.0):\n'
+         '    """Instantaneous angular acceleration from Euler equations.\n'
+         '    omega_* [rad/s]: body rates. I* [kg*m²]: principal moments.\n'
+         '    tau_* [N*m]: external torques.\n'
+         '    """\n'
+         '    ox,oy,oz=float(omega_x),float(omega_y),float(omega_z)\n'
+         '    Ix,Iy,Iz=float(Ix),float(Iy),float(Iz)\n'
+         '    ax=(float(tau_x)-(Iz-Iy)*oy*oz)/Ix\n'
+         '    ay=(float(tau_y)-(Ix-Iz)*oz*ox)/Iy\n'
+         '    az=(float(tau_z)-(Iy-Ix)*ox*oy)/Iz\n'
+         '    return {"alpha_x":Q(ax,"rad/s^2"),"alpha_y":Q(ay,"rad/s^2"),"alpha_z":Q(az,"rad/s^2")}\n'
+         'export = euler_equations'
+     )},
+    {"name": "quaternion_kinematics", "type": "R", "domain": "attitude",
+     "desc": "Quaternion kinematic equation: q_dot = 0.5 * Ξ(q) * omega",
+     "tags": ["attitude", "quaternion", "kinematics", "ADCS"],
+     "source": (
+         'import math\n'
+         'def quaternion_kinematics(q_w, q_x, q_y, q_z, omega_x, omega_y, omega_z):\n'
+         '    """Quaternion time derivative given attitude q=[w,x,y,z] and body rate omega.\n'
+         '    Hamilton convention. omega [rad/s] in body frame.\n'
+         '    """\n'
+         '    qw,qx,qy,qz=float(q_w),float(q_x),float(q_y),float(q_z)\n'
+         '    ox,oy,oz=float(omega_x),float(omega_y),float(omega_z)\n'
+         '    qw_dot=0.5*(-qx*ox-qy*oy-qz*oz)\n'
+         '    qx_dot=0.5*( qw*ox-qz*oy+qy*oz)\n'
+         '    qy_dot=0.5*( qz*ox+qw*oy-qx*oz)\n'
+         '    qz_dot=0.5*(-qy*ox+qx*oy+qw*oz)\n'
+         '    q_norm=math.sqrt(qw**2+qx**2+qy**2+qz**2)\n'
+         '    return {"qw_dot":qw_dot,"qx_dot":qx_dot,"qy_dot":qy_dot,"qz_dot":qz_dot,\n'
+         '            "q_norm":q_norm}\n'
+         'export = quaternion_kinematics'
+     )},
+    {"name": "triad_attitude", "type": "R", "domain": "attitude",
+     "desc": "TRIAD two-vector attitude determination: body-to-reference DCM and quaternion",
+     "tags": ["attitude", "TRIAD", "attitude_determination", "ADCS"],
+     "source": (
+         'import numpy as np\n'
+         'def triad_attitude(b1_x,b1_y,b1_z, b2_x,b2_y,b2_z,\n'
+         '                   r1_x,r1_y,r1_z, r2_x,r2_y,r2_z):\n'
+         '    """TRIAD attitude determination.\n'
+         '    b1,b2: reference vectors measured in body frame.\n'
+         '    r1,r2: same vectors in reference (inertial) frame.\n'
+         '    Returns body-to-reference DCM C (3x3) and quaternion [w,x,y,z].\n'
+         '    """\n'
+         '    def u(v): return v/np.linalg.norm(v)\n'
+         '    b1=u(np.array([float(b1_x),float(b1_y),float(b1_z)]))\n'
+         '    b2=u(np.array([float(b2_x),float(b2_y),float(b2_z)]))\n'
+         '    r1=u(np.array([float(r1_x),float(r1_y),float(r1_z)]))\n'
+         '    r2=u(np.array([float(r2_x),float(r2_y),float(r2_z)]))\n'
+         '    t1b=b1; t2b=u(np.cross(b1,b2)); t3b=np.cross(t1b,t2b)\n'
+         '    t1r=r1; t2r=u(np.cross(r1,r2)); t3r=np.cross(t1r,t2r)\n'
+         '    C=(np.column_stack([t1b,t2b,t3b])@np.column_stack([t1r,t2r,t3r]).T)\n'
+         '    tr=np.trace(C)\n'
+         '    qw=0.5*np.sqrt(max(0,1+tr))\n'
+         '    if qw>1e-10:\n'
+         '        qx=(C[2,1]-C[1,2])/(4*qw); qy=(C[0,2]-C[2,0])/(4*qw); qz=(C[1,0]-C[0,1])/(4*qw)\n'
+         '    else:\n'
+         '        qx=np.sqrt(max(0,(1+C[0,0]-C[1,1]-C[2,2])/4))\n'
+         '        qy=np.sqrt(max(0,(1-C[0,0]+C[1,1]-C[2,2])/4))\n'
+         '        qz=np.sqrt(max(0,(1-C[0,0]-C[1,1]+C[2,2])/4))\n'
+         '    return {"C":C.tolist(),"q_w":float(qw),"q_x":float(qx),"q_y":float(qy),"q_z":float(qz)}\n'
+         'export = triad_attitude'
+     )},
+    {"name": "gravity_gradient_torque", "type": "R", "domain": "attitude",
+     "desc": "Gravity gradient torque on a nadir-pointing satellite",
+     "tags": ["attitude", "gravity_gradient", "torque", "disturbance"],
+     "source": (
+         'import numpy as np\n'
+         'from anvil import Q\n'
+         'def gravity_gradient_torque(mu, r, Ix, Iy, Iz,\n'
+         '                            theta_pitch_deg=0.0, phi_roll_deg=0.0):\n'
+         '    """Gravity gradient torque in orbital (roll-pitch-yaw) frame.\n'
+         '    mu [m³/s²], r [m]: orbit radius, I* [kg*m²]: principal moments.\n'
+         '    Small-angle linearisation. T_gg_max is worst-case (45 deg) peak.\n'
+         '    """\n'
+         '    omega2=float(mu)/float(r)**3\n'
+         '    theta=np.radians(float(theta_pitch_deg)); phi=np.radians(float(phi_roll_deg))\n'
+         '    Ix,Iy,Iz=float(Ix),float(Iy),float(Iz)\n'
+         '    T_roll =3*omega2*(Iz-Iy)*phi\n'
+         '    T_pitch=3*omega2*(Iy-Ix)*theta\n'
+         '    T_gg_max=1.5*omega2*max(abs(Ix-Iy),abs(Iy-Iz),abs(Ix-Iz))\n'
+         '    return {"T_roll":Q(float(T_roll),"N*m"),"T_pitch":Q(float(T_pitch),"N*m"),\n'
+         '            "T_gg_max":Q(float(T_gg_max),"N*m"),\n'
+         '            "omega_orbital":Q(float(np.sqrt(omega2)),"rad/s")}\n'
+         'export = gravity_gradient_torque'
+     )},
+    {"name": "reaction_wheel_sizing", "type": "R", "domain": "attitude",
+     "desc": "Reaction wheel angular momentum and torque sizing for a slew maneuver",
+     "tags": ["attitude", "reaction_wheel", "sizing", "ADCS"],
+     "source": (
+         'import numpy as np\n'
+         'from anvil import Q\n'
+         'def reaction_wheel_sizing(I_sc, theta_slew_deg, t_slew, margin=1.5):\n'
+         '    """Size a reaction wheel for a bang-bang slew maneuver.\n'
+         '    I_sc [kg*m²]: spacecraft MOI about slew axis.\n'
+         '    theta_slew_deg [deg]: slew angle. t_slew [s]: slew time.\n'
+         '    margin: design margin factor (1.5 = 50% margin).\n'
+         '    """\n'
+         '    theta=np.radians(float(theta_slew_deg))\n'
+         '    omega_max=2*theta/float(t_slew)\n'
+         '    alpha_max=omega_max/(float(t_slew)/2)\n'
+         '    tau_max=float(I_sc)*alpha_max\n'
+         '    H=float(I_sc)*omega_max*float(margin)\n'
+         '    P_peak=tau_max*omega_max*float(margin)\n'
+         '    return {"H_rw":Q(H,"N*m*s"),"tau_rw":Q(tau_max,"N*m"),\n'
+         '            "omega_slew_max":Q(omega_max,"rad/s"),"P_peak":Q(P_peak,"W")}\n'
+         'export = reaction_wheel_sizing'
+     )},
+
+    # ==================== MISSION BUDGETS ====================
+    {"name": "link_budget", "type": "R", "domain": "mission",
+     "desc": "RF link budget: received power and FSPL via Friis equation",
+     "tags": ["mission", "link_budget", "RF", "communications", "FSPL"],
+     "source": (
+         'import math\n'
+         'from anvil import Q\n'
+         'def link_budget(P_tx_W, G_tx_dBi, G_rx_dBi, freq_Hz, distance_m, losses_dB=3.0):\n'
+         '    """Friis free-space link budget.\n'
+         '    P_tx_W: transmit power [W]. G_*_dBi: antenna gains [dBi].\n'
+         '    freq_Hz: carrier frequency. distance_m: range. losses_dB: misc losses.\n'
+         '    """\n'
+         '    c=2.998e8\n'
+         '    FSPL_dB=20*math.log10(4*math.pi*float(distance_m)*float(freq_Hz)/c)\n'
+         '    P_tx_dBW=10*math.log10(float(P_tx_W))\n'
+         '    P_rx_dBW=P_tx_dBW+float(G_tx_dBi)+float(G_rx_dBi)-FSPL_dB-float(losses_dB)\n'
+         '    EIRP_dBW=P_tx_dBW+float(G_tx_dBi)\n'
+         '    return {"P_rx_W":Q(10**(P_rx_dBW/10),"W"),"P_rx_dBW":P_rx_dBW,\n'
+         '            "FSPL_dB":FSPL_dB,"EIRP_dBW":EIRP_dBW}\n'
+         'export = link_budget'
+     )},
+    {"name": "power_budget", "type": "R", "domain": "mission",
+     "desc": "Spacecraft solar array area and battery sizing from load and eclipse fraction",
+     "tags": ["mission", "power_budget", "solar", "battery", "eclipse"],
+     "source": (
+         'from anvil import Q\n'
+         'def power_budget(P_load_W, T_orbit_min, eclipse_frac,\n'
+         '                 eta_solar=0.28, flux_solar=1361.0, DOD=0.8, eta_battery=0.9):\n'
+         '    """Solar panel area and battery capacity sizing.\n'
+         '    P_load_W: average load. T_orbit_min: orbital period [min].\n'
+         '    eclipse_frac: fraction in shadow. eta_solar: panel efficiency.\n'
+         '    flux_solar [W/m²]: solar irradiance. DOD: depth of discharge.\n'
+         '    """\n'
+         '    t_sun=float(T_orbit_min)*60*(1-float(eclipse_frac))\n'
+         '    t_ecl=float(T_orbit_min)*60*float(eclipse_frac)\n'
+         '    P_load=float(P_load_W)\n'
+         '    E_bat_J=P_load*t_ecl\n'
+         '    P_charge=E_bat_J/(t_sun*float(eta_battery)) if t_sun>0 else 0\n'
+         '    P_from_panel=P_load+P_charge\n'
+         '    A_panel=P_from_panel/(float(eta_solar)*float(flux_solar))\n'
+         '    E_bat_Wh=P_load*t_ecl/3600/float(DOD)\n'
+         '    m_bat=E_bat_Wh/120  # 120 Wh/kg Li-ion\n'
+         '    return {"A_panel_m2":Q(A_panel,"m^2"),"E_bat_Wh":E_bat_Wh,\n'
+         '            "m_bat_kg":Q(m_bat,"kg"),"P_from_panel_W":Q(P_from_panel,"W")}\n'
+         'export = power_budget'
+     )},
+
+    # ==================== CONTROLS (EXTENDED) ====================
+    {"name": "state_space_poles", "type": "R", "domain": "controls",
+     "desc": "Eigenvalues (poles) of a state matrix A; stability check",
+     "tags": ["controls", "state_space", "poles", "stability", "eigenvalues"],
+     "source": (
+         'import numpy as np\n'
+         'def state_space_poles(A_flat, n_states):\n'
+         '    """Compute poles (eigenvalues) of state matrix A.\n'
+         '    A_flat: row-major list of n_states² floats.\n'
+         '    n_states: system order.\n'
+         '    """\n'
+         '    A=np.array([float(x) for x in A_flat],dtype=float).reshape(int(n_states),int(n_states))\n'
+         '    poles=np.linalg.eigvals(A)\n'
+         '    stable=bool(np.all(poles.real<0))\n'
+         '    min_damp=float(min((-p.real/abs(p) if abs(p)>1e-20 else (1.0 if p.real<0 else -1.0))\n'
+         '                       for p in poles))\n'
+         '    return {"poles_real":poles.real.tolist(),"poles_imag":poles.imag.tolist(),\n'
+         '            "stable":stable,"min_damping":min_damp}\n'
+         'export = state_space_poles'
+     )},
+    {"name": "lqr_bryson", "type": "R", "domain": "controls",
+     "desc": "Bryson's rule for LQR Q and R weighting matrices from max allowable values",
+     "tags": ["controls", "LQR", "bryson", "optimal_control", "tuning"],
+     "source": (
+         'def lqr_bryson(state_bounds, input_bounds):\n'
+         '    """Bryson rule: Q_ii=1/x_max_i², R_jj=1/u_max_j².\n'
+         '    state_bounds: list of max allowable state deviations.\n'
+         '    input_bounds: list of max allowable control inputs.\n'
+         '    Returns diagonal entries of Q and R.\n'
+         '    """\n'
+         '    Q_diag=[1.0/float(x)**2 for x in state_bounds]\n'
+         '    R_diag=[1.0/float(u)**2 for u in input_bounds]\n'
+         '    return {"Q_diag":Q_diag,"R_diag":R_diag,"n_states":len(Q_diag),"n_inputs":len(R_diag)}\n'
+         'export = lqr_bryson'
+     )},
+    {"name": "gain_phase_margin", "type": "R", "domain": "controls",
+     "desc": "Gain margin and phase margin for an open-loop transfer function",
+     "tags": ["controls", "stability", "gain_margin", "phase_margin", "bode"],
+     "source": (
+         'import numpy as np\n'
+         'def gain_phase_margin(num_coeffs, den_coeffs, omega_lo=1e-3, omega_hi=1e4, n=2000):\n'
+         '    """Gain and phase margins from frequency sweep of G(s)=num/den.\n'
+         '    Polynomial coefficients in descending order [s^n, ..., s^0].\n'
+         '    """\n'
+         '    omega=np.logspace(np.log10(float(omega_lo)),np.log10(float(omega_hi)),int(n))\n'
+         '    num=[float(c) for c in num_coeffs]; den=[float(c) for c in den_coeffs]\n'
+         '    def polyval(coeffs,s):\n'
+         '        n=len(coeffs)-1; return sum(c*s**(n-k) for k,c in enumerate(coeffs))\n'
+         '    G=np.array([polyval(num,1j*w)/polyval(den,1j*w) for w in omega])\n'
+         '    mag=np.abs(G); phase_deg=np.angle(G,deg=True)\n'
+         '    # Phase crossover (phase = -180 deg)\n'
+         '    GM_dB=float("inf")\n'
+         '    cross_p=np.where(np.diff(np.sign(phase_deg+180)))[0]\n'
+         '    if len(cross_p)>0:\n'
+         '        i=int(cross_p[-1])\n'
+         '        GM_dB=float(-20*np.log10(mag[i])) if mag[i]>0 else float("inf")\n'
+         '    # Gain crossover (mag = 1)\n'
+         '    PM_deg=float("inf")\n'
+         '    cross_g=np.where(np.diff(np.sign(mag-1)))[0]\n'
+         '    if len(cross_g)>0:\n'
+         '        i=int(cross_g[-1])\n'
+         '        PM_deg=float(phase_deg[i]+180)\n'
+         '    return {"GM_dB":GM_dB,"PM_deg":PM_deg,"stable":GM_dB>0 and PM_deg>0}\n'
+         'export = gain_phase_margin'
+     )},
 ]

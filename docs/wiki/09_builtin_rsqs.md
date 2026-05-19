@@ -1,6 +1,6 @@
 # Built-in RSQs
 
-57 RSQs across 10 domains, auto-seeded into `~/.anvil/registry.db` on first import. Access via `anvil.R.*`, `anvil.S.*`, `anvil.QDB.*`, or `sys.use("name")`.
+76 RSQs across 12 domains, auto-seeded into `~/.anvil/registry.db` on first import. Access via `anvil.R.*`, `anvil.S.*`, `anvil.QDB.*`, or `sys.use("name")`.
 
 All inputs are dimensionless scalars or SI floats unless noted. All outputs are SI units unless returned as `Q(value, "unit")`.
 
@@ -837,3 +837,432 @@ anvil.R.orbital_period(mu=3.986e14, a=6.571e6)
 | `vis_viva` | orbital | R | mu, r, a | V_orbital |
 | `hohmann_transfer` | orbital | R | mu, r1, r2 | dv1, dv2, dv_total, tof |
 | `orbital_period` | orbital | R | mu, a | T_orbital |
+| `keplerian_to_cartesian` | orbital | R | a, e, i_deg, RAAN_deg, omega_deg, nu_deg, mu | r_eci, v_eci, r_mag, v_mag |
+| `cartesian_to_keplerian` | orbital | R | r_vec, v_vec, mu | a, e, i_deg, RAAN_deg, omega_deg, nu_deg, h_mag |
+| `plane_change_dv` | orbital | R | v, delta_i_deg | dv_plane_change |
+| `bielliptic_transfer` | orbital | R | mu, r1, r2, rb | dv1, dv2, dv3, dv_total, tof |
+| `j2_precession` | orbital | R | a, e, i_deg, [mu, R_body, J2] | d_RAAN_dt, d_omega_dt, deg/day variants |
+| `eclipse_fraction` | orbital | R | a, [R_body, beta_deg] | eclipse_frac, beta_max_deg, in_eclipse_season |
+| `sphere_of_influence` | orbital | R | a_body, m_body, m_parent | r_SOI |
+| `propellant_mass` | orbital | R | dv, Isp, m_dry | m_propellant, m_wet, mass_ratio |
+| `delta_v_budget` | orbital | R | dv1..dv6, [margin_pct] | dv_total, dv_with_margin, dv_margin |
+| `euler_equations` | attitude | R | omega_x/y/z, Ix/Iy/Iz, [tau_x/y/z] | alpha_x/y/z |
+| `quaternion_kinematics` | attitude | R | q_w/x/y/z, omega_x/y/z | qw/x/y/z_dot, q_norm |
+| `triad_attitude` | attitude | R | b1/b2 xyz (body), r1/r2 xyz (ref) | C (DCM), q_w/x/y/z |
+| `gravity_gradient_torque` | attitude | R | mu, r, Ix/Iy/Iz, [theta_pitch_deg, phi_roll_deg] | T_roll, T_pitch, T_gg_max, omega_orbital |
+| `reaction_wheel_sizing` | attitude | R | I_sc, theta_slew_deg, t_slew, [margin] | H_rw, tau_rw, omega_slew_max, P_peak |
+| `link_budget` | mission | R | P_tx_W, G_tx_dBi, G_rx_dBi, freq_Hz, distance_m, [losses_dB] | P_rx_W, P_rx_dBW, FSPL_dB, EIRP_dBW |
+| `power_budget` | mission | R | P_load_W, T_orbit_min, eclipse_frac, [eta_solar, flux_solar, DOD, eta_battery] | A_panel_m2, E_bat_Wh, m_bat_kg, P_from_panel_W |
+| `state_space_poles` | controls | R | A_flat, n_states | poles_real, poles_imag, stable, min_damping |
+| `lqr_bryson` | controls | R | state_bounds, input_bounds | Q_diag, R_diag |
+| `gain_phase_margin` | controls | R | num_coeffs, den_coeffs, [omega_lo, omega_hi] | GM_dB, PM_deg, stable |
+
+---
+
+## Orbital Mechanics — Extended (`orbital`)
+
+### `keplerian_to_cartesian`
+
+Convert classical orbital elements to ECI (Earth-Centred Inertial) Cartesian state.
+
+```
+Inputs:  a [m], e [-], i_deg [deg], RAAN_deg [deg], omega_deg [deg], nu_deg [deg], mu [m³/s²]
+Outputs: r_eci  — position vector [x, y, z] m (list)
+         v_eci  — velocity vector [vx,vy,vz] m/s (list)
+         r_mag [m], v_mag [m/s]
+```
+
+```python
+eci = anvil.R.keplerian_to_cartesian(
+    a=6771e3, e=0.001, i_deg=51.6, RAAN_deg=0, omega_deg=0, nu_deg=0,
+    mu=3.986e14)
+print(eci['r_mag'])   # 6764 km (periapsis for e=0.001)
+print(eci['v_mag'])   # 7.68 km/s
+```
+
+---
+
+### `cartesian_to_keplerian`
+
+Convert ECI Cartesian state to classical orbital elements.
+
+```
+Inputs:  r_vec [m] (list), v_vec [m/s] (list), mu [m³/s²]
+Outputs: a [m], e [-], i_deg, RAAN_deg, omega_deg, nu_deg [all deg], h_mag [m²/s]
+```
+
+```python
+elems = anvil.R.cartesian_to_keplerian(
+    r_vec=[6764e3, 0, 0], v_vec=[0, 5.6e3, 5.6e3], mu=3.986e14)
+```
+
+**Round-trip:** `keplerian_to_cartesian` → `cartesian_to_keplerian` recovers elements to machine precision.
+
+---
+
+### `plane_change_dv`
+
+Delta-V for a pure inclination change. Most efficient at apoapsis (lowest speed).
+
+```
+Inputs:  v [m/s] — orbital speed at manoeuvre point
+         delta_i_deg [deg] — inclination change
+Outputs: dv_plane_change [m/s]
+```
+
+Formula: `dv = 2 v sin(Δi/2)`
+
+```python
+# 28.5-deg plane change from Kennedy Space Center inclination
+r = anvil.R.plane_change_dv(v=7700, delta_i_deg=28.5)
+# dv_plane_change ≈ 3791 m/s  (cheaper to combine with Hohmann at GTO apoapsis)
+```
+
+---
+
+### `bielliptic_transfer`
+
+Bi-elliptic transfer via intermediate apoapsis `rb`. More efficient than Hohmann when `r2/r1 > 11.94`.
+
+```
+Inputs:  mu [m³/s²], r1 [m], r2 [m], rb [m]  — rb must be ≥ max(r1,r2)
+Outputs: dv1, dv2, dv3, dv_total [m/s], tof [s]
+```
+
+```python
+# LEO (400 km) -> GEO via 100 000 km intermediate orbit
+r = anvil.R.bielliptic_transfer(mu=3.986e14, r1=6771e3, r2=42164e3, rb=100000e3)
+# dv_total ≈ 4228 m/s  (Hohmann: 3857 m/s — bielliptic is WORSE here since r2/r1=6.2 < 11.94)
+```
+
+---
+
+### `j2_precession`
+
+Secular nodal (RAAN) and apsidal (argument-of-perigee) drift from Earth's J2 oblateness.
+
+```
+Inputs:  a [m], e [-], i_deg [deg]
+         mu=3.986e14, R_body=6.371e6, J2=1.08263e-3  (Earth defaults)
+Outputs: d_RAAN_dt [rad/s], d_omega_dt [rad/s]
+         d_RAAN_deg_per_day, d_omega_deg_per_day
+```
+
+```python
+r = anvil.R.j2_precession(a=6771e3, e=0.001, i_deg=97.4)
+# d_RAAN ≈ +0.987 deg/day  (Sun-synchronous condition)
+```
+
+**Note:** SSO condition is d_RAAN/dt = +0.9856 deg/day. Solve for `i_deg` numerically with `solvers.find_root`.
+
+---
+
+### `eclipse_fraction`
+
+Fraction of a circular orbit spent in the planet's cylindrical shadow.
+
+```
+Inputs:  a [m], R_body=6.371e6 [m], beta_deg=0.0 [deg]
+         beta_deg: sun–orbit-plane angle (0 = worst case, eclipse_frac is maximum)
+Outputs: eclipse_frac [-], beta_max_deg [deg], in_eclipse_season [bool]
+```
+
+```python
+anvil.R.eclipse_fraction(a=6771e3, beta_deg=0)   # worst case: 0.39
+anvil.R.eclipse_fraction(a=6771e3, beta_deg=70)  # no eclipse: 0.00
+# Use with power_budget: eclipse_frac drives battery and panel sizing
+```
+
+---
+
+### `sphere_of_influence`
+
+Laplace sphere of influence for patched-conic trajectory design.
+
+```
+Inputs:  a_body [m]  — semi-major axis of body around parent
+         m_body, m_parent [kg]
+Outputs: r_SOI [m]
+```
+
+Formula: `r_SOI = a_body * (m_body/m_parent)^(2/5)`
+
+```python
+anvil.R.sphere_of_influence(a_body=384400e3, m_body=7.342e22, m_parent=5.972e24)
+# r_SOI ≈ 66 200 km  (Moon SOI)
+```
+
+---
+
+### `propellant_mass`
+
+Invert the Tsiolkovsky equation: compute propellant mass from delta-V budget.
+
+```
+Inputs:  dv [m/s], Isp [s], m_dry [kg]
+Outputs: m_propellant [kg], m_wet [kg], mass_ratio [-]
+```
+
+```python
+r = anvil.R.propellant_mass(dv=3900, Isp=320, m_dry=2500)
+# m_propellant ≈ 6163 kg  mass_ratio ≈ 3.47
+```
+
+---
+
+### `delta_v_budget`
+
+Aggregate up to six mission-phase delta-Vs and apply a percentage margin.
+
+```
+Inputs:  dv1..dv6 [m/s], margin_pct=5.0 [%]
+Outputs: dv_total [m/s], dv_with_margin [m/s], dv_margin [m/s]
+```
+
+```python
+r = anvil.R.delta_v_budget(dv1=3100, dv2=820, dv3=50, margin_pct=10)
+# dv_total=3970 m/s  dv_with_margin=4367 m/s
+```
+
+---
+
+## Attitude Dynamics & ADCS (`attitude`)
+
+### `euler_equations`
+
+Euler's equations of rigid-body rotation in the principal-axes body frame.
+Gives the instantaneous angular acceleration from current rates and applied torques.
+
+```
+Inputs:  omega_x/y/z [rad/s], Ix/Iy/Iz [kg*m²], tau_x/y/z=0 [N*m]
+Outputs: alpha_x/y/z [rad/s²]
+```
+
+```
+alpha_x = (tau_x - (Iz-Iy)*omega_y*omega_z) / Ix
+```
+
+```python
+r = anvil.R.euler_equations(
+    omega_x=0.1, omega_y=0.05, omega_z=0.02,
+    Ix=100, Iy=80, Iz=60, tau_x=0.1)
+# Use with anvil ODE solvers to propagate attitude over time
+```
+
+**Integration with ODE solvers:**
+```python
+from anvil import solvers
+
+def attitude_odes(t, state):
+    ox, oy, oz = state
+    r = anvil.R.euler_equations(omega_x=ox,omega_y=oy,omega_z=oz, Ix=100,Iy=80,Iz=60)
+    return [r['alpha_x'].si, r['alpha_y'].si, r['alpha_z'].si]
+
+sol = solvers.ode(attitude_odes, t_span=(0,60), y0=[0.01,0.05,1.0])
+```
+
+---
+
+### `quaternion_kinematics`
+
+Quaternion time derivative given current attitude and body angular velocity.
+Hamilton convention: `q = [w, x, y, z]`, `|q| = 1`.
+
+```
+Inputs:  q_w, q_x, q_y, q_z [-], omega_x/y/z [rad/s]  — body frame rates
+Outputs: qw_dot, qx_dot, qy_dot, qz_dot [1/s], q_norm [-]
+```
+
+```python
+# Identity attitude, spinning at 0.01 rad/s about pitch (y) axis
+r = anvil.R.quaternion_kinematics(q_w=1, q_x=0, q_y=0, q_z=0,
+                                    omega_x=0, omega_y=0.01, omega_z=0)
+# qy_dot = 0.005  (q_y grows → pitch rotation)
+```
+
+Re-normalise after each integration step to prevent drift from `q_norm`.
+
+---
+
+### `triad_attitude`
+
+TRIAD two-vector attitude determination algorithm.
+Given two unit vectors in both body and reference frames, returns the body-to-reference DCM and quaternion.
+
+```
+Inputs:  b1_x/y/z, b2_x/y/z  — vectors measured in body frame (e.g. sun, magnetic field)
+         r1_x/y/z, r2_x/y/z  — same vectors in reference frame (from ephemeris/model)
+Outputs: C  — 3×3 body-to-reference DCM (list of lists)
+         q_w, q_x, q_y, q_z  — corresponding quaternion
+```
+
+```python
+r = anvil.R.triad_attitude(
+    b1_x=0, b1_y=1, b1_z=0,   # sun in body = +Y
+    b2_x=0, b2_y=0, b2_z=1,   # mag in body = +Z
+    r1_x=1, r1_y=0, r1_z=0,   # sun in ref  = +X
+    r2_x=0, r2_y=0, r2_z=1)   # mag in ref  = +Z
+# q_z ≈ 0.7071  (90-deg rotation about Z)
+```
+
+**Limitation:** TRIAD is exact only when measurements are noise-free. Use QUEST or EKF for real hardware.
+
+---
+
+### `gravity_gradient_torque`
+
+Gravity gradient disturbance torques on a nadir-pointing satellite (linearised, small angles).
+
+```
+Inputs:  mu [m³/s²], r [m]  — orbit radius
+         Ix, Iy, Iz [kg*m²]  — principal moments
+         theta_pitch_deg=0, phi_roll_deg=0  — attitude errors [deg]
+Outputs: T_roll, T_pitch [N*m], T_gg_max [N*m]  — worst-case (45 deg) envelope
+         omega_orbital [rad/s]
+```
+
+```python
+r = anvil.R.gravity_gradient_torque(mu=3.986e14, r=6771e3, Ix=8, Iy=10, Iz=12,
+                                      theta_pitch_deg=5)
+# T_gg_max ≈ 7e-6 N*m  — drives reaction-wheel momentum storage sizing
+```
+
+---
+
+### `reaction_wheel_sizing`
+
+Size a reaction wheel for a slew manoeuvre (bang-bang torque profile).
+
+```
+Inputs:  I_sc [kg*m²]  — spacecraft MOI about slew axis
+         theta_slew_deg [deg], t_slew [s], margin=1.5
+Outputs: H_rw [N*m*s]  — required angular momentum capacity
+         tau_rw [N*m]   — required peak torque
+         omega_slew_max [rad/s], P_peak [W]
+```
+
+```python
+r = anvil.R.reaction_wheel_sizing(I_sc=12, theta_slew_deg=90, t_slew=60, margin=1.5)
+# H_rw ≈ 0.94 N*m*s  tau_rw ≈ 0.042 N*m  P_peak ≈ 0.039 W
+```
+
+---
+
+## Mission Budgets (`mission`)
+
+### `link_budget`
+
+RF link budget using the Friis free-space path loss equation.
+
+```
+Inputs:  P_tx_W [W], G_tx_dBi [dBi], G_rx_dBi [dBi]
+         freq_Hz [Hz], distance_m [m], losses_dB=3.0 [dB]
+Outputs: P_rx_W [W], P_rx_dBW [dBW], FSPL_dB [dB], EIRP_dBW [dBW]
+```
+
+```
+FSPL = 20 log₁₀(4π d f / c)
+P_rx = P_tx + G_tx + G_rx − FSPL − losses   [all in dB]
+```
+
+```python
+r = anvil.R.link_budget(
+    P_tx_W=5, G_tx_dBi=3, G_rx_dBi=47,
+    freq_Hz=8.4e9, distance_m=800e3, losses_dB=4)
+# P_rx ≈ -116 dBW   FSPL ≈ 169 dB
+```
+
+**Note:** Returns received power only. Compute SNR separately given noise temperature: `SNR = P_rx / (k_B * T_sys * BW)`.
+
+---
+
+### `power_budget`
+
+Size solar panels and battery for a spacecraft in a given orbit.
+
+```
+Inputs:  P_load_W [W]      — average power load
+         T_orbit_min [min] — orbital period
+         eclipse_frac [-]  — from eclipse_fraction RSQ
+         eta_solar=0.28    — solar cell efficiency (0.28 = GaAs triple-junction)
+         flux_solar=1361   — solar constant [W/m²]
+         DOD=0.8           — battery depth of discharge
+         eta_battery=0.9   — battery charge/discharge efficiency
+Outputs: A_panel_m2 [m²], E_bat_Wh [Wh], m_bat_kg [kg], P_from_panel_W [W]
+```
+
+```python
+ecl = anvil.R.eclipse_fraction(a=6771e3, beta_deg=0)
+pwr = anvil.R.power_budget(P_load_W=100, T_orbit_min=92,
+                             eclipse_frac=ecl['eclipse_frac'])
+# A_panel ≈ 0.41 m²   E_bat ≈ 167 Wh   m_bat ≈ 1.4 kg
+```
+
+**Battery mass** assumes 120 Wh/kg (Li-ion). Adjust for other chemistries.
+
+---
+
+## Controls — Extended (`controls`)
+
+### `state_space_poles`
+
+Compute eigenvalues of a state matrix A and assess stability.
+
+```
+Inputs:  A_flat  — row-major flattened list of n² floats
+         n_states — system order (int)
+Outputs: poles_real, poles_imag  — eigenvalue components (lists)
+         stable [bool], min_damping [-]
+```
+
+```python
+# Second-order: s² + s + 1 = 0  →  poles at −0.5 ± j0.866
+r = anvil.R.state_space_poles(A_flat=[0, 1, -1, -1], n_states=2)
+# stable=True  min_damping=0.5  poles_real=[-0.5,-0.5]
+```
+
+---
+
+### `lqr_bryson`
+
+Bryson's rule for LQR Q and R weighting matrices from maximum allowable state and input values.
+
+```
+Inputs:  state_bounds — list of max allowable state deviations (same units as states)
+         input_bounds — list of max allowable control inputs
+Outputs: Q_diag, R_diag — diagonal entries of Q and R matrices
+```
+
+```
+Q_ii = 1/x_max_i²     R_jj = 1/u_max_j²
+```
+
+```python
+# Position ±10 m, velocity ±1 m/s, thrust ±100 N
+r = anvil.R.lqr_bryson(state_bounds=[10, 1], input_bounds=[100])
+# Q_diag=[0.01, 1.0]   R_diag=[0.0001]
+```
+
+---
+
+### `gain_phase_margin`
+
+Gain margin (GM) and phase margin (PM) for an open-loop transfer function G(s) = num(s)/den(s).
+
+```
+Inputs:  num_coeffs, den_coeffs — polynomial coefficients, descending order [sⁿ ... s⁰]
+         omega_lo=1e-3, omega_hi=1e4, n=2000  — frequency sweep range [rad/s]
+Outputs: GM_dB [dB], PM_deg [deg], stable [bool]
+```
+
+```python
+# G(s) = 1/(s(s+1))  — integrator + first-order lag
+r = anvil.R.gain_phase_margin(num_coeffs=[1], den_coeffs=[1, 1, 0])
+# GM = inf dB  PM = 52 deg  stable = True
+
+# G(s) = K/(s(s+1)(s+2))  check stability margins
+r = anvil.R.gain_phase_margin(num_coeffs=[8], den_coeffs=[1, 3, 2, 0])
+# GM ≈ 2.5 dB  PM ≈ 8 deg  (marginally stable)
+```
+
+**Convention:** GM = ∞ when no phase crossover exists. Stable requires GM > 0 dB **and** PM > 0 deg.

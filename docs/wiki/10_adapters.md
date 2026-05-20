@@ -438,9 +438,10 @@ For the outputs spec:
 - If wrapper returns plain float and no `"unit"` → raw float in workspace
 
 ```python
-# Celsius example (no offset support in UnitDB — convert manually)
-inputs={"T": {"unit": "K"}}   # NOT "°C" — not in unit database
-# Convert inside wrapper:
+# Celsius example — degC / °C are supported since v1.3
+inputs={"T": {"unit": "degC"}}   # wrapper receives value in °C
+# Or declare in K and convert inside:
+inputs={"T": {"unit": "K"}}
 def _wrapper(T):   # T arrives in Kelvin (SI)
     T_celsius = T - 273.15
     result = tool(T_c=T_celsius)
@@ -560,6 +561,324 @@ See `examples/ex22_pykep_adapter.py` for a full demonstration including Lambert 
 
 ---
 
+## XFOIL Adapter (2D Airfoil)
+
+Located in `anvil/adapters/xfoil_airfoil.py`. Requires XFOIL binary on PATH (`xfoil` or `xfoil.exe`).
+Mock mode: thin-airfoil theory with Prandtl-Glauert compressibility correction.
+
+```python
+from anvil.adapters.xfoil_airfoil import xfoil_polar, xfoil_alpha_sweep, register
+```
+
+### `xfoil_polar` — Single operating point
+
+Inputs: `AoA_deg`, `Re`, `Mach`, `airfoil` (name or .dat path), `n_panels`, `n_iter`, `xtr_top`, `xtr_bot`
+Outputs: `CL`, `CD`, `CDp`, `CM`, `Top_Xtr`, `Bot_Xtr`, `source`
+
+```python
+r = xfoil_polar(AoA_deg=4.0, Re=1e6, Mach=0.1)
+print(r["CL"], r["CD"], r["CM"])
+# CL ≈ 0.439   CD ≈ 0.00626   source: mock
+```
+
+### `xfoil_alpha_sweep` — Full polar
+
+Inputs: `alpha_start`, `alpha_end`, `alpha_step`, `Re`, `Mach`, `airfoil`, `n_panels`, `n_iter`
+Outputs: `CL_list`, `CD_list`, `CM_list`, `AoA_list`, `CL_max`, `AoA_LD_max`, `LD_max`, `n_points`, `source`
+
+```python
+r = xfoil_alpha_sweep(alpha_start=-4, alpha_end=14, alpha_step=2, Re=1.5e6)
+print(f"L/D max = {r['LD_max']:.1f} at {r['AoA_LD_max']:.1f}°")
+# L/D max ≈ 63.4 at 4.0°
+```
+
+### `register()` — domain `aero.xfoil`
+
+---
+
+## OpenFOAM CFD Adapter
+
+Located in `anvil/adapters/openfoam_cfd.py`. Requires OpenFOAM installed and solver on PATH.
+Mock mode: lifting-line theory + Küchemann wave drag.
+
+```python
+from anvil.adapters.openfoam_cfd import openfoam_incompressible, openfoam_compressible, register
+```
+
+### `openfoam_incompressible` — simpleFoam (low-speed)
+
+Inputs: `case_path`, `U_inf [m/s]`, `alpha_deg`, `rho [kg/m³]`, `nu [m²/s]`, `L_ref [m]`, `A_ref [m²]`, `n_cores`, `solver`
+Outputs: `CL`, `CD`, `CM`, `F_lift [N]`, `F_drag [N]`, `Re`, `source`
+
+```python
+r = openfoam_incompressible(case_path="./my_case", U_inf=50.0, alpha_deg=5.0)
+print(r["CL"], r["CD"], r["F_lift"])
+# CL ≈ 0.548   CD ≈ 0.0062   source: mock (or openfoam if case exists)
+```
+
+**Case requirements:** prepared OpenFOAM case with mesh (blockMesh or snappyHexMesh already run), `0/U`, `0/p`, `system/controlDict` with `forceCoeffs` function object.
+
+### `openfoam_compressible` — rhoSimpleFoam (transonic/supersonic)
+
+Inputs: `case_path`, `U_inf [m/s]`, `alpha_deg`, `p_inf [Pa]`, `T_inf [K]`, `gamma`, `L_ref`, `A_ref`, `n_cores`, `solver`
+Outputs: `CL`, `CD`, `CM`, `Mach`, `F_lift [N]`, `F_drag [N]`, `source`
+
+```python
+r = openfoam_compressible(case_path="./transonic_case", U_inf=272.0, alpha_deg=3.0)
+print(r["CL"], r["Mach"])
+# Mach ≈ 0.80  CL ≈ 0.196
+```
+
+### `register()` — domain `cfd.openfoam`
+
+---
+
+## SU2 CFD Adapter
+
+Located in `anvil/adapters/su2_aero.py`. Requires `SU2_CFD` on PATH.
+Mock mode: Prandtl-Glauert lift + Prandtl-Schlichting skin friction.
+
+```python
+from anvil.adapters.su2_aero import su2_euler, su2_rans, register
+```
+
+### `su2_euler` — Inviscid Euler
+
+Inputs: `cfg_template` (.cfg file path), `mesh` (.su2 mesh path), `Mach`, `AoA_deg`, `sideslip_deg`, `alpha0_deg`
+Outputs: `CL`, `CD`, `CM`, `Mach`, `source`
+
+```python
+r = su2_euler(cfg_template="naca0012.cfg", mesh="naca0012.su2",
+              Mach=0.3, AoA_deg=4.0)
+print(r["CL"], r["CD"])
+# CL ≈ 0.439   CD ≈ 0.00129 (induced only, no friction)
+```
+
+### `su2_rans` — Turbulent RANS (Spalart-Allmaras)
+
+Inputs: same as `su2_euler` + `Reynolds`
+Outputs: `CL`, `CD`, `CM`, `Mach`, `Re`, `source`
+
+```python
+r = su2_rans(cfg_template="naca0012_sa.cfg", mesh="naca0012.su2",
+             Mach=0.3, AoA_deg=4.0, Reynolds=3e6)
+print(r["CL"], r["CD"])
+# CL ≈ 0.439   CD ≈ 0.00589 (pressure + friction)
+```
+
+**Config patching:** The adapter patches `MACH_NUMBER`, `AOA`, `SIDESLIP_ANGLE`, and optionally `REYNOLDS_NUMBER` in the template. All other settings (numerics, mesh filename path handling, BCs) come from the template.
+
+### `register()` — domain `cfd.su2`
+
+---
+
+## OpenMDAO MDO Adapter
+
+Located in `anvil/adapters/openmdo_wrap.py`. Requires `pip install openmdao`.
+Mock mode: analytical Sellar equations (iterative coupling), Euler-Bernoulli beam.
+
+```python
+from anvil.adapters.openmdo_wrap import make_openmdo_adapter, openmdo_sellar, openmdo_beam, register
+```
+
+### `make_openmdo_adapter` — Factory for any OpenMDAO Problem
+
+```python
+def build_prob():
+    import openmdao.api as om
+    # ... set up components ...
+    p = om.Problem()
+    p.setup()
+    return p
+
+adapter = make_openmdo_adapter(
+    prob_factory=build_prob,
+    input_vars={"x": {"unit": "1", "desc": "Input", "default": 0.0}},
+    output_vars={"f": {"unit": "1", "desc": "Output"}},
+    name="my_mdo",
+    run_driver=False,     # True = optimize, False = single analysis
+)
+r = adapter(x=3.0)
+```
+
+### `openmdo_sellar` — Sellar coupled MDO benchmark
+
+Inputs: `x1`, `z1`, `z2` (dimensionless)
+Outputs: `f` (objective), `g1`, `g2` (constraints ≤ 0), `y1`, `y2` (coupling), `source`
+
+```python
+r = openmdo_sellar(x1=1.0, z1=5.0, z2=2.0)
+print(r["f"], r["g1"], r["g2"])
+# f ≈ 28.6  g1 ≈ -22.4 (feasible)  g2 ≈ -12.1 (feasible)
+```
+
+### `openmdo_beam` — Cantilever beam ExplicitComponent
+
+Inputs: `F_tip [N]`, `L_beam [m]`, `E [Pa]`, `b [m]`, `h [m]`
+Outputs: `deflection [m]`, `max_stress [Pa]`, `I_moment [m⁴]`, `source`
+
+```python
+r = openmdo_beam(F_tip=5000, L_beam=2.0, E=70e9, b=0.05, h=0.10)
+print(r["deflection"], r["max_stress"])
+# deflection ≈ 0.0366 m   max_stress ≈ 480 MPa
+```
+
+### `register()` — domain `mdo.openmdao`
+
+---
+
+## FEniCSx FEM Adapter
+
+Located in `anvil/adapters/fenics_fem.py`. Requires `conda install -c conda-forge fenics-dolfinx mpi4py`.
+Mock mode: Euler-Bernoulli beam (elasticity), 1D Fourier + volumetric source (heat).
+
+```python
+from anvil.adapters.fenics_fem import fenics_linear_elasticity, fenics_heat_conduction, register
+```
+
+### `fenics_linear_elasticity` — 3D box linear elasticity
+
+Inputs: `E [Pa]`, `nu`, `Lx [m]`, `Ly [m]`, `Lz [m]`, `F_distributed [Pa]`, `nx`, `ny`, `nz`
+Outputs: `max_displacement [m]`, `max_von_mises [Pa]`, `source`
+
+```python
+r = fenics_linear_elasticity(E=200e9, nu=0.3,
+    Lx=1.0, Ly=0.05, Lz=0.05,
+    F_distributed=1e4)
+print(r["max_displacement"], r["max_von_mises"])
+# max_displacement ≈ 1.15e-4 m   max_von_mises ≈ 2.4 MPa
+```
+
+**Setup:** Cantilever fixed at `x=0`, distributed traction on top face (`z=Lz`).
+
+### `fenics_heat_conduction` — 3D steady heat conduction
+
+Inputs: `k [W/m/K]`, `Lx`, `Ly`, `Lz [m]`, `T_left [K]`, `T_right [K]`, `Q_vol [W/m³]`, `nx`, `ny`, `nz`
+Outputs: `T_max [K]`, `heat_flux [W]`, `source`
+
+```python
+r = fenics_heat_conduction(k=205.0, Lx=0.5, Ly=0.02, Lz=0.02,
+                            T_left=600.0, T_right=300.0)
+print(r["T_max"], r["heat_flux"])
+# T_max = 600 K   heat_flux ≈ 9.84 W
+```
+
+### `register()` — domain `fem.fenics`
+
+---
+
+## pyNASTRAN / NASTRAN Adapter
+
+Located in `anvil/adapters/pynastran_fem.py`. Requires `pip install pyNASTRAN`.
+NASTRAN binary auto-detected: MYSTRAN (free), MSC NASTRAN, NX NASTRAN, Optistruct.
+Mock mode: Euler-Bernoulli static + analytical cantilever frequencies (βₙL values).
+
+```python
+from anvil.adapters.pynastran_fem import nastran_linear_static, nastran_normal_modes, register
+```
+
+### `nastran_linear_static` — SOL 101
+
+Inputs: `bdf_path`, `load_case_id`, `E_fallback [Pa]`, `I_fallback [m⁴]`, `L_fallback [m]`, `F_fallback [N]`, `nastran_bin`
+Outputs: `max_displacement [m]`, `max_stress [Pa]`, `source`
+
+```python
+r = nastran_linear_static(bdf_path="my_model.bdf", load_case_id=1)
+print(r["max_displacement"], r["max_stress"])
+# max_displacement ≈ 8.0e-5 m (or from OP2 if NASTRAN runs)
+```
+
+### `nastran_normal_modes` — SOL 103
+
+Inputs: `bdf_path`, `n_modes`, `E_fallback`, `I_fallback`, `L_fallback`, `rho_fallback`, `A_fallback`, `nastran_bin`
+Outputs: `frequencies [list of Q]`, `f1 [Hz]`, `f2 [Hz]`, `n_modes`, `source`
+
+```python
+r = nastran_normal_modes(bdf_path="my_model.bdf", n_modes=6)
+print(r["f1"], r["frequencies"])
+# f1 ≈ 14.3 Hz   (1st bending mode of steel cantilever, L=1m, 50×50mm)
+```
+
+**MYSTRAN (free solver):** Download from `https://github.com/dr-bill-c/MYSTRAN`. Add `mystran.exe` to PATH. The adapter auto-detects it.
+
+### `register()` — domain `fem.nastran`
+
+---
+
+## Surrogate / Metamodel Adapters
+
+Located in `anvil/adapters/surrogate_models.py`. Requires `pip install scikit-learn` for GP. Polynomial and RBF work with numpy/scipy only.
+
+```python
+from anvil.adapters.surrogate_models import (
+    make_gp_adapter, make_poly_adapter, make_rbf_adapter, gp_demo, register
+)
+```
+
+### `make_gp_adapter` — Gaussian Process from training data
+
+```python
+import numpy as np
+X_train = np.linspace(0, 10, 15).reshape(-1, 1)
+y_train = np.sin(X_train.ravel()) + 0.02 * np.random.randn(15)
+
+gp = make_gp_adapter(
+    X_train, y_train,
+    x_name="x", y_name="y_pred",
+    x_unit="m", y_unit="1",
+    name="sin_gp",
+)
+r = gp(x=3.14)
+print(r["y_pred"], r["y_pred_std"])   # mean prediction + uncertainty
+```
+
+Falls back to cubic spline (scipy) when sklearn is not installed.
+
+### `make_poly_adapter` — Polynomial chaos / polyfit
+
+```python
+poly = make_poly_adapter(X_train, y_train,
+    x_name="x", y_name="y_pred",
+    degree=4, name="sin_poly")
+r = poly(x=3.14)
+# Works with numpy only, always available
+```
+
+### `make_rbf_adapter` — RBF interpolation (multi-input)
+
+```python
+X_2d = np.column_stack([aoa_vals, mach_vals])   # shape (n, 2)
+rbf  = make_rbf_adapter(X_2d, cl_vals,
+    input_names=["AoA_deg", "Mach"],
+    y_name="CL_pred",
+    function="multiquadric",
+    name="cl_rbf",
+)
+r = rbf(AoA_deg=5.0, Mach=0.3)
+# Requires scipy (always available as Anvil dependency)
+```
+
+### `gp_demo` — Pre-built demo GP (noisy sine)
+
+```python
+r = gp_demo(x=1.57)
+print(r["y_pred"], r["y_exact"])   # GP prediction vs exact sin(x)
+```
+
+### Surrogates in Systems
+
+```python
+sys_ = anvil.system("drag_polar")
+sys_.add("AoA_deg", 0.0)
+sys_.use(gp_cd)   # gp_cd = make_gp_adapter(...)
+
+sweep = sys_.sweep("AoA_deg", np.linspace(-4, 14, 10))
+```
+
+### `register()` — domain `surrogate.demo`
+
+---
+
 ## Adapter Comparison
 
 | Adapter file | Library | Mock? | Domain | Best for |
@@ -568,6 +887,13 @@ See `examples/ex22_pykep_adapter.py` for a full demonstration including Lambert 
 | `nasa_cea_detonation.py` | NASA CEA CLI | CLI | `propulsion.detonation` | Detonation products |
 | `poliastro_orbits.py` | poliastro | Yes (analytical) | `orbital.poliastro` | Orbit design, Hohmann transfers |
 | `pykep_trajectories.py` | pykep | Partial | `trajectory.pykep` | Lambert arcs, interplanetary trajectory |
+| `xfoil_airfoil.py` | XFOIL CLI | Yes (thin-airfoil) | `aero.xfoil` | 2D airfoil polars, viscous drag |
+| `openfoam_cfd.py` | OpenFOAM | Yes (lifting-line) | `cfd.openfoam` | 3D CFD, incompressible/compressible |
+| `su2_aero.py` | SU2_CFD | Yes (Prandtl-Glauert) | `cfd.su2` | Euler/RANS, adjoint-ready |
+| `openmdo_wrap.py` | OpenMDAO | Yes (analytical) | `mdo.openmdao` | MDO problems, coupled systems |
+| `fenics_fem.py` | FEniCSx | Yes (beam theory) | `fem.fenics` | FEM elasticity, heat conduction |
+| `pynastran_fem.py` | pyNASTRAN | Yes (beam theory) | `fem.nastran` | NASTRAN SOL 101/103, OP2 post-proc |
+| `surrogate_models.py` | scikit-learn | Yes (spline/poly) | `surrogate.demo` | Data-driven surrogates, metamodels |
 
 ---
 

@@ -268,6 +268,10 @@ section { scroll-margin-top: 20px; }
   <a href="#adapters-poliastro">poliastro</a>
   <a href="#adapters-pykep">pykep</a>
   <a href="#adapters-cantera">Cantera</a>
+  <a href="#adapters-aero">Aero (XFOIL/SU2/OpenFOAM)</a>
+  <a href="#adapters-fem">FEM (FEniCSx/NASTRAN)</a>
+  <a href="#adapters-mdo">OpenMDAO MDO</a>
+  <a href="#adapters-surrogate">Surrogate Models</a>
 
   <div class="sb-section">Reference</div>
   <a href="#solvers">Solvers</a>
@@ -1613,6 +1617,151 @@ r = equilibrium_flame(fuel=<span class="st">"CH4"</span>, oxidizer=<span class="
 <span class="lang-label">python</span></pre>
 
 <div class="note"><strong>Install Cantera:</strong> <code>conda install -c cantera cantera</code> or <code>pip install cantera</code>. Both adapters have mock fallbacks — code using them runs without Cantera installed.</div>
+</section>
+
+<section id="adapters-aero">
+<h3>Aerodynamics Adapters (XFOIL, SU2, OpenFOAM)</h3>
+<pre><span class="kw">from</span> anvil.adapters.xfoil_airfoil <span class="kw">import</span> xfoil_polar, xfoil_alpha_sweep
+
+<span class="cm"># 2D airfoil: single point (thin-airfoil mock if XFOIL not on PATH)</span>
+r = xfoil_polar(AoA_deg=<span class="nu">4.0</span>, Re=<span class="nu">1e6</span>, Mach=<span class="nu">0.1</span>)
+<span class="kw">print</span>(r[<span class="st">"CL"</span>], r[<span class="st">"CD"</span>])   <span class="cm"># CL≈0.439  CD≈0.0063  source: mock</span>
+
+<span class="cm"># Polar sweep: returns CL_list, CD_list, CL_max, LD_max, AoA_LD_max</span>
+r = xfoil_alpha_sweep(alpha_start=<span class="nu">-4</span>, alpha_end=<span class="nu">14</span>, alpha_step=<span class="nu">2</span>, Re=<span class="nu">1.5e6</span>)
+<span class="kw">print</span>(f<span class="st">"L/D max = {r['LD_max']:.1f} at {r['AoA_LD_max']:.1f}°"</span>)
+<span class="cm"># L/D max ≈ 63.4 at 4.0°</span>
+<span class="lang-label">python</span></pre>
+<pre><span class="kw">from</span> anvil.adapters.su2_aero <span class="kw">import</span> su2_euler, su2_rans
+
+<span class="cm"># Inviscid Euler (no friction; mock if SU2_CFD not on PATH)</span>
+r = su2_euler(cfg_template=<span class="st">"naca0012.cfg"</span>, mesh=<span class="st">"naca0012.su2"</span>,
+              Mach=<span class="nu">0.3</span>, AoA_deg=<span class="nu">4.0</span>)
+<span class="kw">print</span>(r[<span class="st">"CL"</span>], r[<span class="st">"CD"</span>])   <span class="cm"># CL≈0.439  CD≈0.00129  source: mock</span>
+
+<span class="cm"># RANS (viscous; adds flat-plate skin friction in mock)</span>
+r = su2_rans(cfg_template=<span class="st">"naca0012_sa.cfg"</span>, mesh=<span class="st">"naca0012.su2"</span>,
+             Mach=<span class="nu">0.3</span>, AoA_deg=<span class="nu">4.0</span>, Reynolds=<span class="nu">3e6</span>)
+<span class="kw">print</span>(r[<span class="st">"CL"</span>], r[<span class="st">"CD"</span>])   <span class="cm"># CL≈0.439  CD≈0.00589  source: mock</span>
+<span class="cm"># Difference (CD_RANS - CD_Euler) ≈ 0.0046 = skin friction drag</span>
+<span class="lang-label">python</span></pre>
+<pre><span class="kw">from</span> anvil.adapters.openfoam_cfd <span class="kw">import</span> openfoam_incompressible, openfoam_compressible
+
+<span class="cm"># simpleFoam — low-speed (mock if OpenFOAM not installed)</span>
+r = openfoam_incompressible(case_path=<span class="st">"./my_case"</span>, U_inf=<span class="nu">50.0</span>, alpha_deg=<span class="nu">5.0</span>)
+<span class="kw">print</span>(r[<span class="st">"CL"</span>], r[<span class="st">"F_lift"</span>])   <span class="cm"># CL≈0.548  F_lift≈Q(816, "N")</span>
+
+<span class="cm"># rhoSimpleFoam — transonic</span>
+r = openfoam_compressible(case_path=<span class="st">"./transonic"</span>, U_inf=<span class="nu">272.0</span>, alpha_deg=<span class="nu">3.0</span>)
+<span class="kw">print</span>(r[<span class="st">"Mach"</span>])   <span class="cm"># Q(0.80, "1")</span>
+<span class="lang-label">python</span></pre>
+<div class="note">All three aerodynamics adapters have analytical mock fallbacks. When the binary is not on PATH or the case directory does not exist, thin-airfoil / Prandtl-Glauert theory is used. Results are physically reasonable for preliminary design sweeps.</div>
+</section>
+
+<section id="adapters-fem">
+<h3>FEM Adapters (FEniCSx, pyNASTRAN)</h3>
+<pre><span class="kw">from</span> anvil.adapters.fenics_fem <span class="kw">import</span> fenics_linear_elasticity, fenics_heat_conduction
+
+<span class="cm"># 3D cantilever box — fixed at x=0, traction on top face</span>
+r = fenics_linear_elasticity(E=<span class="nu">200e9</span>, nu=<span class="nu">0.3</span>,
+    Lx=<span class="nu">1.0</span>, Ly=<span class="nu">0.05</span>, Lz=<span class="nu">0.05</span>,
+    F_distributed=<span class="nu">1e4</span>)   <span class="cm"># N/m²</span>
+<span class="kw">print</span>(r[<span class="st">"max_displacement"</span>])   <span class="cm"># Q(1.15e-4, "m") — mock: Euler-Bernoulli</span>
+<span class="kw">print</span>(r[<span class="st">"max_von_mises"</span>])      <span class="cm"># Q(2.4e6, "Pa")</span>
+
+<span class="cm"># 3D steady heat conduction</span>
+r = fenics_heat_conduction(k=<span class="nu">205.0</span>, Lx=<span class="nu">0.5</span>, Ly=<span class="nu">0.02</span>, Lz=<span class="nu">0.02</span>,
+                            T_left=<span class="nu">600.0</span>, T_right=<span class="nu">300.0</span>)
+<span class="kw">print</span>(r[<span class="st">"T_max"</span>], r[<span class="st">"heat_flux"</span>])   <span class="cm"># Q(600, "K")  Q(9.84, "W")</span>
+<span class="lang-label">python</span></pre>
+<pre><span class="kw">from</span> anvil.adapters.pynastran_fem <span class="kw">import</span> nastran_linear_static, nastran_normal_modes
+
+<span class="cm"># SOL 101 static — runs NASTRAN/MYSTRAN if .bdf found; else Euler-Bernoulli mock</span>
+r = nastran_linear_static(bdf_path=<span class="st">"my_model.bdf"</span>, load_case_id=<span class="nu">1</span>,
+    E_fallback=<span class="nu">200e9</span>, I_fallback=<span class="nu">4.167e-6</span>, L_fallback=<span class="nu">1.0</span>, F_fallback=<span class="nu">1000.0</span>)
+<span class="kw">print</span>(r[<span class="st">"max_displacement"</span>])   <span class="cm"># Q(8.0e-5, "m")  source: mock</span>
+
+<span class="cm"># SOL 103 normal modes — analytical cantilever frequencies if no NASTRAN</span>
+r = nastran_normal_modes(bdf_path=<span class="st">"my_model.bdf"</span>, n_modes=<span class="nu">6</span>,
+    E_fallback=<span class="nu">200e9</span>, I_fallback=<span class="nu">4.167e-6</span>, L_fallback=<span class="nu">1.0</span>,
+    rho_fallback=<span class="nu">7800.0</span>, A_fallback=<span class="nu">0.0025</span>)
+<span class="kw">print</span>(r[<span class="st">"f1"</span>])   <span class="cm"># Q(14.3, "Hz") — 1st bending mode</span>
+<span class="kw">print</span>([<span class="kw">round</span>(f.si, <span class="nu">1</span>) <span class="kw">for</span> f <span class="kw">in</span> r[<span class="st">"frequencies"</span>]])
+<span class="cm"># [14.3, 89.6, 250.7, 491.1, 811.3, 1210.5]  — 6 cantilever bending frequencies</span>
+<span class="lang-label">python</span></pre>
+<div class="note"><strong>MYSTRAN (free solver):</strong> Open-source NASTRAN-compatible solver. Download from <code>github.com/dr-bill-c/MYSTRAN</code>, put <code>mystran.exe</code> on PATH. Anvil auto-detects it. Works with <code>pyNASTRAN</code> for OP2 post-processing (<code>pip install pyNASTRAN</code>).</div>
+</section>
+
+<section id="adapters-mdo">
+<h3>OpenMDAO MDO Adapter</h3>
+<pre><span class="kw">from</span> anvil.adapters.openmdo_wrap <span class="kw">import</span> openmdo_sellar, openmdo_beam, make_openmdo_adapter
+
+<span class="cm"># Sellar coupled MDO benchmark (analytical mock if OpenMDAO not installed)</span>
+r = openmdo_sellar(x1=<span class="nu">1.0</span>, z1=<span class="nu">5.0</span>, z2=<span class="nu">2.0</span>)
+<span class="kw">print</span>(r[<span class="st">"f"</span>], r[<span class="st">"g1"</span>], r[<span class="st">"g2"</span>])
+<span class="cm"># f≈28.6  g1≈-22.4 (feasible)  g2≈-12.1 (feasible)</span>
+
+<span class="cm"># Cantilever beam ExplicitComponent</span>
+r = openmdo_beam(F_tip=<span class="nu">5000</span>, L_beam=<span class="nu">2.0</span>, E=<span class="nu">70e9</span>, b=<span class="nu">0.05</span>, h=<span class="nu">0.10</span>)
+<span class="kw">print</span>(r[<span class="st">"deflection"</span>], r[<span class="st">"max_stress"</span>])
+<span class="cm"># deflection≈Q(0.037, "m")  max_stress≈Q(480e6, "Pa")</span>
+<span class="lang-label">python</span></pre>
+<pre><span class="cm"># Wrap your own OpenMDAO Problem</span>
+<span class="kw">def</span> <span class="fn">build_prob</span>():
+    <span class="kw">import</span> openmdao.api <span class="kw">as</span> om
+    p = om.Problem()
+    <span class="cm"># ... add_subsystem, connect, etc. ...</span>
+    p.setup()
+    <span class="kw">return</span> p
+
+my_mdo = make_openmdo_adapter(
+    prob_factory=build_prob,
+    input_vars={<span class="st">"x"</span>: {<span class="st">"unit"</span>: <span class="st">"1"</span>, <span class="st">"desc"</span>: <span class="st">"Input"</span>, <span class="st">"default"</span>: <span class="nu">0.0</span>}},
+    output_vars={<span class="st">"f"</span>: {<span class="st">"unit"</span>: <span class="st">"1"</span>, <span class="st">"desc"</span>: <span class="st">"Objective"</span>}},
+    name=<span class="st">"my_mdo"</span>,
+    run_driver=<span class="kw">False</span>,   <span class="cm"># True = run optimizer, False = single analysis</span>
+)
+sys.use(my_mdo)   <span class="cm"># plugs into any Anvil System</span>
+<span class="lang-label">python</span></pre>
+</section>
+
+<section id="adapters-surrogate">
+<h3>Surrogate / Metamodel Adapters</h3>
+<p>Build data-driven surrogates from training data (GP, polynomial, RBF) and use them as first-class Anvil Adapters in Systems and sweeps.</p>
+<pre><span class="kw">from</span> anvil.adapters.surrogate_models <span class="kw">import</span> make_gp_adapter, make_poly_adapter, make_rbf_adapter
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># Build GP surrogate from wind-tunnel drag data</span>
+aoa_train = np.linspace(-<span class="nu">4</span>, <span class="nu">14</span>, <span class="nu">12</span>)
+cd_train  = <span class="nu">0.01</span> + <span class="nu">0.003</span>*aoa_train + <span class="nu">0.0015</span>*aoa_train**<span class="nu">2</span>
+
+gp_cd = make_gp_adapter(
+    X_train=aoa_train.reshape(-<span class="nu">1</span>,<span class="nu">1</span>), y_train=cd_train,
+    x_name=<span class="st">"AoA_deg"</span>, y_name=<span class="st">"CD_pred"</span>,
+    name=<span class="st">"drag_gp"</span>,
+)
+r = gp_cd(AoA_deg=<span class="nu">6.0</span>)
+<span class="kw">print</span>(r[<span class="st">"CD_pred"</span>], r[<span class="st">"CD_pred_std"</span>])   <span class="cm"># mean prediction + uncertainty</span>
+<span class="cm"># CD_pred ≈ 0.064   uncertainty ≈ 0.001</span>
+
+<span class="cm"># Polynomial surrogate (degree 4) — no sklearn needed</span>
+poly = make_poly_adapter(aoa_train, cd_train, x_name=<span class="st">"AoA_deg"</span>,
+                          y_name=<span class="st">"CD_pred"</span>, degree=<span class="nu">4</span>, name=<span class="st">"cd_poly"</span>)
+
+<span class="cm"># RBF surrogate (2-input): CL = f(AoA, Mach)</span>
+X_2d = np.column_stack([aoa_vals, mach_vals])
+rbf  = make_rbf_adapter(X_2d, cl_vals,
+    input_names=[<span class="st">"AoA_deg"</span>, <span class="st">"Mach"</span>], y_name=<span class="st">"CL_pred"</span>, name=<span class="st">"cl_rbf"</span>)
+<span class="lang-label">python</span></pre>
+<pre><span class="cm"># Use surrogate in System (identical to any other Adapter or RSQ)</span>
+sys_ = anvil.system(<span class="st">"drag_study"</span>)
+sys_.add(<span class="st">"AoA_deg"</span>, <span class="nu">0.0</span>)
+sys_.use(gp_cd)
+
+sweep = sys_.sweep(<span class="st">"AoA_deg"</span>, np.linspace(-<span class="nu">4</span>, <span class="nu">14</span>, <span class="nu">10</span>))
+sweep.plot(<span class="st">"AoA_deg"</span>, <span class="st">"CD_pred"</span>)   <span class="cm"># drag polar from surrogate</span>
+<span class="lang-label">python</span></pre>
+<div class="note">GP adapter falls back to cubic spline when <code>scikit-learn</code> is not installed. Polynomial and RBF surrogates use numpy/scipy only and are always available.</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════

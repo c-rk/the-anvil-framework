@@ -6439,9 +6439,10 @@ Outputs: <code>T_ad [K]</code>, <code>gamma</code>, <code>MW [kg/mol]</code>, <c
 - If wrapper returns <code>Q(val, "unit")</code> → used directly, unit info from Q
 - If wrapper returns plain float and <code>"unit"</code> is declared → wrapped as <code>Q(float, "unit")</code>
 - If wrapper returns plain float and no <code>"unit"</code> → raw float in workspace</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Celsius example (no offset support in UnitDB — convert manually)</span>
-<span class="n">inputs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;T&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;K&quot;</span><span class="p">}}</span>   <span class="c1"># NOT &quot;°C&quot; — not in unit database</span>
-<span class="c1"># Convert inside wrapper:</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Celsius example — degC / °C are supported since v1.3</span>
+<span class="n">inputs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;T&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;degC&quot;</span><span class="p">}}</span>   <span class="c1"># wrapper receives value in °C</span>
+<span class="c1"># Or declare in K and convert inside:</span>
+<span class="n">inputs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;T&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;K&quot;</span><span class="p">}}</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_wrapper</span><span class="p">(</span><span class="n">T</span><span class="p">):</span>   <span class="c1"># T arrives in Kelvin (SI)</span>
     <span class="n">T_celsius</span> <span class="o">=</span> <span class="n">T</span> <span class="o">-</span> <span class="mf">273.15</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">tool</span><span class="p">(</span><span class="n">T_c</span><span class="o">=</span><span class="n">T_celsius</span><span class="p">)</span>
@@ -6526,6 +6527,236 @@ Outputs: <code>v_dep_x, v_dep_y, v_dep_z [m/s]</code>, <code>v_arr_x, v_arr_y, v
 
 <p>See <code>examples/ex22_pykep_adapter.py</code> for a full demonstration including Lambert arcs, porkchop sweeps, and a combined LEO-departure + interplanetary-arc mission budget.</p>
 <hr />
+<h2 id="xfoil-adapter-2d-airfoil">XFOIL Adapter (2D Airfoil)<a class="headerlink" href="#xfoil-adapter-2d-airfoil" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/xfoil_airfoil.py</code>. Requires XFOIL binary on PATH (<code>xfoil</code> or <code>xfoil.exe</code>).
+Mock mode: thin-airfoil theory with Prandtl-Glauert compressibility correction.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.xfoil_airfoil</span><span class="w"> </span><span class="kn">import</span> <span class="n">xfoil_polar</span><span class="p">,</span> <span class="n">xfoil_alpha_sweep</span><span class="p">,</span> <span class="n">register</span>
+</code></pre></div>
+
+<h3 id="xfoil_polar-single-operating-point"><code>xfoil_polar</code> — Single operating point<a class="headerlink" href="#xfoil_polar-single-operating-point" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>AoA_deg</code>, <code>Re</code>, <code>Mach</code>, <code>airfoil</code> (name or .dat path), <code>n_panels</code>, <code>n_iter</code>, <code>xtr_top</code>, <code>xtr_bot</code>
+Outputs: <code>CL</code>, <code>CD</code>, <code>CDp</code>, <code>CM</code>, <code>Top_Xtr</code>, <code>Bot_Xtr</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">xfoil_polar</span><span class="p">(</span><span class="n">AoA_deg</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">Re</span><span class="o">=</span><span class="mf">1e6</span><span class="p">,</span> <span class="n">Mach</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;CD&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;CM&quot;</span><span class="p">])</span>
+<span class="c1"># CL ≈ 0.439   CD ≈ 0.00626   source: mock</span>
+</code></pre></div>
+
+<h3 id="xfoil_alpha_sweep-full-polar"><code>xfoil_alpha_sweep</code> — Full polar<a class="headerlink" href="#xfoil_alpha_sweep-full-polar" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>alpha_start</code>, <code>alpha_end</code>, <code>alpha_step</code>, <code>Re</code>, <code>Mach</code>, <code>airfoil</code>, <code>n_panels</code>, <code>n_iter</code>
+Outputs: <code>CL_list</code>, <code>CD_list</code>, <code>CM_list</code>, <code>AoA_list</code>, <code>CL_max</code>, <code>AoA_LD_max</code>, <code>LD_max</code>, <code>n_points</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">xfoil_alpha_sweep</span><span class="p">(</span><span class="n">alpha_start</span><span class="o">=-</span><span class="mi">4</span><span class="p">,</span> <span class="n">alpha_end</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">alpha_step</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">Re</span><span class="o">=</span><span class="mf">1.5e6</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;L/D max = </span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;LD_max&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="n">r</span><span class="p">[</span><span class="s1">&#39;AoA_LD_max&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">°&quot;</span><span class="p">)</span>
+<span class="c1"># L/D max ≈ 63.4 at 4.0°</span>
+</code></pre></div>
+
+<h3 id="register-domain-aeroxfoil"><code>register()</code> — domain <code>aero.xfoil</code><a class="headerlink" href="#register-domain-aeroxfoil" title="Permanent link">&para;</a></h3>
+<hr />
+<h2 id="openfoam-cfd-adapter">OpenFOAM CFD Adapter<a class="headerlink" href="#openfoam-cfd-adapter" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/openfoam_cfd.py</code>. Requires OpenFOAM installed and solver on PATH.
+Mock mode: lifting-line theory + Küchemann wave drag.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.openfoam_cfd</span><span class="w"> </span><span class="kn">import</span> <span class="n">openfoam_incompressible</span><span class="p">,</span> <span class="n">openfoam_compressible</span><span class="p">,</span> <span class="n">register</span>
+</code></pre></div>
+
+<h3 id="openfoam_incompressible-simplefoam-low-speed"><code>openfoam_incompressible</code> — simpleFoam (low-speed)<a class="headerlink" href="#openfoam_incompressible-simplefoam-low-speed" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>case_path</code>, <code>U_inf [m/s]</code>, <code>alpha_deg</code>, <code>rho [kg/m³]</code>, <code>nu [m²/s]</code>, <code>L_ref [m]</code>, <code>A_ref [m²]</code>, <code>n_cores</code>, <code>solver</code>
+Outputs: <code>CL</code>, <code>CD</code>, <code>CM</code>, <code>F_lift [N]</code>, <code>F_drag [N]</code>, <code>Re</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">openfoam_incompressible</span><span class="p">(</span><span class="n">case_path</span><span class="o">=</span><span class="s2">&quot;./my_case&quot;</span><span class="p">,</span> <span class="n">U_inf</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">alpha_deg</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;CD&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;F_lift&quot;</span><span class="p">])</span>
+<span class="c1"># CL ≈ 0.548   CD ≈ 0.0062   source: mock (or openfoam if case exists)</span>
+</code></pre></div>
+
+<p><strong>Case requirements:</strong> prepared OpenFOAM case with mesh (blockMesh or snappyHexMesh already run), <code>0/U</code>, <code>0/p</code>, <code>system/controlDict</code> with <code>forceCoeffs</code> function object.</p>
+<h3 id="openfoam_compressible-rhosimplefoam-transonicsupersonic"><code>openfoam_compressible</code> — rhoSimpleFoam (transonic/supersonic)<a class="headerlink" href="#openfoam_compressible-rhosimplefoam-transonicsupersonic" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>case_path</code>, <code>U_inf [m/s]</code>, <code>alpha_deg</code>, <code>p_inf [Pa]</code>, <code>T_inf [K]</code>, <code>gamma</code>, <code>L_ref</code>, <code>A_ref</code>, <code>n_cores</code>, <code>solver</code>
+Outputs: <code>CL</code>, <code>CD</code>, <code>CM</code>, <code>Mach</code>, <code>F_lift [N]</code>, <code>F_drag [N]</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">openfoam_compressible</span><span class="p">(</span><span class="n">case_path</span><span class="o">=</span><span class="s2">&quot;./transonic_case&quot;</span><span class="p">,</span> <span class="n">U_inf</span><span class="o">=</span><span class="mf">272.0</span><span class="p">,</span> <span class="n">alpha_deg</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;Mach&quot;</span><span class="p">])</span>
+<span class="c1"># Mach ≈ 0.80  CL ≈ 0.196</span>
+</code></pre></div>
+
+<h3 id="register-domain-cfdopenfoam"><code>register()</code> — domain <code>cfd.openfoam</code><a class="headerlink" href="#register-domain-cfdopenfoam" title="Permanent link">&para;</a></h3>
+<hr />
+<h2 id="su2-cfd-adapter">SU2 CFD Adapter<a class="headerlink" href="#su2-cfd-adapter" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/su2_aero.py</code>. Requires <code>SU2_CFD</code> on PATH.
+Mock mode: Prandtl-Glauert lift + Prandtl-Schlichting skin friction.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.su2_aero</span><span class="w"> </span><span class="kn">import</span> <span class="n">su2_euler</span><span class="p">,</span> <span class="n">su2_rans</span><span class="p">,</span> <span class="n">register</span>
+</code></pre></div>
+
+<h3 id="su2_euler-inviscid-euler"><code>su2_euler</code> — Inviscid Euler<a class="headerlink" href="#su2_euler-inviscid-euler" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>cfg_template</code> (.cfg file path), <code>mesh</code> (.su2 mesh path), <code>Mach</code>, <code>AoA_deg</code>, <code>sideslip_deg</code>, <code>alpha0_deg</code>
+Outputs: <code>CL</code>, <code>CD</code>, <code>CM</code>, <code>Mach</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">su2_euler</span><span class="p">(</span><span class="n">cfg_template</span><span class="o">=</span><span class="s2">&quot;naca0012.cfg&quot;</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="s2">&quot;naca0012.su2&quot;</span><span class="p">,</span>
+              <span class="n">Mach</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">AoA_deg</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;CD&quot;</span><span class="p">])</span>
+<span class="c1"># CL ≈ 0.439   CD ≈ 0.00129 (induced only, no friction)</span>
+</code></pre></div>
+
+<h3 id="su2_rans-turbulent-rans-spalart-allmaras"><code>su2_rans</code> — Turbulent RANS (Spalart-Allmaras)<a class="headerlink" href="#su2_rans-turbulent-rans-spalart-allmaras" title="Permanent link">&para;</a></h3>
+<p>Inputs: same as <code>su2_euler</code> + <code>Reynolds</code>
+Outputs: <code>CL</code>, <code>CD</code>, <code>CM</code>, <code>Mach</code>, <code>Re</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">su2_rans</span><span class="p">(</span><span class="n">cfg_template</span><span class="o">=</span><span class="s2">&quot;naca0012_sa.cfg&quot;</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="s2">&quot;naca0012.su2&quot;</span><span class="p">,</span>
+             <span class="n">Mach</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">AoA_deg</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">Reynolds</span><span class="o">=</span><span class="mf">3e6</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;CD&quot;</span><span class="p">])</span>
+<span class="c1"># CL ≈ 0.439   CD ≈ 0.00589 (pressure + friction)</span>
+</code></pre></div>
+
+<p><strong>Config patching:</strong> The adapter patches <code>MACH_NUMBER</code>, <code>AOA</code>, <code>SIDESLIP_ANGLE</code>, and optionally <code>REYNOLDS_NUMBER</code> in the template. All other settings (numerics, mesh filename path handling, BCs) come from the template.</p>
+<h3 id="register-domain-cfdsu2"><code>register()</code> — domain <code>cfd.su2</code><a class="headerlink" href="#register-domain-cfdsu2" title="Permanent link">&para;</a></h3>
+<hr />
+<h2 id="openmdao-mdo-adapter">OpenMDAO MDO Adapter<a class="headerlink" href="#openmdao-mdo-adapter" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/openmdo_wrap.py</code>. Requires <code>pip install openmdao</code>.
+Mock mode: analytical Sellar equations (iterative coupling), Euler-Bernoulli beam.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.openmdo_wrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_openmdo_adapter</span><span class="p">,</span> <span class="n">openmdo_sellar</span><span class="p">,</span> <span class="n">openmdo_beam</span><span class="p">,</span> <span class="n">register</span>
+</code></pre></div>
+
+<h3 id="make_openmdo_adapter-factory-for-any-openmdao-problem"><code>make_openmdo_adapter</code> — Factory for any OpenMDAO Problem<a class="headerlink" href="#make_openmdo_adapter-factory-for-any-openmdao-problem" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_prob</span><span class="p">():</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">openmdao.api</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">om</span>
+    <span class="c1"># ... set up components ...</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">om</span><span class="o">.</span><span class="n">Problem</span><span class="p">()</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">p</span>
+
+<span class="n">adapter</span> <span class="o">=</span> <span class="n">make_openmdo_adapter</span><span class="p">(</span>
+    <span class="n">prob_factory</span><span class="o">=</span><span class="n">build_prob</span><span class="p">,</span>
+    <span class="n">input_vars</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;desc&quot;</span><span class="p">:</span> <span class="s2">&quot;Input&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}},</span>
+    <span class="n">output_vars</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;f&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;desc&quot;</span><span class="p">:</span> <span class="s2">&quot;Output&quot;</span><span class="p">}},</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_mdo&quot;</span><span class="p">,</span>
+    <span class="n">run_driver</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># True = optimize, False = single analysis</span>
+<span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">adapter</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="openmdo_sellar-sellar-coupled-mdo-benchmark"><code>openmdo_sellar</code> — Sellar coupled MDO benchmark<a class="headerlink" href="#openmdo_sellar-sellar-coupled-mdo-benchmark" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>x1</code>, <code>z1</code>, <code>z2</code> (dimensionless)
+Outputs: <code>f</code> (objective), <code>g1</code>, <code>g2</code> (constraints ≤ 0), <code>y1</code>, <code>y2</code> (coupling), <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">openmdo_sellar</span><span class="p">(</span><span class="n">x1</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">z1</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">z2</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;f&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;g1&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;g2&quot;</span><span class="p">])</span>
+<span class="c1"># f ≈ 28.6  g1 ≈ -22.4 (feasible)  g2 ≈ -12.1 (feasible)</span>
+</code></pre></div>
+
+<h3 id="openmdo_beam-cantilever-beam-explicitcomponent"><code>openmdo_beam</code> — Cantilever beam ExplicitComponent<a class="headerlink" href="#openmdo_beam-cantilever-beam-explicitcomponent" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>F_tip [N]</code>, <code>L_beam [m]</code>, <code>E [Pa]</code>, <code>b [m]</code>, <code>h [m]</code>
+Outputs: <code>deflection [m]</code>, <code>max_stress [Pa]</code>, <code>I_moment [m⁴]</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">openmdo_beam</span><span class="p">(</span><span class="n">F_tip</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">L_beam</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">E</span><span class="o">=</span><span class="mf">70e9</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;deflection&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;max_stress&quot;</span><span class="p">])</span>
+<span class="c1"># deflection ≈ 0.0366 m   max_stress ≈ 480 MPa</span>
+</code></pre></div>
+
+<h3 id="register-domain-mdoopenmdao"><code>register()</code> — domain <code>mdo.openmdao</code><a class="headerlink" href="#register-domain-mdoopenmdao" title="Permanent link">&para;</a></h3>
+<hr />
+<h2 id="fenicsx-fem-adapter">FEniCSx FEM Adapter<a class="headerlink" href="#fenicsx-fem-adapter" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/fenics_fem.py</code>. Requires <code>conda install -c conda-forge fenics-dolfinx mpi4py</code>.
+Mock mode: Euler-Bernoulli beam (elasticity), 1D Fourier + volumetric source (heat).</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.fenics_fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">fenics_linear_elasticity</span><span class="p">,</span> <span class="n">fenics_heat_conduction</span><span class="p">,</span> <span class="n">register</span>
+</code></pre></div>
+
+<h3 id="fenics_linear_elasticity-3d-box-linear-elasticity"><code>fenics_linear_elasticity</code> — 3D box linear elasticity<a class="headerlink" href="#fenics_linear_elasticity-3d-box-linear-elasticity" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>E [Pa]</code>, <code>nu</code>, <code>Lx [m]</code>, <code>Ly [m]</code>, <code>Lz [m]</code>, <code>F_distributed [Pa]</code>, <code>nx</code>, <code>ny</code>, <code>nz</code>
+Outputs: <code>max_displacement [m]</code>, <code>max_von_mises [Pa]</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">fenics_linear_elasticity</span><span class="p">(</span><span class="n">E</span><span class="o">=</span><span class="mf">200e9</span><span class="p">,</span> <span class="n">nu</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">Lx</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Ly</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">Lz</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">F_distributed</span><span class="o">=</span><span class="mf">1e4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;max_displacement&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;max_von_mises&quot;</span><span class="p">])</span>
+<span class="c1"># max_displacement ≈ 1.15e-4 m   max_von_mises ≈ 2.4 MPa</span>
+</code></pre></div>
+
+<p><strong>Setup:</strong> Cantilever fixed at <code>x=0</code>, distributed traction on top face (<code>z=Lz</code>).</p>
+<h3 id="fenics_heat_conduction-3d-steady-heat-conduction"><code>fenics_heat_conduction</code> — 3D steady heat conduction<a class="headerlink" href="#fenics_heat_conduction-3d-steady-heat-conduction" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>k [W/m/K]</code>, <code>Lx</code>, <code>Ly</code>, <code>Lz [m]</code>, <code>T_left [K]</code>, <code>T_right [K]</code>, <code>Q_vol [W/m³]</code>, <code>nx</code>, <code>ny</code>, <code>nz</code>
+Outputs: <code>T_max [K]</code>, <code>heat_flux [W]</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">fenics_heat_conduction</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mf">205.0</span><span class="p">,</span> <span class="n">Lx</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">Ly</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">Lz</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
+                            <span class="n">T_left</span><span class="o">=</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">T_right</span><span class="o">=</span><span class="mf">300.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;T_max&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;heat_flux&quot;</span><span class="p">])</span>
+<span class="c1"># T_max = 600 K   heat_flux ≈ 9.84 W</span>
+</code></pre></div>
+
+<h3 id="register-domain-femfenics"><code>register()</code> — domain <code>fem.fenics</code><a class="headerlink" href="#register-domain-femfenics" title="Permanent link">&para;</a></h3>
+<hr />
+<h2 id="pynastran-nastran-adapter">pyNASTRAN / NASTRAN Adapter<a class="headerlink" href="#pynastran-nastran-adapter" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/pynastran_fem.py</code>. Requires <code>pip install pyNASTRAN</code>.
+NASTRAN binary auto-detected: MYSTRAN (free), MSC NASTRAN, NX NASTRAN, Optistruct.
+Mock mode: Euler-Bernoulli static + analytical cantilever frequencies (βₙL values).</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.pynastran_fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">nastran_linear_static</span><span class="p">,</span> <span class="n">nastran_normal_modes</span><span class="p">,</span> <span class="n">register</span>
+</code></pre></div>
+
+<h3 id="nastran_linear_static-sol-101"><code>nastran_linear_static</code> — SOL 101<a class="headerlink" href="#nastran_linear_static-sol-101" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>bdf_path</code>, <code>load_case_id</code>, <code>E_fallback [Pa]</code>, <code>I_fallback [m⁴]</code>, <code>L_fallback [m]</code>, <code>F_fallback [N]</code>, <code>nastran_bin</code>
+Outputs: <code>max_displacement [m]</code>, <code>max_stress [Pa]</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">nastran_linear_static</span><span class="p">(</span><span class="n">bdf_path</span><span class="o">=</span><span class="s2">&quot;my_model.bdf&quot;</span><span class="p">,</span> <span class="n">load_case_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;max_displacement&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;max_stress&quot;</span><span class="p">])</span>
+<span class="c1"># max_displacement ≈ 8.0e-5 m (or from OP2 if NASTRAN runs)</span>
+</code></pre></div>
+
+<h3 id="nastran_normal_modes-sol-103"><code>nastran_normal_modes</code> — SOL 103<a class="headerlink" href="#nastran_normal_modes-sol-103" title="Permanent link">&para;</a></h3>
+<p>Inputs: <code>bdf_path</code>, <code>n_modes</code>, <code>E_fallback</code>, <code>I_fallback</code>, <code>L_fallback</code>, <code>rho_fallback</code>, <code>A_fallback</code>, <code>nastran_bin</code>
+Outputs: <code>frequencies [list of Q]</code>, <code>f1 [Hz]</code>, <code>f2 [Hz]</code>, <code>n_modes</code>, <code>source</code></p>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">nastran_normal_modes</span><span class="p">(</span><span class="n">bdf_path</span><span class="o">=</span><span class="s2">&quot;my_model.bdf&quot;</span><span class="p">,</span> <span class="n">n_modes</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;f1&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;frequencies&quot;</span><span class="p">])</span>
+<span class="c1"># f1 ≈ 14.3 Hz   (1st bending mode of steel cantilever, L=1m, 50×50mm)</span>
+</code></pre></div>
+
+<p><strong>MYSTRAN (free solver):</strong> Download from <code>https://github.com/dr-bill-c/MYSTRAN</code>. Add <code>mystran.exe</code> to PATH. The adapter auto-detects it.</p>
+<h3 id="register-domain-femnastran"><code>register()</code> — domain <code>fem.nastran</code><a class="headerlink" href="#register-domain-femnastran" title="Permanent link">&para;</a></h3>
+<hr />
+<h2 id="surrogate-metamodel-adapters">Surrogate / Metamodel Adapters<a class="headerlink" href="#surrogate-metamodel-adapters" title="Permanent link">&para;</a></h2>
+<p>Located in <code>anvil/adapters/surrogate_models.py</code>. Requires <code>pip install scikit-learn</code> for GP. Polynomial and RBF work with numpy/scipy only.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.adapters.surrogate_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">make_gp_adapter</span><span class="p">,</span> <span class="n">make_poly_adapter</span><span class="p">,</span> <span class="n">make_rbf_adapter</span><span class="p">,</span> <span class="n">gp_demo</span><span class="p">,</span> <span class="n">register</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<h3 id="make_gp_adapter-gaussian-process-from-training-data"><code>make_gp_adapter</code> — Gaussian Process from training data<a class="headerlink" href="#make_gp_adapter-gaussian-process-from-training-data" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">y_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span> <span class="o">+</span> <span class="mf">0.02</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>
+
+<span class="n">gp</span> <span class="o">=</span> <span class="n">make_gp_adapter</span><span class="p">(</span>
+    <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">x_name</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">y_name</span><span class="o">=</span><span class="s2">&quot;y_pred&quot;</span><span class="p">,</span>
+    <span class="n">x_unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="n">y_unit</span><span class="o">=</span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;sin_gp&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">gp</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">3.14</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;y_pred&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;y_pred_std&quot;</span><span class="p">])</span>   <span class="c1"># mean prediction + uncertainty</span>
+</code></pre></div>
+
+<p>Falls back to cubic spline (scipy) when sklearn is not installed.</p>
+<h3 id="make_poly_adapter-polynomial-chaos-polyfit"><code>make_poly_adapter</code> — Polynomial chaos / polyfit<a class="headerlink" href="#make_poly_adapter-polynomial-chaos-polyfit" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">poly</span> <span class="o">=</span> <span class="n">make_poly_adapter</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">x_name</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">y_name</span><span class="o">=</span><span class="s2">&quot;y_pred&quot;</span><span class="p">,</span>
+    <span class="n">degree</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;sin_poly&quot;</span><span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">poly</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">3.14</span><span class="p">)</span>
+<span class="c1"># Works with numpy only, always available</span>
+</code></pre></div>
+
+<h3 id="make_rbf_adapter-rbf-interpolation-multi-input"><code>make_rbf_adapter</code> — RBF interpolation (multi-input)<a class="headerlink" href="#make_rbf_adapter-rbf-interpolation-multi-input" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">X_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">aoa_vals</span><span class="p">,</span> <span class="n">mach_vals</span><span class="p">])</span>   <span class="c1"># shape (n, 2)</span>
+<span class="n">rbf</span>  <span class="o">=</span> <span class="n">make_rbf_adapter</span><span class="p">(</span><span class="n">X_2d</span><span class="p">,</span> <span class="n">cl_vals</span><span class="p">,</span>
+    <span class="n">input_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;AoA_deg&quot;</span><span class="p">,</span> <span class="s2">&quot;Mach&quot;</span><span class="p">],</span>
+    <span class="n">y_name</span><span class="o">=</span><span class="s2">&quot;CL_pred&quot;</span><span class="p">,</span>
+    <span class="n">function</span><span class="o">=</span><span class="s2">&quot;multiquadric&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;cl_rbf&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">rbf</span><span class="p">(</span><span class="n">AoA_deg</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">Mach</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+<span class="c1"># Requires scipy (always available as Anvil dependency)</span>
+</code></pre></div>
+
+<h3 id="gp_demo-pre-built-demo-gp-noisy-sine"><code>gp_demo</code> — Pre-built demo GP (noisy sine)<a class="headerlink" href="#gp_demo-pre-built-demo-gp-noisy-sine" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">r</span> <span class="o">=</span> <span class="n">gp_demo</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">1.57</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">&quot;y_pred&quot;</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;y_exact&quot;</span><span class="p">])</span>   <span class="c1"># GP prediction vs exact sin(x)</span>
+</code></pre></div>
+
+<h3 id="surrogates-in-systems">Surrogates in Systems<a class="headerlink" href="#surrogates-in-systems" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">sys_</span> <span class="o">=</span> <span class="n">anvil</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s2">&quot;drag_polar&quot;</span><span class="p">)</span>
+<span class="n">sys_</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;AoA_deg&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">sys_</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">gp_cd</span><span class="p">)</span>   <span class="c1"># gp_cd = make_gp_adapter(...)</span>
+
+<span class="n">sweep</span> <span class="o">=</span> <span class="n">sys_</span><span class="o">.</span><span class="n">sweep</span><span class="p">(</span><span class="s2">&quot;AoA_deg&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</code></pre></div>
+
+<h3 id="register-domain-surrogatedemo"><code>register()</code> — domain <code>surrogate.demo</code><a class="headerlink" href="#register-domain-surrogatedemo" title="Permanent link">&para;</a></h3>
+<hr />
 <h2 id="adapter-comparison">Adapter Comparison<a class="headerlink" href="#adapter-comparison" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -6565,6 +6796,55 @@ Outputs: <code>v_dep_x, v_dep_y, v_dep_z [m/s]</code>, <code>v_arr_x, v_arr_y, v
 <td>Partial</td>
 <td><code>trajectory.pykep</code></td>
 <td>Lambert arcs, interplanetary trajectory</td>
+</tr>
+<tr>
+<td><code>xfoil_airfoil.py</code></td>
+<td>XFOIL CLI</td>
+<td>Yes (thin-airfoil)</td>
+<td><code>aero.xfoil</code></td>
+<td>2D airfoil polars, viscous drag</td>
+</tr>
+<tr>
+<td><code>openfoam_cfd.py</code></td>
+<td>OpenFOAM</td>
+<td>Yes (lifting-line)</td>
+<td><code>cfd.openfoam</code></td>
+<td>3D CFD, incompressible/compressible</td>
+</tr>
+<tr>
+<td><code>su2_aero.py</code></td>
+<td>SU2_CFD</td>
+<td>Yes (Prandtl-Glauert)</td>
+<td><code>cfd.su2</code></td>
+<td>Euler/RANS, adjoint-ready</td>
+</tr>
+<tr>
+<td><code>openmdo_wrap.py</code></td>
+<td>OpenMDAO</td>
+<td>Yes (analytical)</td>
+<td><code>mdo.openmdao</code></td>
+<td>MDO problems, coupled systems</td>
+</tr>
+<tr>
+<td><code>fenics_fem.py</code></td>
+<td>FEniCSx</td>
+<td>Yes (beam theory)</td>
+<td><code>fem.fenics</code></td>
+<td>FEM elasticity, heat conduction</td>
+</tr>
+<tr>
+<td><code>pynastran_fem.py</code></td>
+<td>pyNASTRAN</td>
+<td>Yes (beam theory)</td>
+<td><code>fem.nastran</code></td>
+<td>NASTRAN SOL 101/103, OP2 post-proc</td>
+</tr>
+<tr>
+<td><code>surrogate_models.py</code></td>
+<td>scikit-learn</td>
+<td>Yes (spline/poly)</td>
+<td><code>surrogate.demo</code></td>
+<td>Data-driven surrogates, metamodels</td>
 </tr>
 </tbody>
 </table>

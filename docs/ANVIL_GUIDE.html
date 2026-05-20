@@ -270,6 +270,11 @@ section { scroll-margin-top: 20px; }
   <div class="sb-section">Reference</div>
   <a href="#solvers">Solvers</a>
   <a href="#databases">Databases</a>
+  <a href="#viz">Visualization</a>
+  <a href="#monitoring">Monitoring</a>
+  <a href="#lookup">Lookup</a>
+  <a href="#decomp">Decomposition</a>
+  <a href="#abel">Abel Transform</a>
   <a href="#unit-table">Unit Table</a>
   <a href="#patterns">Common Patterns</a>
 </nav>
@@ -1466,14 +1471,48 @@ sol = solvers.solve_ode(free_fall, y0=[<span class="nu">1000</span>, <span class
                           t_span=(<span class="nu">0</span>, <span class="nu">14</span>), t_eval=np.linspace(<span class="nu">0</span>, <span class="nu">14</span>, <span class="nu">100</span>))
 <span class="cm"># sol.y[0]: height history   sol.y[1]: velocity history</span>
 
-<span class="cm"># ODE stiff solver (BDF/Radau)</span>
+<span class="cm"># ODE stiff solver (BDF/Radau) — for stiff chemistry, fast decay terms</span>
 sol = solvers.solve_ode_stiff(stiff_fn, y0=[...], t_span=(...))
 
-<span class="cm"># Global optimization</span>
+<span class="cm"># Boundary value problem — specify conditions at both ends</span>
+<span class="kw">def</span> <span class="fn">bvp_fun</span>(x, y):          <span class="cm"># y = [u, u']</span>
+    <span class="kw">return</span> [y[<span class="nu">1</span>], -y[<span class="nu">0</span>]]    <span class="cm"># u'' = -u  (simple harmonic oscillator)</span>
+
+<span class="kw">def</span> <span class="fn">bc</span>(ya, yb):              <span class="cm"># ya: left BCs, yb: right BCs</span>
+    <span class="kw">return</span> [ya[<span class="nu">0</span>], yb[<span class="nu">0</span>] - <span class="nu">1</span>] <span class="cm"># u(0)=0, u(L)=1</span>
+
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+sol = solvers.solve_bvp(bvp_fun, bc, x=np.linspace(<span class="nu">0</span>, np.pi/<span class="nu">2</span>, <span class="nu">20</span>),
+                          y_init=np.zeros((<span class="nu">2</span>, <span class="nu">20</span>)))
+<span class="cm"># sol.x: grid   sol.y[0]: u   sol.y[1]: u'</span>
+
+<span class="cm"># 1D PDE — heat equation ∂T/∂t = α·∂²T/∂x²</span>
+sol = solvers.solve_pde_heat_1d(
+    alpha=<span class="nu">1e-5</span>,            <span class="cm"># thermal diffusivity [m²/s]</span>
+    L=<span class="nu">1.0</span>,                 <span class="cm"># domain length [m]</span>
+    T_init=<span class="kw">lambda</span> x: np.sin(np.pi * x),   <span class="cm"># initial condition</span>
+    T_left=<span class="nu">0.0</span>, T_right=<span class="nu">0.0</span>,             <span class="cm"># Dirichlet BCs</span>
+    t_end=<span class="nu">10.0</span>, nx=<span class="nu">50</span>, nt=<span class="nu">500</span>,
+)
+<span class="cm"># sol["T"]: (nt, nx) array   sol["x"]: positions   sol["t"]: times</span>
+
+<span class="cm"># Global optimization (multi-start, avoids local minima)</span>
 sol = solvers.minimize_global(<span class="kw">lambda</span> x: (x[<span class="nu">0</span>]-<span class="nu">2</span>)**<span class="nu">2</span> + (x[<span class="nu">1</span>]-<span class="nu">3</span>)**<span class="nu">2</span>,
                                 bounds=[(-<span class="nu">5</span>,<span class="nu">5</span>),(-<span class="nu">5</span>,<span class="nu">5</span>)],
                                 method=<span class="st">"differential_evolution"</span>, seed=<span class="nu">0</span>)
 <span class="lang-label">python</span></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Solver</th><th>Use case</th><th>Backend</th></tr>
+<tr><td><code>find_root</code></td><td>Single equation f(x)=0</td><td>scipy brentq / newton</td></tr>
+<tr><td><code>solve_nonlinear</code></td><td>System of nonlinear equations</td><td>scipy fsolve</td></tr>
+<tr><td><code>solve_ode</code></td><td>IVP — smooth, non-stiff</td><td>scipy RK45</td></tr>
+<tr><td><code>solve_ode_stiff</code></td><td>IVP — stiff (chemistry, fast decay)</td><td>scipy Radau/BDF</td></tr>
+<tr><td><code>solve_bvp</code></td><td>Boundary value problem</td><td>scipy solve_bvp</td></tr>
+<tr><td><code>solve_pde_heat_1d</code></td><td>1D heat equation (parabolic PDE)</td><td>Crank-Nicolson FDM</td></tr>
+<tr><td><code>minimize</code></td><td>Local optimization</td><td>scipy minimize</td></tr>
+<tr><td><code>minimize_global</code></td><td>Global optimization (avoids local minima)</td><td>scipy DE/DA/SHGO/BH</td></tr>
+</table></div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -1516,6 +1555,237 @@ sigma_sb = anvil.QDB.sigma_sb <span class="cm"># Q(5.67e-8, "W/m^2/K^4")</span>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     VISUALIZATION
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="viz">
+<h2>Visualization</h2>
+<p>All plots live in <code>anvil.viz</code>. Requires <code>matplotlib</code> (<code>pip install anvil[viz]</code>). Import is deferred — Anvil loads without matplotlib; only <code>viz.*</code> calls trigger the import. Every function returns its Axes or Figure object for further customization.</p>
+
+<h3>Convergence &amp; Variable Trace</h3>
+<pre><span class="kw">from</span> anvil <span class="kw">import</span> viz
+
+<span class="cm"># Solve with monitoring enabled</span>
+result = sys.solve(method=<span class="st">"gauss_seidel"</span>, monitor=<span class="op">True</span>)
+
+<span class="cm"># Residual vs iteration (semi-log)</span>
+viz.convergence(sys)
+
+<span class="cm"># Per-variable convergence — useful for debugging oscillation</span>
+viz.variable_trace(sys, [<span class="st">"T_hot_out"</span>, <span class="st">"T_cold_out"</span>])
+<span class="lang-label">python</span></pre>
+<div class="what-changes"><strong>What changes this:</strong> <code>monitor=True</code> records residuals and variable histories during Gauss-Seidel iteration. Without it, <code>viz.convergence</code> prints "No monitoring data." Use it to detect: oscillation (residual bounces), slow convergence (try lower <code>relaxation</code>), or divergence (increase <code>maxiter</code>).</div>
+
+<h3>Sweep Plot</h3>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+sweep = sys.sweep(<span class="st">"P0"</span>, np.linspace(<span class="nu">5e6</span>, <span class="nu">30e6</span>, <span class="nu">50</span>))
+
+<span class="cm"># Auto-layout: 1 output → 1 axis, 2 → 1×2, 3-4 → 2×2, N → ceil(N/2)×2</span>
+viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>, <span class="st">"mdot"</span>])
+
+<span class="cm"># Save without displaying</span>
+fig = viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>], show=<span class="op">False</span>)
+fig.savefig(<span class="st">"sweep_study.png"</span>, dpi=<span class="nu">150</span>, bbox_inches=<span class="st">"tight"</span>)
+<span class="lang-label">python</span></pre>
+
+<h3>Dependency Graph</h3>
+<pre><span class="cm"># Render the system's DAG: inputs → relations → outputs</span>
+viz.dependency_graph(sys)
+viz.dependency_graph(sys, show=<span class="op">False</span>, save=<span class="st">"system_graph.png"</span>)
+<span class="lang-label">python</span></pre>
+<div class="what-changes"><strong>Layout:</strong> green = inputs, orange = relations, blue = outputs, grey arrows = data flow. Auto-validates the system first. For systems with more than ~20 relations, increase figure size after the call via <code>fig = viz.dependency_graph(sys, show=False); fig.set_size_inches(20, 12)</code>.</div>
+
+<h3>POD Energy &amp; DMD Spectrum</h3>
+<pre><span class="kw">from</span> anvil <span class="kw">import</span> viz, decomp
+
+<span class="cm"># POD energy: singular value spectrum + cumulative energy</span>
+pod = decomp.pod(X, r=<span class="nu">20</span>)
+viz.pod_energy(pod)                      <span class="cm"># marks 99% threshold by default</span>
+viz.pod_energy(pod, threshold=<span class="nu">0.999</span>)   <span class="cm"># mark 99.9% instead</span>
+
+<span class="cm"># DMD eigenvalue spectrum in the complex plane</span>
+dmd_r = decomp.dmd(X, dt=<span class="nu">0.005</span>, r=<span class="nu">12</span>)
+viz.dmd_spectrum(dmd_r)   <span class="cm"># eigenvalues inside unit circle = stable modes</span>
+<span class="lang-label">python</span></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Function</th><th>Input</th><th>Plot type</th></tr>
+<tr><td><code>viz.convergence(sys)</code></td><td>System with <code>monitor=True</code> solve history</td><td>Semi-log residual vs iteration</td></tr>
+<tr><td><code>viz.variable_trace(sys, vars)</code></td><td>System + list of variable names</td><td>Variable value vs iteration</td></tr>
+<tr><td><code>viz.sweep_plot(sweep, y=[...])</code></td><td>SweepResult</td><td>Multi-panel line plots</td></tr>
+<tr><td><code>viz.dependency_graph(sys)</code></td><td>System</td><td>DAG: inputs → relations → outputs</td></tr>
+<tr><td><code>viz.pod_energy(pod)</code></td><td>POD result dict</td><td>Singular value bar + cumulative energy</td></tr>
+<tr><td><code>viz.dmd_spectrum(dmd_r)</code></td><td>DMD result dict</td><td>Eigenvalue scatter in complex plane</td></tr>
+</table></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MONITORING
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="monitoring">
+<h2>Monitoring &amp; Watchdog</h2>
+
+<h3>Live Convergence Monitoring</h3>
+<p>Pass <code>monitor=True</code> to any iterative solver. Anvil prints a residual table to stdout and stores history on the System for post-solve inspection and plotting.</p>
+
+<pre><span class="cm"># Iterative solve with live residual output</span>
+result = sys.solve(method=<span class="st">"gauss_seidel"</span>, monitor=<span class="op">True</span>, maxiter=<span class="nu">200</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — live to stdout during solve</div>
+<div class="out-block">  iter    0  |  residual = 6.3299e-01  |  t = 0.000s
+  iter    1  |  residual = 1.7423e-01  |  t = 0.001s
+  iter    2  |  residual = 4.2787e-02  |  t = 0.001s
+  ...
+  iter   33  |  residual = 6.9341e-11  |  t = 0.018s
+  converged in 34 iterations</div>
+</div>
+
+<pre><span class="cm"># Inspect history after solve</span>
+history = sys.history()          <span class="cm"># list of (iteration, residual, variable_snapshot)</span>
+<span class="kw">print</span>(history[-<span class="nu">1</span>][<span class="st">"residual"</span>])  <span class="cm"># final residual</span>
+
+<span class="cm"># Plot it</span>
+viz.convergence(sys)
+viz.variable_trace(sys, [<span class="st">"T_hot_out"</span>])
+<span class="lang-label">python</span></pre>
+
+<h3>Watchdog — Custom Convergence Checker</h3>
+<p><code>Watchdog</code> is the convergence utility used internally by all iterative solvers. Use it directly when building custom iterative algorithms outside of a System.</p>
+
+<pre><span class="kw">from</span> anvil.watchdog <span class="kw">import</span> Watchdog
+
+wd = Watchdog(rtol=<span class="nu">1e-6</span>, max_iter=<span class="nu">500</span>)
+
+current = initial_guess.copy()
+<span class="kw">for</span> i <span class="kw">in</span> range(wd.max_iter):
+    prev = current.copy()
+    current = update_step(current)          <span class="cm"># your iteration logic</span>
+    converged, residual = wd.check(prev, current)
+    <span class="kw">if</span> converged:
+        <span class="kw">print</span>(<span class="mg">f</span><span class="st">"Converged in {i+1} iterations. Residual: {residual:.3e}"</span>)
+        <span class="kw">break</span>
+<span class="lang-label">python</span></pre>
+<div class="what-changes"><strong>What <code>wd.check(prev, current)</code> computes:</strong> max relative change across all values: <code>max(|curr - prev| / max(|prev|, ε))</code>. Returns <code>(True, residual)</code> when below <code>rtol</code>. Use directly in custom fixed-point loops, custom Newton-Raphson variants, or any iterative scheme where you need consistent convergence criteria.</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     LOOKUP
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="lookup">
+<h2>Lookup &amp; In-REPL Help</h2>
+<p><code>anvil.lookup()</code> is a convenience search for interactive use — searches the registry, physical constants, fluid database, and material database in one call.</p>
+
+<pre><span class="cm"># Search everything from a single call</span>
+anvil.lookup(<span class="st">"pressure"</span>)
+<span class="cm"># → matching RSQs (isentropic_ratios, normal_shock, ...)</span>
+<span class="cm"># → constants (atm_pressure: Q(101325, "Pa"))</span>
+<span class="cm"># → fluid properties (air["P_atm"], ...)</span>
+
+anvil.lookup(<span class="st">"aluminum"</span>)     <span class="cm"># → material entries</span>
+anvil.lookup(<span class="st">"hohmann"</span>)       <span class="cm"># → hohmann_transfer RSQ with signature</span>
+anvil.lookup(<span class="st">"drag"</span>)          <span class="cm"># → all RSQs with "drag" in name/description/tags</span>
+
+<span class="cm"># More targeted: registry only</span>
+anvil.search(<span class="st">"compressible"</span>)  <span class="cm"># RSQs matching keyword</span>
+anvil.list(domain=<span class="st">"aero"</span>)     <span class="cm"># all RSQs in domain</span>
+<span class="lang-label">python</span></pre>
+<div class="tip"><strong>REPL workflow:</strong> <code>anvil.lookup()</code> is designed for interactive sessions — type a keyword, see what's available across the entire Anvil knowledge base without leaving Python. <code>anvil.search()</code> is more precise (registry only). Both print to stdout and return <code>None</code>.</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     DECOMPOSITION
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="decomp">
+<h2>Decomposition — POD &amp; DMD</h2>
+<p><code>anvil.decomp</code> provides reduced-order analysis for time-series and snapshot data. Both methods take a data matrix where columns are snapshots (time steps or parameter points) and rows are spatial points or variables.</p>
+
+<pre><span class="kw">from</span> anvil <span class="kw">import</span> decomp
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># X: (n_vars × n_snapshots) data matrix from a simulation or experiment</span>
+
+<span class="cm"># ── POD — Proper Orthogonal Decomposition ─────────────────────────────────</span>
+pod = decomp.pod(X, r=<span class="nu">10</span>)      <span class="cm"># truncate at r modes (None = full)</span>
+<span class="cm"># pod["modes"]     (n, r)  — spatial POD modes (left singular vectors)</span>
+<span class="cm"># pod["energy"]    (r,)    — singular values (energy per mode)</span>
+<span class="cm"># pod["energy_frac"] (r,)  — fraction of total energy in each mode</span>
+
+<span class="cm"># Reconstruct with k modes (k &lt; r)</span>
+X_recon = decomp.pod_reconstruct(pod, X, k=<span class="nu">5</span>)
+
+<span class="cm"># Optimal rank for 99% energy retention</span>
+r_opt = decomp.pod_rank(pod, threshold=<span class="nu">0.99</span>)
+<span class="kw">print</span>(<span class="mg">f</span><span class="st">"{r_opt} modes capture 99% of total energy"</span>)
+
+<span class="cm"># ── DMD — Dynamic Mode Decomposition ──────────────────────────────────────</span>
+dmd_r = decomp.dmd(X, dt=<span class="nu">0.005</span>, r=<span class="nu">12</span>)
+<span class="cm"># dmd_r["eigenvalues"]   (r,)     — complex eigenvalues λ</span>
+<span class="cm"># dmd_r["modes"]         (n, r)   — DMD spatial modes</span>
+<span class="cm"># dmd_r["frequencies"]   (r,)     — oscillation frequency [Hz] per mode</span>
+<span class="cm"># dmd_r["growth_rates"]  (r,)     — growth (positive) or decay (negative)</span>
+
+<span class="cm"># Reconstruct at arbitrary times</span>
+X_dmd = decomp.dmd_reconstruct(dmd_r, X[:, <span class="nu">0</span>], t=np.linspace(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">200</span>))
+
+<span class="cm"># ── Hankel embedding (for scalar time series) ──────────────────────────────</span>
+signal = X[<span class="nu">0</span>, :]               <span class="cm"># 1D time series</span>
+H = decomp.hankel(signal, lag=<span class="nu">20</span>)  <span class="cm"># lift to Hankel matrix for POD/DMD</span>
+<span class="lang-label">python</span></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Function</th><th>Use case</th></tr>
+<tr><td><code>decomp.pod(X, r)</code></td><td>Energy-ranked spatial modes, dimensionality reduction, ROM basis</td></tr>
+<tr><td><code>decomp.pod_reconstruct(pod, X, k)</code></td><td>Reconstruct data from k dominant POD modes</td></tr>
+<tr><td><code>decomp.pod_rank(pod, threshold)</code></td><td>Find minimum modes for given energy fraction</td></tr>
+<tr><td><code>decomp.dmd(X, dt, r)</code></td><td>Spatiotemporal mode decomposition with stability analysis</td></tr>
+<tr><td><code>decomp.dmd_reconstruct(dmd_r, x0, t)</code></td><td>Reconstruct dynamics at arbitrary times</td></tr>
+<tr><td><code>decomp.hankel(signal, lag)</code></td><td>Lift scalar time series to matrix for POD/DMD</td></tr>
+</table></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     ABEL TRANSFORM
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="abel">
+<h2>Abel Transform</h2>
+<p>Abel transforms invert axisymmetric projection data — used in emission spectroscopy, plasma diagnostics, combustion imaging, and any experiment where a 2D camera captures line-of-sight integrated emission from a cylindrically symmetric source.</p>
+
+<pre><span class="kw">from</span> anvil <span class="kw">import</span> abel
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># 1D forward transform: f(r) → F(y) (projection)</span>
+r = np.linspace(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">100</span>)
+f = np.exp(-r**<span class="nu">2</span>)              <span class="cm"># radial profile (Gaussian)</span>
+F = abel.abel_forward(f, r)     <span class="cm"># projected profile</span>
+
+<span class="cm"># 1D inverse: three-point method (fast, for smooth profiles)</span>
+f_inv = abel.abel_three_point(F, r)
+
+<span class="cm"># 1D inverse: onion-peeling (layer-by-layer, good for sharp gradients)</span>
+f_inv2 = abel.abel_onion(F, r)
+
+<span class="cm"># 2D image inversion (line-of-sight integrated flame / plasma image)</span>
+image = np.load(<span class="st">"flame_emission.npy"</span>)  <span class="cm"># shape: (rows, cols)</span>
+
+<span class="cm"># Find centerline first (or supply manually)</span>
+cx = abel.abel_center(image)     <span class="cm"># detected center column index</span>
+
+<span class="cm"># Invert full image → radial emission profile at each row</span>
+radial = abel.abel_image(image, center=cx, method=<span class="st">"three_point"</span>)
+<span class="lang-label">python</span></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Function</th><th>Direction</th><th>Use case</th></tr>
+<tr><td><code>abel_forward(f, r)</code></td><td>radial → projected</td><td>Simulate what a camera sees</td></tr>
+<tr><td><code>abel_three_point(F, r)</code></td><td>projected → radial</td><td>Smooth profiles (fast, low noise)</td></tr>
+<tr><td><code>abel_onion(F, r)</code></td><td>projected → radial</td><td>Sharp features, layer-by-layer</td></tr>
+<tr><td><code>abel_image(img, center, method)</code></td><td>2D image → radial</td><td>Full flame/plasma image inversion</td></tr>
+<tr><td><code>abel_center(img)</code></td><td>—</td><td>Auto-detect centerline of symmetric image</td></tr>
+</table></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      UNIT TABLE
      ══════════════════════════════════════════════════════════════════════════ -->
 <section id="unit-table">
@@ -1525,7 +1795,7 @@ sigma_sb = anvil.QDB.sigma_sb <span class="cm"># Q(5.67e-8, "W/m^2/K^4")</span>
 <tr><td>Length</td><td>m</td><td><code>m, km, cm, mm, um, in, ft, mi, nmi</code></td></tr>
 <tr><td>Mass</td><td>kg</td><td><code>kg, g, mg, lb, slug, oz</code></td></tr>
 <tr><td>Time</td><td>s</td><td><code>s, ms, min, hr</code></td></tr>
-<tr><td>Temperature</td><td>K</td><td><code>K, R</code> &nbsp; (°C/°F: convert manually)</td></tr>
+<tr><td>Temperature</td><td>K</td><td><code>K, R, degC, °C, degF, °F</code> &nbsp; (°C/°F use offset arithmetic)</td></tr>
 <tr><td>Pressure</td><td>Pa</td><td><code>Pa, kPa, MPa, GPa, bar, psi, atm, torr</code></td></tr>
 <tr><td>Force</td><td>N</td><td><code>N, kN, lbf</code></td></tr>
 <tr><td>Energy</td><td>J</td><td><code>J, kJ, MJ, Wh, kWh, cal, kcal, BTU</code></td></tr>

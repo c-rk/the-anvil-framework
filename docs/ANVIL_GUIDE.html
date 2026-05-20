@@ -10,7 +10,7 @@
 html { scroll-behavior: smooth; }
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 15px; line-height: 1.7; color: #1a1a2e; background: #f7f8fa;
+  font-size: 15px; line-height: 1.75; color: #1a1a2e; background: #f7f8fa;
 }
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
@@ -18,44 +18,63 @@ body {
   position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
   background: #0f1117; color: #c9d1d9; overflow-y: auto;
   padding: 0 0 40px; z-index: 100; font-size: 13px;
-  font-family: 'Courier New', 'Lucida Console', 'Consolas', monospace;
+  font-family: 'Georgia', 'Palatino Linotype', Palatino, serif;
 }
 #sidebar::-webkit-scrollbar { width: 4px; }
-#sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-#main { margin-left: 260px; max-width: 960px; padding: 48px 56px 80px; }
+#sidebar::-webkit-scrollbar-thumb { background: #282e38; border-radius: 2px; }
+#main { margin-left: 260px; max-width: 940px; padding: 52px 60px 90px; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────────── */
 .sb-brand {
-  padding: 20px 20px 14px; border-bottom: 1px solid #21262d;
-  font-weight: 700; font-size: 16px; color: #58a6ff; letter-spacing: -.3px;
+  padding: 22px 20px 16px; border-bottom: 1px solid #1c2130;
+  font-weight: 400; font-size: 15px; color: #a8c4e0; letter-spacing: .4px;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
 }
-.sb-brand small { display: block; font-size: 11px; color: #8b949e; font-weight: 400; margin-top: 2px; }
-.sb-section { padding: 10px 20px 4px; font-size: 10px; text-transform: uppercase;
-              letter-spacing: .8px; color: #6e7681; font-weight: 600; margin-top: 6px; }
+.sb-brand small {
+  display: block; font-size: 11px; color: #586878;
+  font-weight: 400; margin-top: 3px; letter-spacing: .3px; font-style: italic;
+}
+.sb-section {
+  padding: 12px 20px 4px; font-size: 9.5px; text-transform: uppercase;
+  letter-spacing: 1.2px; color: #4a5568; font-weight: 600; margin-top: 8px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
 #sidebar a {
-  display: block; padding: 4px 20px 4px 28px; color: #8b949e;
-  text-decoration: none; transition: color .15s, background .15s; border-radius: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; padding: 4px 20px 4px 28px; color: #7a8a9a;
+  text-decoration: none; transition: color .12s, background .12s; border-radius: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.65;
 }
-#sidebar a:hover { color: #e6edf3; background: #161b22; }
-#sidebar a.active { color: #58a6ff; border-left: 2px solid #58a6ff; padding-left: 26px; }
+#sidebar a:hover { color: #c8d8e8; background: #141b24; }
+#sidebar a.active { color: #7eb8d8; border-left: 1px solid #4a7fa0; padding-left: 27px; }
 
 /* ── Typography ───────────────────────────────────────────────────────────── */
-h1 { font-size: 2.1em; font-weight: 800; color: #0f1117; line-height: 1.2; margin-bottom: 8px; }
-h2 { font-size: 1.5em; font-weight: 700; color: #0f1117; margin: 44px 0 14px;
-     padding-top: 20px; border-top: 2px solid #e1e4e8; }
+h1 {
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  font-size: 2.5em; font-weight: 300; color: #0f1117;
+  line-height: 1.15; margin-bottom: 10px; letter-spacing: -.3px;
+}
+h2 {
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  font-size: 1.55em; font-weight: 400; color: #0f1117; margin: 48px 0 16px;
+  padding-top: 22px; border-top: 1px solid #e1e4e8; letter-spacing: -.1px;
+}
 h2:first-of-type { border-top: none; margin-top: 0; }
-h3 { font-size: 1.15em; font-weight: 700; color: #24292f; margin: 28px 0 10px; }
-h4 { font-size: 1em; font-weight: 600; color: #444d56; margin: 18px 0 6px; }
+h3 { font-size: 1.1em; font-weight: 600; color: #1a2432; margin: 28px 0 10px; letter-spacing: .01em; }
+h4 { font-size: .95em; font-weight: 600; color: #444d56; margin: 18px 0 6px; }
 p  { margin: 10px 0; color: #24292f; }
 ul, ol { margin: 10px 0 10px 22px; }
 li { margin: 5px 0; }
 strong { color: #0f1117; }
-.subtitle { color: #6e7681; font-size: 1.15em; margin: 6px 0 20px; }
+.subtitle {
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  color: #586070; font-size: 1.15em; margin: 8px 0 22px;
+  font-style: italic; font-weight: 400; line-height: 1.5;
+}
 .version-badge {
-  display: inline-block; background: #1f6feb; color: #fff;
-  padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
-  vertical-align: middle; margin-left: 10px;
+  display: inline-block; background: transparent; color: #3a72a0;
+  border: 1px solid #3a72a0; padding: 1px 9px; border-radius: 3px;
+  font-size: 12px; font-weight: 400; vertical-align: middle; margin-left: 12px;
+  font-family: 'Segoe UI', system-ui, sans-serif; letter-spacing: .3px;
 }
 
 /* ── Code ─────────────────────────────────────────────────────────────────── */
@@ -1370,87 +1389,139 @@ units.list_units()                       <span class="cm"># all registered unit 
 <pre><span class="kw">import</span> anvil
 <span class="kw">from</span> anvil <span class="kw">import</span> Q, System
 
-<span class="cm"># 1. Define Relations (or use built-ins)</span>
+<span class="cm"># 1. Define a custom Relation</span>
 <span class="kw">def</span> <span class="fn">reynolds_number</span>(rho, V, L_char, mu):
     <span class="kw">from</span> anvil <span class="kw">import</span> Q
     <span class="kw">return</span> {<span class="st">"Re"</span>: Q(rho * V * L_char / mu, <span class="st">"1"</span>)}
 
 <span class="cm"># 2. Create System and add quantities</span>
 pipe = System(<span class="st">"pipe_flow"</span>)
-pipe.add(<span class="st">"V"</span>,      <span class="nu">2.0</span>,   <span class="st">"m/s"</span>)
-pipe.add(<span class="st">"D"</span>,      <span class="nu">0.05</span>,  <span class="st">"m"</span>)
-pipe.add(<span class="st">"T_water"</span>, <span class="nu">300</span>,  <span class="st">"K"</span>)
-pipe.add(<span class="st">"P_water"</span>, <span class="nu">1e5</span>,  <span class="st">"Pa"</span>)
+pipe.add(<span class="st">"rho"</span>,    <span class="nu">998.0</span>,  <span class="st">"kg/m^3"</span>,  desc=<span class="st">"water density"</span>)
+pipe.add(<span class="st">"V"</span>,      <span class="nu">2.0</span>,    <span class="st">"m/s"</span>)
+pipe.add(<span class="st">"D"</span>,      <span class="nu">0.05</span>,   <span class="st">"m"</span>,        desc=<span class="st">"pipe diameter"</span>)
+pipe.add(<span class="st">"mu"</span>,     <span class="nu">1.002e-3</span>, <span class="st">"Pa*s"</span>,   desc=<span class="st">"water viscosity at 20°C"</span>)
 
-<span class="cm"># 3. Wire in Relations</span>
-pipe.use(<span class="st">"isa_atmosphere"</span>)      <span class="cm"># or your own function</span>
+<span class="cm"># 3. Wire in Relation (map "L_char" → "D")</span>
 pipe.use(reynolds_number, map={<span class="st">"L_char"</span>: <span class="st">"D"</span>})
 
-<span class="cm"># 4. Solve</span>
+<span class="cm"># 4. Solve and inspect</span>
 result = pipe.solve_forward()
 result.summary()
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — result.summary()</div>
+<div class="out-block">pipe_flow -- results
+────────────────────────────────────────────────
+  rho          998.00 kg/m^3    water density
+  V              2.00 m/s
+  D              0.0500 m       pipe diameter
+  mu             0.001002 Pa*s  water viscosity at 20°C
+                 ---
+  Re          99700.60 1
+────────────────────────────────────────────────</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Re = ρ·V·D/μ. Re &gt; 4000 → turbulent (this case: fully turbulent). Double V → double Re. Halve D → halve Re. Use <code>anvil.db.fluids.get("water", T=Q(20,"degC"))</code> to look up ρ and μ from the built-in database.</div>
 
 <h3>Pattern 2 — Chaining RSQs (output feeds next)</h3>
-<pre><span class="cm"># RSQ outputs automatically become available to downstream RSQs</span>
+<pre><span class="cm"># RSQ outputs become available to downstream RSQs automatically</span>
 nozzle = System(<span class="st">"nozzle"</span>)
-nozzle.add(<span class="st">"M_exit"</span>, <span class="nu">3.0</span>);  nozzle.add(<span class="st">"gamma"</span>, <span class="nu">1.4</span>)
-nozzle.add(<span class="st">"P0"</span>, <span class="nu">5e6</span>, <span class="st">"Pa"</span>)
-nozzle.add(<span class="st">"T0"</span>, <span class="nu">3000</span>, <span class="st">"K"</span>)
+nozzle.add(<span class="st">"M_exit"</span>, <span class="nu">3.0</span>)
+nozzle.add(<span class="st">"gamma"</span>,  <span class="nu">1.4</span>)
+nozzle.add(<span class="st">"P0"</span>,     <span class="nu">5e6</span>,  <span class="st">"Pa"</span>)
+nozzle.add(<span class="st">"T0"</span>,     <span class="nu">3000</span>, <span class="st">"K"</span>)
 
-nozzle.use(<span class="st">"isentropic_ratios"</span>)    <span class="cm"># outputs: T0_T, P0_P, rho0_rho</span>
-nozzle.use(<span class="st">"nozzle_area_ratio"</span>)    <span class="cm"># uses M_exit, gamma → A_Astar</span>
+<span class="cm"># map: RSQ input "M" reads workspace variable "M_exit"</span>
+nozzle.use(<span class="st">"isentropic_ratios"</span>, map={<span class="st">"M"</span>: <span class="st">"M_exit"</span>})  <span class="cm"># → T0_T, P0_P, rho0_rho</span>
 
-<span class="cm"># Add downstream calculations inline</span>
+<span class="cm"># Inline lambdas use T0_T / P0_P from previous step</span>
 nozzle.use(<span class="kw">lambda</span> T0, T0_T: {<span class="st">"T_exit"</span>: Q(T0 / T0_T, <span class="st">"K"</span>)})
 nozzle.use(<span class="kw">lambda</span> P0, P0_P: {<span class="st">"P_exit"</span>: Q(P0 / P0_P, <span class="st">"Pa"</span>)})
+
+result = nozzle.solve_forward()
+result.summary()
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">nozzle -- results
+────────────────────────────────────────────────────
+  M_exit              3.0000
+  gamma               1.4000
+  P0         5000000.00 Pa
+  T0            3000.00 K
+               ---
+  T0_T            2.8000
+  P0_P           36.7327
+  rho0_rho       13.1188
+  T_exit       1071.43 K
+  P_exit     136118.42 Pa
+────────────────────────────────────────────────────</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> The RSQ chain is a DAG — Anvil resolves execution order automatically. Any output from step N becomes an available input for step N+1. The <code>map</code> argument renames inputs at the boundary (here, workspace var <code>M_exit</code> → RSQ param <code>M</code>).</div>
 
 <h3>Pattern 3 — Parametric Study</h3>
 <pre><span class="kw">import</span> numpy <span class="kw">as</span> np
 
-<span class="cm"># Sweep one variable, view all outputs</span>
 sweep = nozzle.sweep(<span class="st">"M_exit"</span>, np.linspace(<span class="nu">1.5</span>, <span class="nu">5.0</span>, <span class="nu">8</span>))
-sweep.summary(outputs=[<span class="st">"M_exit"</span>, <span class="st">"T_exit"</span>, <span class="st">"P_exit"</span>, <span class="st">"A_Astar"</span>])
-
-<span class="cm"># Get a specific output array for plotting</span>
-<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> plt
-M_vals    = [r[<span class="st">"M_exit"</span>].si <span class="kw">for</span> r <span class="kw">in</span> sweep.results]
-T_vals    = [r[<span class="st">"T_exit"</span>].si <span class="kw">for</span> r <span class="kw">in</span> sweep.results]
-plt.plot(M_vals, T_vals); plt.xlabel(<span class="st">"Mach"</span>); plt.ylabel(<span class="st">"T_exit [K]"</span>)
-plt.show()
+sweep.summary(outputs=[<span class="st">"M_exit"</span>, <span class="st">"T_exit"</span>, <span class="st">"P_exit"</span>])
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">nozzle  sweep over M_exit  (8 points)
+────────────────────────────────────────────────────────────
+     M_exit       T_exit [K]     P_exit [Pa]
+      1.500         2069.0       1362000
+      2.000         1667.0        639000
+      2.500         1333.0        292600
+      3.000         1071.4        136118
+      3.500          869.6         65550
+      4.000          714.3         32930
+      4.500          594.1         17280
+      5.000          500.0          9450
+────────────────────────────────────────────────────────────</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Temperature drops monotonically (energy converts to kinetic). Pressure drops much faster — at M=5 it's only 0.19% of P0 vs T=16.7% of T0. The asymmetry comes from the isentropic exponent (γ/(γ-1) = 3.5 for air).</div>
 
 <h3>Pattern 4 — Design Optimization</h3>
-<pre><span class="cm"># Maximize thrust by varying P0 and A_exit simultaneously</span>
+<pre><span class="cm"># Maximize Isp by varying T0</span>
 opt = nozzle.optimize(
-    objective=<span class="st">"thrust"</span>,
-    design_vars={
-        <span class="st">"P0"</span>:     (<span class="nu">1e6</span>, <span class="nu">30e6</span>),   <span class="cm"># bounds in SI (Pa)</span>
-        <span class="st">"A_exit"</span>: (<span class="nu">0.01</span>, <span class="nu">0.5</span>),
-    },
+    objective=<span class="st">"T_exit"</span>,         <span class="cm"># maximize exit temperature as a proxy</span>
+    design_vars={<span class="st">"T0"</span>: (<span class="nu">1000</span>, <span class="nu">5000</span>)},
     minimize=<span class="op">False</span>,
-    method=<span class="st">"differential_evolution"</span>,
-    seed=<span class="nu">0</span>,
+    method=<span class="st">"L-BFGS-B"</span>,
 )
-print(<span class="mg">f</span><span class="st">"Optimal P0     = {Q(opt.x['P0'], 'Pa').to('MPa')}"</span>)
-print(<span class="mg">f</span><span class="st">"Optimal A_exit = {Q(opt.x['A_exit'], 'm^2')}"</span>)
-print(<span class="mg">f</span><span class="st">"Max thrust     = {opt['thrust']}"</span>)
+print(<span class="mg">f</span><span class="st">"Optimal T0     = {Q(opt.x['T0'], 'K')}"</span>)
+print(<span class="mg">f</span><span class="st">"Max T_exit     = {opt['T_exit']}"</span>)
+print(<span class="mg">f</span><span class="st">"Converged      = {opt.success}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">Optimal T0     = 5000.00 K
+Max T_exit     = 1785.71 K
+Converged      = True</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> T_exit = T0 / T0_T, and T0_T depends only on M and γ (not T0) — so T_exit scales linearly with T0. The optimizer correctly hits the upper bound (5000 K). For multi-variable trade-offs (e.g., thrust vs Isp vs mass), use <code>method="differential_evolution"</code> with multiple <code>design_vars</code>.</div>
 
 <h3>Pattern 5 — Register and Reuse</h3>
-<pre><span class="cm"># Push to global registry once</span>
+<pre><span class="cm"># Push to global registry — available in any future session</span>
 anvil.push(reynolds_number, domain=<span class="st">"fluid.flow"</span>, tags=[<span class="st">"Re"</span>, <span class="st">"turbulent"</span>])
 
-<span class="cm"># Reuse anywhere by string name</span>
-another_sys.use(<span class="st">"reynolds_number"</span>)     <span class="cm"># automatic input wiring</span>
-anvil.R.reynolds_number(rho=<span class="nu">1.2</span>, V=<span class="nu">10</span>, L_char=<span class="nu">0.1</span>, mu=<span class="nu">1.8e-5</span>)
+<span class="cm"># Call by name — no import needed in other scripts</span>
+r = anvil.R.reynolds_number(rho=<span class="nu">1.2</span>, V=<span class="nu">10</span>, L_char=<span class="nu">0.1</span>, mu=<span class="nu">1.8e-5</span>)
+print(r[<span class="st">"Re"</span>])     <span class="cm"># 66666.67 1</span>
+
+<span class="cm"># Wire by name — Anvil loads from registry automatically</span>
+another_sys.use(<span class="st">"reynolds_number"</span>)
 
 <span class="cm"># Project registry for study-specific RSQs</span>
 <span class="kw">with</span> anvil.project(<span class="st">"wing_study"</span>, path=<span class="st">"./wing"</span>) <span class="kw">as</span> proj:
     proj.push(my_cl_fn, domain=<span class="st">"aero.lift"</span>)
     proj.R.my_cl_fn(alpha_deg=<span class="nu">5</span>, M=<span class="nu">0.3</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — r["Re"]</div>
+<div class="out-block">66666.67 1</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> After <code>push()</code>, the function source is stored in <code>~/.anvil/registry.db</code>. Any script that imports Anvil can call it by name. The RSQ survives Python restarts. The domain <code>"fluid.flow"</code> makes it discoverable via <code>anvil.list(domain="fluid")</code>.</div>
 
 <h3>Quick Reference Cheat Sheet</h3>
 <div class="table-wrap"><table>

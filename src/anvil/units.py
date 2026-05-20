@@ -213,16 +213,23 @@ class UnitDB:
         self._si_pref = {}     # Dim.to_key() → preferred SI unit name
         self._imp_pref = {}    # Dim.to_key() → preferred Imperial unit name
         self._custom_dims = set()  # custom dimension symbols we've created
+        self._offsets = {}     # unit_str → additive SI offset (SI = value*scale + offset)
 
-    def register(self, name, scale, dim):
-        """Register a unit."""
+    def register(self, name, scale, dim, offset=0.0):
+        """Register a unit. offset: additive SI offset (SI = value*scale + offset)."""
         if isinstance(dim, dict):
             dim = Dim(dim)
         self._forward[name] = (scale, dim)
+        if offset:
+            self._offsets[name] = offset
         key = dim.to_key()
         if key not in self._reverse:
             self._reverse[key] = []
         self._reverse[key].append((name, scale))
+
+    def get_offset(self, unit_str):
+        """Return the additive SI offset for a unit (0.0 for most units)."""
+        return self._offsets.get(unit_str.strip(), 0.0)
 
     def set_preferred(self, dim, si_name, imperial_name=None):
         """Set the preferred display unit for a dimension in each system."""
@@ -455,6 +462,11 @@ def _r(name, scale, dim_kw, si=False, imp_name=None):
     if si:
         db.set_preferred(d, name, imp_name)
 
+def _ro(name, scale, dim_kw, offset):
+    """Helper to register an offset unit (SI = value*scale + offset)."""
+    d = Dim(**dim_kw)
+    db.register(name, scale, d, offset=offset)
+
 # --- Dimensionless ---
 _r("", 1.0, {})
 _r("rad", 1.0, {})
@@ -489,8 +501,13 @@ _r("min", 60.0, dict(T=1))
 _r("hr",  3600.0, dict(T=1))
 
 # --- Temperature ---
-_r("K", 1.0,       dict(TH=1), si=True, imp_name="R")
-_r("R", 5.0/9.0,   dict(TH=1))
+_r("K",     1.0,     dict(TH=1), si=True, imp_name="R")
+_r("R",     5.0/9.0, dict(TH=1))
+# Offset units: SI = value*scale + offset
+_ro("degC", 1.0,     dict(TH=1), offset=273.15)
+_ro("°C",   1.0,     dict(TH=1), offset=273.15)
+_ro("degF", 5.0/9.0, dict(TH=1), offset=459.67 * 5.0/9.0)
+_ro("°F",   5.0/9.0, dict(TH=1), offset=459.67 * 5.0/9.0)
 
 # --- Amount ---
 _r("mol",  1.0, dict(N=1), si=True)

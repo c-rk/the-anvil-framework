@@ -48,13 +48,14 @@ class Quantity:
         desc: str = "",
     ):
         scale, dim = _db.lookup(unit)
+        offset = _db.get_offset(unit)
 
         if value is None:
             self._si_value = None
         elif isinstance(value, np.ndarray):
-            self._si_value = value.astype(np.float64) * scale
+            self._si_value = value.astype(np.float64) * scale + offset
         else:
-            self._si_value = np.float64(value) * scale
+            self._si_value = np.float64(value) * scale + offset
 
         self._dim = dim
         self._unit_hint = unit if unit in _db._forward else ""
@@ -89,7 +90,8 @@ class Quantity:
         if self._si_value is None:
             return None
         unit_name, scale = self._resolve_display()
-        return self._si_value / scale if scale != 0 else self._si_value
+        offset = _db.get_offset(unit_name)
+        return (self._si_value - offset) / scale if scale != 0 else self._si_value
 
     @property
     def unit(self):

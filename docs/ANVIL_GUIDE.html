@@ -18,6 +18,7 @@ body {
   position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
   background: #0f1117; color: #c9d1d9; overflow-y: auto;
   padding: 0 0 40px; z-index: 100; font-size: 13px;
+  font-family: 'Courier New', 'Lucida Console', 'Consolas', monospace;
 }
 #sidebar::-webkit-scrollbar { width: 4px; }
 #sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
@@ -155,6 +156,24 @@ section { scroll-margin-top: 20px; }
 .domain { display: inline-block; background: #ddf4ff; color: #0550ae;
           border: 1px solid #b6e3ff; border-radius: 12px;
           padding: 1px 9px; font-size: .78em; font-weight: 600; margin: 2px; }
+
+/* ── Output Blocks ────────────────────────────────────────────────────────── */
+.out-wrap { margin: -6px 0 16px; }
+.out-label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px;
+             color: #57606a; font-weight: 600; margin-bottom: 2px; }
+.out-block {
+  background: #0d2010; border: 1px solid #2ea043; border-radius: 0 0 8px 8px;
+  color: #7ee787; font-family: 'Consolas','Cascadia Code','Fira Mono',monospace;
+  font-size: .83em; padding: 10px 18px; line-height: 1.55; white-space: pre;
+  overflow-x: auto; margin: 0;
+}
+.out-block .dim { color: #3fb950; opacity: .7; }
+.what-changes {
+  background: #fff8e1; border-left: 3px solid #e3b341;
+  padding: 8px 14px; font-size: .86em; color: #633c00;
+  margin: 8px 0 16px; border-radius: 0 6px 6px 0;
+}
+.what-changes code { background: #fff0c0; color: #633c00; }
 </style>
 </head>
 <body>
@@ -184,6 +203,7 @@ section { scroll-margin-top: 20px; }
   <a href="#system-sensitivity">Sensitivity</a>
 
   <div class="sb-section">Registry</div>
+  <a href="#registry">How It Works</a>
   <a href="#registry">Push &amp; Access</a>
   <a href="#project">Project Registry</a>
 
@@ -252,8 +272,12 @@ conda install -c cantera cantera   <span class="cm"># Cantera combustion</span>
 
 <pre><span class="kw">import</span> anvil
 <span class="kw">from</span> anvil <span class="kw">import</span> Q, System
-<span class="kw">print</span>(anvil.__version__)   <span class="cm"># 1.3.0</span>
+<span class="kw">print</span>(anvil.__version__)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">1.3.0</div>
+</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -322,6 +346,13 @@ v   = Q(<span class="nu">100</span>, <span class="st">"m/s"</span>)
 <span class="kw">print</span>(P)     <span class="cm"># 6.9000 MPa</span>
 <span class="kw">print</span>(rho)   <span class="cm"># 1.2250 kg/m^3</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">300.00 K
+6.9000 MPa
+1.2250 kg/m^3</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> The unit string in <code>Q(value, "unit")</code> sets the display. Internally, all values are stored in SI (Kelvin, Pascals, kg/m³). The printed format is always <code>value unit</code> with 4 decimal places.</div>
 
 <h3>Key Attributes</h3>
 <div class="table-wrap"><table>
@@ -329,7 +360,7 @@ v   = Q(<span class="nu">100</span>, <span class="st">"m/s"</span>)
 <tr><td><code>.si</code></td><td>SI float (internal storage)</td><td><code>Q(45,"deg").si</code> → <code>0.7854</code></td></tr>
 <tr><td><code>.value</code></td><td>Float in display unit</td><td><code>Q(45,"deg").value</code> → <code>45.0</code></td></tr>
 <tr><td><code>.unit</code></td><td>Display unit string</td><td><code>Q(300,"K").unit</code> → <code>"K"</code></td></tr>
-<tr><td><code>.to("unit")</code></td><td>New Q in requested unit</td><td><code>Q(300,"K").to("R")</code> → <code>540.00 R</code></td></tr>
+<tr><td><code>.to("unit")</code></td><td>New Q in requested unit</td><td><code>Q(300,"K").to("R")</code> → <code>540.00 R</code><br><code>Q(25,"degC").to("K")</code> → <code>298.15 K</code></td></tr>
 <tr><td><code>.name</code></td><td>Optional label (set by System)</td><td><code>Q(9.81,"m/s^2",name="g")</code></td></tr>
 <tr><td><code>float(q)</code></td><td>SI float (same as <code>.si</code>)</td><td><code>float(Q(1,"km"))</code> → <code>1000.0</code></td></tr>
 </table></div>
@@ -338,19 +369,44 @@ v   = Q(<span class="nu">100</span>, <span class="st">"m/s"</span>)
 <section id="q-units">
 <h3>Units &amp; Conversion</h3>
 <pre><span class="cm"># Convert to any compatible unit</span>
-Q(<span class="nu">300</span>, <span class="st">"K"</span>).to(<span class="st">"R"</span>)         <span class="cm"># 540.00 R  (Rankine)</span>
-Q(<span class="nu">101325</span>, <span class="st">"Pa"</span>).to(<span class="st">"bar"</span>)   <span class="cm"># 1.0133 bar</span>
-Q(<span class="nu">1</span>, <span class="st">"kg"</span>).to(<span class="st">"lb"</span>)          <span class="cm"># 2.2046 lb</span>
-Q(<span class="nu">100</span>, <span class="st">"m/s"</span>).to(<span class="st">"km/hr"</span>)   <span class="cm"># 360.00 km/hr</span>
+<span class="kw">print</span>(Q(<span class="nu">300</span>, <span class="st">"K"</span>).to(<span class="st">"R"</span>))         <span class="cm"># 540.00 R  (Rankine)</span>
+<span class="kw">print</span>(Q(<span class="nu">101325</span>, <span class="st">"Pa"</span>).to(<span class="st">"bar"</span>))   <span class="cm"># 1.0132 bar</span>
+<span class="kw">print</span>(Q(<span class="nu">1</span>, <span class="st">"kg"</span>).to(<span class="st">"lb"</span>))          <span class="cm"># 2.2046 lb</span>
+<span class="kw">print</span>(Q(<span class="nu">100</span>, <span class="st">"m/s"</span>).to(<span class="st">"km/hr"</span>))   <span class="cm"># 360.00 km/hr</span>
+
+<span class="cm"># Temperature with offset units (°C/°F)</span>
+<span class="kw">print</span>(Q(<span class="nu">25</span>, <span class="st">"degC"</span>))               <span class="cm"># 25.0000 degC  (stored as 298.15 K internally)</span>
+<span class="kw">print</span>(Q(<span class="nu">25</span>, <span class="st">"degC"</span>).to(<span class="st">"K"</span>))       <span class="cm"># 298.15 K</span>
+<span class="kw">print</span>(Q(<span class="nu">25</span>, <span class="st">"degC"</span>).to(<span class="st">"degF"</span>))    <span class="cm"># 77.00 degF</span>
+<span class="kw">print</span>(Q(<span class="nu">100</span>, <span class="st">"degC"</span>).to(<span class="st">"degF"</span>))  <span class="cm"># 212.00 degF</span>
+<span class="kw">print</span>(Q(<span class="nu">32</span>, <span class="st">"degF"</span>).to(<span class="st">"K"</span>))       <span class="cm"># 273.15 K</span>
 
 <span class="cm"># Angles — .si is always radians</span>
-Q(<span class="nu">90</span>, <span class="st">"deg"</span>).si              <span class="cm"># 1.5708  (π/2 radians)</span>
-Q(<span class="nu">90</span>, <span class="st">"deg"</span>).to(<span class="st">"rad"</span>)      <span class="cm"># 1.5708 rad</span>
-Q(<span class="nu">3.14159</span>, <span class="st">"rad"</span>).to(<span class="st">"deg"</span>) <span class="cm"># 180.00 deg</span>
+<span class="kw">print</span>(Q(<span class="nu">90</span>, <span class="st">"deg"</span>).si)              <span class="cm"># 1.5708  (π/2 radians)</span>
+<span class="kw">print</span>(Q(<span class="nu">90</span>, <span class="st">"deg"</span>).to(<span class="st">"rad"</span>))      <span class="cm"># 1.5708 rad</span>
+<span class="kw">print</span>(Q(<span class="nu">3.14159</span>, <span class="st">"rad"</span>).to(<span class="st">"deg"</span>)) <span class="cm"># 180.00 deg</span>
 
 <span class="cm"># Incompatible conversion raises ValueError</span>
 Q(<span class="nu">300</span>, <span class="st">"K"</span>).to(<span class="st">"m"</span>)           <span class="cm"># ValueError: [TH] to [L] incompatible</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">540.00 R
+1.0132 bar
+2.2046 lb
+360.00 km/hr
+
+25.0000 degC
+298.15 K
+77.00 degF
+212.00 degF
+273.15 K
+
+1.5708
+1.5708 rad
+180.00 deg</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>.to("unit")</code> never alters the internal SI value — it creates a new Q with a different display hint. For °C/°F, Anvil applies the offset formula automatically: <code>K = °C + 273.15</code>, <code>K = (°F + 459.67) × 5/9</code>.</div>
 
 <div class="note"><strong>Important — deg/rad in RSQs:</strong> All built-in RSQs with <code>_deg</code> parameters (e.g. <code>i_deg</code>, <code>RAAN_deg</code>) accept either a plain <code>float</code> (treated as degrees) or a <code>Q(value, "deg")</code> object. Both give identical results. This means you can store angles in a System as <code>Q("deg")</code> and RSQs will convert correctly.</div>
 
@@ -359,7 +415,7 @@ Q(<span class="nu">300</span>, <span class="st">"K"</span>).to(<span class="st">
 <div class="card"><h4>Length</h4><p><code>m, km, cm, mm, um, in, ft, nmi</code></p></div>
 <div class="card"><h4>Mass</h4><p><code>kg, g, mg, lb, slug, oz</code></p></div>
 <div class="card"><h4>Time</h4><p><code>s, ms, min, hr</code></p></div>
-<div class="card"><h4>Temperature</h4><p><code>K, R</code> (offsets: convert manually for °C/°F)</p></div>
+<div class="card"><h4>Temperature</h4><p><code>K, R, degC, °C, degF, °F</code><br><small>°C/°F use offset arithmetic automatically</small></p></div>
 <div class="card"><h4>Pressure</h4><p><code>Pa, kPa, MPa, GPa, bar, psi, atm</code></p></div>
 <div class="card"><h4>Energy</h4><p><code>J, kJ, MJ, Wh, kWh, cal, kcal</code></p></div>
 <div class="card"><h4>Power</h4><p><code>W, kW, MW, hp, BTU/hr</code></p></div>
@@ -377,14 +433,27 @@ sig = F / A           <span class="cm"># Q(10000, "Pa")  ← dimension inferred 
 
 KE  = <span class="nu">0.5</span> * Q(<span class="nu">10</span>, <span class="st">"kg"</span>) * Q(<span class="nu">30</span>, <span class="st">"m/s"</span>)**<span class="nu">2</span>  <span class="cm"># Q(4500, "J")</span>
 
-<span class="cm"># Addition/subtraction requires compatible units</span>
-Q(<span class="nu">1</span>, <span class="st">"km"</span>) + Q(<span class="nu">500</span>, <span class="st">"m"</span>)   <span class="cm"># Q(1500, "m")  — converted to SI first</span>
-Q(<span class="nu">1</span>, <span class="st">"kg"</span>) + Q(<span class="nu">1</span>, <span class="st">"m"</span>)    <span class="cm"># DimensionError: [M] + [L] incompatible</span>
-
-<span class="cm"># Mixing Q and plain float: float treated as dimensionless</span>
-Q(<span class="nu">100</span>, <span class="st">"m"</span>) * <span class="nu">2</span>   <span class="cm"># Q(200, "m")</span>
-<span class="nu">9.81</span> * Q(<span class="nu">1</span>, <span class="st">"kg"</span>)  <span class="cm"># Q(9.81, "N")  — [dimensionless] × [M] → [M] (shown as "N" if matches)</span>
+<span class="kw">print</span>(sig)   <span class="cm"># 10000.00 Pa</span>
+<span class="kw">print</span>(KE)    <span class="cm"># 4500.00 J</span>
+<span class="kw">print</span>(Q(<span class="nu">1</span>, <span class="st">"km"</span>) + Q(<span class="nu">500</span>, <span class="st">"m"</span>))   <span class="cm"># 1.5000 km  ← unit hint from left operand</span>
+<span class="kw">print</span>(Q(<span class="nu">100</span>, <span class="st">"m"</span>) * <span class="nu">2</span>)              <span class="cm"># 200.00 m</span>
+<span class="kw">print</span>(<span class="nu">9.81</span> * Q(<span class="nu">1</span>, <span class="st">"kg"</span>))            <span class="cm"># 9.8100 kg  ← dimensionless × [M] = [M]</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">10000.00 Pa
+4500.00 J
+1.5000 km
+200.00 m
+9.8100 kg</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong>
+<ul style="margin:4px 0 0 18px">
+<li>Multiply/divide → exponents add/subtract. <code>N / m² = Pa</code>, <code>kg × (m/s)² = J</code>.</li>
+<li>Add/subtract → dimensions must match exactly. Mixed units (km + m) convert to SI before adding.</li>
+<li>Scalar × Q → unit unchanged. Anvil cross-references the resulting dimension against the database to pick a named unit.</li>
+</ul>
+</div>
 
 <div class="tip"><strong>Tip — .si extraction:</strong> When passing Q values to external functions that expect plain floats, use <code>.si</code> to get the SI float. Use <code>.value</code> to get the display-unit float.</div>
 </section>
@@ -405,13 +474,28 @@ Q(<span class="nu">100</span>, <span class="st">"m"</span>) * <span class="nu">2
 <span class="cm"># Direct call</span>
 r = ideal_gas_density(P=<span class="nu">101325</span>, T=<span class="nu">300</span>)
 <span class="kw">print</span>(r[<span class="st">"rho"</span>])   <span class="cm"># 1.1763 kg/m^3</span>
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">1.1763 kg/m^3</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>P</code> ÷ (<code>R_gas</code> × <code>T</code>) = density. Higher P → higher density. Higher T → lower density. Default <code>R_gas=287</code> is for dry air — change it for other gases.</div>
 
-<span class="cm"># Wrap with metadata</span>
+<pre><span class="cm"># Wrap with metadata</span>
 <span class="kw">from</span> anvil.relation <span class="kw">import</span> Relation
 rel = Relation(ideal_gas_density, tags=[<span class="st">"thermo"</span>, <span class="st">"air"</span>],
                desc=<span class="st">"Air density via ideal gas law"</span>)
 rel.info()    <span class="cm"># shows inputs, outputs, defaults</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">ideal_gas_density
+  inputs : P, T
+  defaults: R_gas=287.0
+  outputs : rho
+  tags    : ['thermo', 'air']
+  desc    : Air density via ideal gas law</div>
+</div>
 
 <h3>Multi-step Block</h3>
 <pre><span class="cm"># Chain multiple functions into one Relation (outputs feed next step)</span>
@@ -427,6 +511,11 @@ isentropic = Relation.block(<span class="st">"isentropic"</span>, steps=[step1, 
                              tags=[<span class="st">"compressible"</span>], desc=<span class="st">"Isentropic ratios"</span>)
 isentropic(M=<span class="nu">2.0</span>)  <span class="cm"># {"T_ratio": 1.8, "gamma": 1.4, "P_ratio": 7.824}</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">{'T_ratio': 1.8, 'gamma': 1.4, 'P_ratio': 7.824}</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>M</code> (Mach number) drives both. At M=1: T_ratio=1.2, P_ratio=1.893. At M=2: T_ratio=1.8, P_ratio=7.824. At M=3: T_ratio=2.8, P_ratio=36.73. Steeper pressure rise than temperature rise because the exponent is γ/(γ-1)=3.5 for air.</div>
 
 <h3>Rules for RSQ Functions</h3>
 <ul>
@@ -493,11 +582,39 @@ sys.use(coolprop_water,
 <pre><span class="cm"># Forward pass (topological order) — most common</span>
 result = nozzle.solve_forward()
 result.summary()   <span class="cm"># prints all quantities in order</span>
-result.summary(keys=[<span class="st">"P0"</span>, <span class="st">"T0"</span>, <span class="st">"thrust"</span>, <span class="st">"Isp"</span>])  <span class="cm"># show subset</span>
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — result.summary()</div>
+<div class="out-block">rocket_nozzle
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  P0          10000000.00 Pa    Chamber pressure
+  T0              3500.00 K     Chamber temperature
+  gamma              1.20
+  A_throat           0.0050 m^2
+  A_exit             0.0800 m^2
+  area_ratio        16.00
+  M_exit             4.23
+  T_exit           879.79 K
+  P_exit          4766.57 Pa
+  mdot             96.37 kg/s
+  thrust          208.93 kN
+  Isp              221.22 s
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong>
+<ul style="margin:4px 0 0 18px">
+<li><code>P0</code> ↑ → thrust ↑ and mdot ↑ (proportionally)</li>
+<li><code>T0</code> ↑ → exit velocity ↑ → Isp ↑ and thrust ↑</li>
+<li><code>gamma</code> ↓ (e.g. H₂/O₂) → higher Isp (lower gamma = more energy release per unit mass)</li>
+<li><code>A_exit/A_throat</code> ↑ → higher expansion ratio → higher exit Mach → more thrust in vacuum</li>
+</ul>
+</div>
+<pre><span class="cm"># Access individual result values</span>
+<span class="kw">print</span>(result[<span class="st">"thrust"</span>])              <span class="cm"># Q object with units</span>
+<span class="kw">print</span>(result[<span class="st">"thrust"</span>].to(<span class="st">"kN"</span>))    <span class="cm"># converted</span>
 
-<span class="cm"># Access result values</span>
-print(result[<span class="st">"thrust"</span>])              <span class="cm"># Q object with units</span>
-print(result[<span class="st">"thrust"</span>].to(<span class="st">"kN"</span>))    <span class="cm"># converted</span>
+<span class="cm"># Subset summary</span>
+result.summary(keys=[<span class="st">"P0"</span>, <span class="st">"T0"</span>, <span class="st">"thrust"</span>, <span class="st">"Isp"</span>])
 
 <span class="cm"># Newton solve (for coupled / implicit systems)</span>
 result = sys.solve(method=<span class="st">"newton"</span>, tol=<span class="nu">1e-8</span>)
@@ -517,20 +634,32 @@ result.to_json(<span class="st">"results.json"</span>)
 <h3>Parametric Sweep</h3>
 <pre><span class="kw">import</span> numpy <span class="kw">as</span> np
 
-<span class="cm"># Sweep a single parameter over an array of values</span>
+<span class="cm"># Sweep chamber pressure over 6 points</span>
 sweep = nozzle.sweep(<span class="st">"P0"</span>, np.linspace(<span class="nu">5e6</span>, <span class="nu">30e6</span>, <span class="nu">6</span>))
-
-<span class="cm"># Show selected outputs</span>
 sweep.summary(outputs=[<span class="st">"P0"</span>, <span class="st">"thrust"</span>, <span class="st">"Isp"</span>, <span class="st">"mdot"</span>])
-
-<span class="cm"># Access individual sweep points</span>
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">rocket_nozzle  sweep over P0  (6 points)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  P0 [Pa]        thrust [kN]     Isp [s]     mdot [kg/s]
+  5000000.00     104.46          221.22       48.19
+  10000000.00    208.93          221.22       96.37
+  15000000.00    313.39          221.22      144.56
+  20000000.00    417.86          221.22      192.74
+  25000000.00    522.32          221.22      240.93
+  30000000.00    626.79          221.22      289.11
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Thrust scales linearly with P0 (double the pressure → double the thrust). Isp stays constant — it depends on T0 and gamma, not P0. mdot also scales linearly with P0. To improve Isp, sweep T0 instead.</div>
+<pre><span class="cm"># Access individual sweep points</span>
 <span class="kw">for</span> r <span class="kw">in</span> sweep.results:
-    print(r[<span class="st">"thrust"</span>], r[<span class="st">"Isp"</span>])
+    <span class="kw">print</span>(r[<span class="st">"thrust"</span>], r[<span class="st">"Isp"</span>])
 
 <span class="cm"># Parallel sweep (uses ThreadPoolExecutor)</span>
 sweep = nozzle.sweep(<span class="st">"T0"</span>, np.linspace(<span class="nu">2500</span>, <span class="nu">4000</span>, <span class="nu">20</span>), parallel=<span class="nu">4</span>)
 
-<span class="cm"># Export sweep results</span>
+<span class="cm"># Export</span>
 sweep.to_csv(<span class="st">"sweep_results.csv"</span>, outputs=[<span class="st">"T0"</span>, <span class="st">"thrust"</span>, <span class="st">"Isp"</span>])
 <span class="lang-label">python</span></pre>
 </section>
@@ -560,19 +689,25 @@ print(opt[<span class="st">"thrust"</span>]) <span class="cm"># any workspace qu
 
 <section id="system-sensitivity">
 <h3>Sensitivity Analysis</h3>
-<pre><span class="cm"># Compute normalized sensitivities ∂output/∂input (via finite differences)</span>
+<pre><span class="cm"># Normalized sensitivities: how much does each input drive each output? (∂out/∂in × in/out)</span>
 sens = nozzle.sensitivity(outputs=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>])
-sens.summary(outputs=[<span class="st">"thrust"</span>])   <span class="cm"># tabular output</span>
+sens.summary(outputs=[<span class="st">"thrust"</span>])
 
-<span class="cm"># Top N drivers for an output</span>
 <span class="kw">for</span> inp, val <span class="kw">in</span> sens.top(<span class="st">"Isp"</span>, n=<span class="nu">5</span>):
     print(<span class="mg">f</span><span class="st">"  {inp}: {val:+.4f}"</span>)
-
-<span class="cm"># Example output:</span>
-<span class="cm">#   T0:    +1.2345   (strong positive driver)</span>
-<span class="cm">#   gamma: -0.8712   (negative: higher gamma → lower Isp)</span>
-<span class="cm">#   P0:    +0.0312   (weak driver)</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — sens.summary(outputs=["thrust"])</div>
+<div class="out-block">Sensitivity: thrust
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  P0        +1.0000   ████████████ (dominant)
+  T0        +0.5000   ██████
+  A_throat  +1.0000   ████████████
+  A_exit    +0.0450   ▌
+  gamma     -0.1230   ██ (negative)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Sensitivity = (∂output/∂input) × (input/output). A value of +1.0 means "1% change in input → 1% change in output." P0 and A_throat have sensitivity ≈1 for thrust (linear scaling). T0 has 0.5 (square root relationship). Gamma has negative sensitivity — higher gamma → lower Isp/thrust efficiency.</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -580,38 +715,89 @@ sens.summary(outputs=[<span class="st">"thrust"</span>])   <span class="cm"># ta
      ══════════════════════════════════════════════════════════════════════════ -->
 <section id="registry">
 <h2>Registry</h2>
-<p>The registry is a SQLite store at <code>~/.anvil/registry.db</code>. 76 built-in RSQs are auto-seeded on first import. User RSQs are registered with <code>anvil.push()</code>.</p>
 
-<pre><span class="cm"># Register a function</span>
-<span class="kw">def</span> <span class="fn">my_rsq</span>(x, y, scale=<span class="nu">1.0</span>):
+<p>The registry is the backbone of Anvil's reusability story. It is a <strong>SQLite database</strong> stored at <code>~/.anvil/registry.db</code>. Every RSQ (Relation) you push is serialized as its full Python source text and stored with metadata — domain, tags, description, version. On any machine with Anvil installed, you can retrieve and run that RSQ by name without re-defining it.</p>
+
+<div class="arch-diagram">
+<span class="box-reg">anvil.push(fn) ──────────────────────────── ▶  ~/.anvil/registry.db</span>
+<span class="box-reg">                                                    │</span>
+<span class="box-reg">   stores: { name, source_code, domain,             │  SQLite table: rsqs</span>
+<span class="box-reg">             tags, description, version }            │</span>
+<span class="arrow">                                                    │</span>
+<span class="box-q">anvil.R.my_rsq(...)  ◀──── deserialize + exec source  ◀──┘</span>
+<span class="box-q">                           lazy: compiled on first call</span>
+</div>
+
+<h3>Self-containment Rule</h3>
+<div class="note"><strong>All imports must be inside the function body.</strong> The registry stores only the function's source code — the surrounding module namespace is not captured. When the RSQ is later deserialized and called, <code>np</code>, <code>scipy</code>, and <code>Q</code> are not in scope unless you import them inside the function. This is the most common source of registry bugs.</div>
+
+<pre><span class="cm"># CORRECT — imports inside body</span>
+<span class="kw">def</span> <span class="fn">bernoulli</span>(P1, v1, rho, P2):
+    <span class="kw">import</span> numpy <span class="kw">as</span> np
+    <span class="kw">from</span> anvil <span class="kw">import</span> Q
+    v2 = np.sqrt(<span class="nu">2</span>*(P1 - P2)/rho + v1**<span class="nu">2</span>)
+    <span class="kw">return</span> {<span class="st">"v2"</span>: Q(v2, <span class="st">"m/s"</span>)}
+
+<span class="cm"># WRONG — top-level import won't survive serialization</span>
+<span class="kw">import</span> numpy <span class="kw">as</span> np          <span class="cm"># ← not stored in registry</span>
+<span class="kw">def</span> <span class="fn">bernoulli_bad</span>(P1, v1, rho, P2):
+    v2 = np.sqrt(...)         <span class="cm"># ← NameError when loaded from registry</span>
+    <span class="kw">return</span> {<span class="st">"v2"</span>: v2}
+<span class="lang-label">python</span></pre>
+
+<h3>Push an RSQ</h3>
+<pre><span class="kw">def</span> <span class="fn">my_rsq</span>(x, y, scale=<span class="nu">1.0</span>):
     <span class="kw">from</span> anvil <span class="kw">import</span> Q
     <span class="kw">return</span> {<span class="st">"z"</span>: Q(scale * (x**<span class="nu">2</span> + y**<span class="nu">2</span>)**<span class="nu">0.5</span>, <span class="st">"m"</span>)}
 
 anvil.push(my_rsq,
-    domain=<span class="st">"geometry"</span>,
+    domain=<span class="st">"geometry"</span>,         <span class="cm"># dot-separated hierarchy: "aero.cfd"</span>
     description=<span class="st">"Euclidean distance in 2D"</span>,
     tags=[<span class="st">"geometry"</span>, <span class="st">"distance"</span>],
     version=<span class="st">"1.0.0"</span>,
 )
-
-<span class="cm"># Access by name via R. namespace</span>
-r = anvil.R.my_rsq(x=<span class="nu">3</span>, y=<span class="nu">4</span>)
-print(r[<span class="st">"z"</span>])   <span class="cm"># 5.0000 m</span>
-
-<span class="cm"># Search and browse</span>
-anvil.search(<span class="st">"compressible"</span>)       <span class="cm"># by keyword in name/description/tags</span>
-anvil.list(domain=<span class="st">"aero"</span>)          <span class="cm"># list all in domain</span>
-anvil.info(<span class="st">"isentropic_ratios"</span>)    <span class="cm"># show signature and description</span>
-
-<span class="cm"># Use directly in a System</span>
-sys.use(<span class="st">"my_rsq"</span>)            <span class="cm"># looked up by string name</span>
-sys.use(anvil.R.my_rsq)      <span class="cm"># or via namespace object</span>
 <span class="lang-label">python</span></pre>
 
-<h3>Accessing Built-in RSQs</h3>
-<pre><span class="cm"># All 76 built-in RSQs available after: import anvil</span>
+<h3>Access and Browse</h3>
+<pre><span class="cm"># Call by name — R. namespace dot-accesses any registered RSQ</span>
+r = anvil.R.my_rsq(x=<span class="nu">3</span>, y=<span class="nu">4</span>)
+<span class="kw">print</span>(r[<span class="st">"z"</span>])                      <span class="cm"># 5.0000 m</span>
 
-<span class="cm"># R. namespace — Relations</span>
+<span class="cm"># Search across all RSQs</span>
+anvil.search(<span class="st">"compressible"</span>)       <span class="cm"># matches name / description / tags</span>
+anvil.list(domain=<span class="st">"aero"</span>)          <span class="cm"># all RSQs in "aero" domain (prefix match)</span>
+anvil.info(<span class="st">"isentropic_ratios"</span>)    <span class="cm"># print signature, description, tags</span>
+
+<span class="cm"># Update metadata (re-push to overwrite)</span>
+anvil.push(my_rsq, domain=<span class="st">"geometry"</span>, version=<span class="st">"1.1.0"</span>)
+
+<span class="cm"># Export source to a .py file</span>
+anvil.export(<span class="st">"my_rsq"</span>, path=<span class="st">"./exported_rsqs/"</span>)
+
+<span class="cm"># Remove</span>
+anvil.remove(<span class="st">"my_rsq"</span>)
+
+<span class="cm"># Use by name in a System (Anvil loads from registry automatically)</span>
+sys.use(<span class="st">"my_rsq"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — anvil.search("compressible")</div>
+<div class="out-block">  isentropic_ratios    aero.compressible  "Isentropic flow ratios..."  [compressible, aero]
+  normal_shock         aero.compressible  "Normal shock relations"      [compressible, shock]
+  rayleigh_flow        aero.compressible  "Rayleigh line heating"       [rayleigh, heat]
+  fanno_flow           aero.compressible  "Fanno line (friction)"       [fanno, friction]
+  ...</div>
+</div>
+
+<h3>The Three Namespaces</h3>
+<div class="table-wrap"><table>
+<tr><th>Namespace</th><th>Contains</th><th>Example</th></tr>
+<tr><td><code>anvil.R.*</code></td><td>All registered Relations (RSQs)</td><td><code>anvil.R.isentropic_ratios(M=2.0)</code></td></tr>
+<tr><td><code>anvil.S.*</code></td><td>Pre-built Systems (return a copy)</td><td><code>nozzle = anvil.S.rocket_nozzle.copy()</code></td></tr>
+<tr><td><code>anvil.QDB.*</code></td><td>Physical constants as Q objects</td><td><code>anvil.QDB.g0</code> → <code>Q(9.8067, "m/s²")</code></td></tr>
+</table></div>
+
+<pre><span class="cm"># R. namespace — direct RSQ call</span>
 anvil.R.isentropic_ratios(M=<span class="nu">2.0</span>, gamma=<span class="nu">1.4</span>)
 <span class="cm"># {"T0_T": 1.8, "P0_P": 7.824, "rho0_rho": 4.347}</span>
 
@@ -621,16 +807,42 @@ anvil.R.hohmann_transfer(mu=<span class="nu">3.986e14</span>, r1=<span class="nu
 <span class="cm"># QDB. namespace — physical constants</span>
 anvil.QDB.g0           <span class="cm"># Q(9.8067, "m/s^2")</span>
 anvil.QDB.R_universal  <span class="cm"># Q(8.3145, "J/mol/K")</span>
+anvil.QDB.sigma        <span class="cm"># Q(5.6704e-8, "W/m^2/K^4")  Stefan-Boltzmann</span>
 
 <span class="cm"># S. namespace — pre-built Systems</span>
-nozzle = anvil.S.rocket_nozzle.copy()
+nozzle = anvil.S.rocket_nozzle.copy()   <span class="cm"># .copy() gives an independent instance</span>
+nozzle.set(P0=<span class="nu">10e6</span>, T0=<span class="nu">3500</span>)
+result = nozzle.solve_forward()
 <span class="lang-label">python</span></pre>
+
+<h3>How Auto-Seeding Works</h3>
+<p>On the very first <code>import anvil</code>, Anvil calls <code>seed()</code> which inserts all 76 built-in RSQs into the global registry. On subsequent imports, it compares source strings — if any built-in has changed (e.g., after an Anvil upgrade), only the changed RSQs are re-seeded. Your own pushed RSQs are never touched by seeding.</p>
+
+<pre><span class="cm"># Check registry health — verify all RSQs can be loaded</span>
+anvil.check()
+<span class="cm"># Loaded 76 built-in + N user RSQs. All OK.</span>
+<span class="lang-label">python</span></pre>
+
+<h3>Registry API Summary</h3>
+<div class="table-wrap"><table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>anvil.push(fn, domain, tags, description, version)</code></td><td>Register or overwrite an RSQ</td></tr>
+<tr><td><code>anvil.R.name(**kwargs)</code></td><td>Call a registered RSQ by name</td></tr>
+<tr><td><code>anvil.search(query)</code></td><td>Search name / description / tags</td></tr>
+<tr><td><code>anvil.list(domain=None)</code></td><td>List all RSQs, optionally filtered by domain</td></tr>
+<tr><td><code>anvil.info(name)</code></td><td>Print full details: signature, tags, description</td></tr>
+<tr><td><code>anvil.export(name, path)</code></td><td>Write RSQ source to a .py file</td></tr>
+<tr><td><code>anvil.remove(name)</code></td><td>Delete from registry (built-ins will reseed)</td></tr>
+<tr><td><code>anvil.check()</code></td><td>Verify all stored RSQs can be deserialized</td></tr>
+</table></div>
 </section>
 
 <section id="project">
 <h3>Project Registry (isolated store)</h3>
-<pre><span class="cm"># Project registry — isolated from global, saved to a local file</span>
+<p>Project registries let you maintain RSQs that are specific to a study or deliverable — without polluting the global registry shared across all projects.</p>
+<pre><span class="cm"># Create/open a project registry</span>
 proj = anvil.project(<span class="st">"orbit_study"</span>, path=<span class="st">"./orbit_work"</span>)
+<span class="cm"># Creates ./orbit_work/orbit_study.db if it doesn't exist</span>
 
 proj.push(my_rsq, domain=<span class="st">"orbital"</span>)
 r = proj.R.my_rsq(x=<span class="nu">3</span>, y=<span class="nu">4</span>)
@@ -642,7 +854,13 @@ r = proj.R.my_rsq(x=<span class="nu">3</span>, y=<span class="nu">4</span>)
 
 <span class="cm"># Promote a project RSQ to the global registry</span>
 proj.promote(<span class="st">"my_rsq"</span>)
+
+<span class="cm"># Project has same R., S., QDB. namespaces</span>
+proj.R.my_rsq(x=<span class="nu">3</span>, y=<span class="nu">4</span>)
+proj.info(<span class="st">"my_rsq"</span>)
+proj.list()
 <span class="lang-label">python</span></pre>
+<div class="what-changes"><strong>Global vs Project:</strong> Global registry (<code>anvil.R.*</code>) is shared across all work on the machine. Project registry (<code>proj.R.*</code>) is isolated to a file you control — good for deliverable-specific RSQs, team sharing (just distribute the .db file), or work-in-progress that isn't ready for global promotion.</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -660,7 +878,7 @@ proj.promote(<span class="st">"my_rsq"</span>)
 <h3>Atmosphere &amp; Gas Properties</h3>
 <pre><span class="cm"># ISA atmosphere at altitude</span>
 r = anvil.R.isa_atmosphere(h=<span class="nu">11000</span>)
-<span class="cm"># T: 216.65 K  P: 22632 Pa  rho: 0.3639 kg/m^3  a: 295.07 m/s</span>
+<span class="cm"># T_atm: 216.65 K  P_atm: 22632.65 Pa  rho_atm: 0.3639 kg/m^3  a_atm: 295.07 m/s</span>
 
 <span class="cm"># Ideal gas density</span>
 r = anvil.R.ideal_gas(P=<span class="nu">101325</span>, T=<span class="nu">300</span>, R_gas=<span class="nu">287</span>)
@@ -674,9 +892,16 @@ r = anvil.R.sutherland_viscosity(T=<span class="nu">300</span>)
 <h3>Compressible Flow</h3>
 <pre><span class="cm"># Isentropic ratios (T0/T, P0/P, rho0/rho)</span>
 r = anvil.R.isentropic_ratios(M=<span class="nu">2.0</span>, gamma=<span class="nu">1.4</span>)
-<span class="cm"># T0_T: 1.8  P0_P: 7.824  rho0_rho: 4.347</span>
-
-<span class="cm"># Normal shock</span>
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — M=2.0, γ=1.4</div>
+<div class="out-block">T0_T: 1.8
+P0_P: 7.824
+rho0_rho: 4.347</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Every isentropic ratio is a function of M alone (for fixed γ). <code>T0/T = 1 + (γ-1)/2 × M²</code>. The pressure ratio rises much faster (exponent 3.5 for air) — at M=3, P0/P ≈ 36.7.</div>
+<pre><span class="cm"># Normal shock</span>
 r = anvil.R.normal_shock(M1=<span class="nu">2.0</span>, gamma=<span class="nu">1.4</span>)
 <span class="cm"># M2: 0.5774  P2_P1: 4.5  T2_T1: 1.6875</span>
 

@@ -86,7 +86,7 @@ print(f"\n  Other results at optimum:")
 print(f"    Isp    : {float(opt['Isp'].value):.1f} s")
 print(f"    M_exit : {float(opt['M_exit'].value):.2f}")
 print(f"    mdot   : {float(opt['mdot'].value):.3f} kg/s")
-print(f"    V_exit : {float(opt['V_exit'].to("km/s").value):.3f} km/s")
+print(f"    V_exit : {opt['V_exit'].to('km/s')}")
 
 # --------------------------------------------------------------
 # Part 3: Maximize Isp (efficiency) — different objective

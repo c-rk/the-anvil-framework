@@ -1228,7 +1228,7 @@ _SEED_ENTRIES = [
          '    win_str = wins.get(str(window).lower(), "hann")\n'
          '    f, Pxx = welch(x, fs=fs, window=win_str, nperseg=seg,\n'
          '                   noverlap=ovlp, scaling="density")\n'
-         '    total_power = float(np.trapz(Pxx, f))\n'
+         '    total_power = float(np.trapz(Pxx, f) if hasattr(np, "trapz") else np.trapezoid(Pxx, f))\n'
          '    idx_dom = int(np.argmax(Pxx[1:]) + 1)\n'
          '    return {\n'
          '        "freqs":         f,\n'

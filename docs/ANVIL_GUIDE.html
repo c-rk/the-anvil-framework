@@ -175,7 +175,8 @@ section { scroll-margin-top: 20px; }
 .cmp-table td.no   { color: #cf222e; text-align: center; opacity: .6; }
 .cmp-table td.part { color: #d07000; text-align: center; }
 .cmp-table td.hi   { background: #f0f7ff; font-weight: 600; }
-.cmp-table th      { background: #0d1117; }
+.cmp-table th      { background: #0d1117; color: #e6edf3; }
+.cmp-table th strong { color: #79c0ff; }
 .gap-box {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0;
 }
@@ -260,6 +261,7 @@ section { scroll-margin-top: 20px; }
   <a href="#rsq-controls">Controls</a>
   <a href="#rsq-mission">Mission / ADCS</a>
   <a href="#rsq-materials">Materials</a>
+  <a href="#rsq-decomp">Decomp &amp; Abel</a>
 
   <div class="sb-section">Adapters</div>
   <a href="#adapters">Writing Adapters</a>
@@ -273,8 +275,6 @@ section { scroll-margin-top: 20px; }
   <a href="#viz">Visualization</a>
   <a href="#monitoring">Monitoring</a>
   <a href="#lookup">Lookup</a>
-  <a href="#decomp">Decomposition</a>
-  <a href="#abel">Abel Transform</a>
   <a href="#cfd">CFD Solver</a>
   <a href="#unit-table">Unit Table</a>
   <a href="#patterns">Common Patterns</a>
@@ -1311,12 +1311,79 @@ mat = materials.get(<span class="st">"Steel-316L"</span>)
 <span class="lang-label">python</span></pre>
 </section>
 
+<section id="rsq-decomp">
+<h2>Built-in RSQs — Decomposition &amp; Abel</h2>
+
+<div class="cols2">
+  <div><span class="domain">decomp.pod</span> <span class="domain">decomp.dmd</span></div>
+  <div><span class="domain">decomp.abel</span></div>
+</div>
+
+<p>POD, DMD, and Abel transforms are registered as first-class RSQs — searchable, composable with Systems, and sweepable. All four accept plain NumPy arrays; array outputs are stored in the workspace as-is.</p>
+
+<h3>POD &amp; DMD via anvil.R.*</h3>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np
+
+X = snapshot_matrix   <span class="cm"># shape: (n_space, n_time)</span>
+
+<span class="cm"># POD — energy-ranked spatial modes</span>
+r = anvil.R.pod_analysis(X=X, r=<span class="nu">10</span>)
+<span class="cm"># r["modes"]              (n_space, 10)  — spatial modes, ranked by energy</span>
+<span class="cm"># r["singular_values"]    (10,)          — descending</span>
+<span class="cm"># r["energy_fractions"]   (10,)          — fraction of total energy per mode</span>
+<span class="cm"># r["cumulative_energy"]  (10,)          — cumsum; r["cumulative_energy"][-1] = total captured</span>
+<span class="cm"># r["rank_99"]            int            — modes needed for 99% energy</span>
+<span class="cm"># r["rank_999"]           int            — modes needed for 99.9% energy</span>
+
+<span class="cm"># DMD — spatiotemporal modes + stability</span>
+r = anvil.R.dmd_analysis(X=X, dt=<span class="nu">0.005</span>, r=<span class="nu">12</span>)
+<span class="cm"># r["eigenvalues"]   (12,) complex — |λ|>1 growing, |λ|<1 decaying</span>
+<span class="cm"># r["frequencies"]   (12,) float   — Im(ω)/2π  [cycles per time unit]</span>
+<span class="cm"># r["growth_rates"]  (12,) float   — Re(ω); positive=growing, negative=decaying</span>
+<span class="cm"># r["amplitudes"]    (12,) complex — initial amplitude of each mode</span>
+<span class="cm"># r["n_stable"]      int</span>
+<span class="cm"># r["n_unstable"]    int</span>
+<span class="lang-label">python</span></pre>
+
+<h3>Abel Transforms via anvil.R.*</h3>
+<pre><span class="cm"># Inverse Abel — projected profile → radial profile</span>
+<span class="cm"># (emission spectroscopy, flame / plasma imaging)</span>
+F = measured_projection_array   <span class="cm"># 1D array, shape (N,)</span>
+r = anvil.R.abel_inverse(F_projected=F, dr=<span class="nu">0.01</span>, method=<span class="st">"three_point"</span>)
+<span class="cm"># r["f_radial"]  (N,) — recovered radial emission profile</span>
+<span class="cm"># method: "three_point" (smooth) or "onion" (sharp gradients)</span>
+
+<span class="cm"># Forward Abel — radial profile → what a camera sees</span>
+r = anvil.R.abel_forward(f_radial=radial_profile, dr=<span class="nu">0.01</span>)
+<span class="cm"># r["F_projected"]  (N,)</span>
+<span class="lang-label">python</span></pre>
+
+<h3>Using in a System (sweep over truncation rank)</h3>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np, anvil
+<span class="kw">from</span> anvil <span class="kw">import</span> System
+
+sys = System(<span class="st">"pod_study"</span>)
+sys.add(<span class="st">"X"</span>, snapshot_matrix)   <span class="cm"># array valued workspace variable</span>
+sys.add(<span class="st">"r"</span>, <span class="nu">10</span>)
+sys.use(<span class="st">"pod_analysis"</span>)          <span class="cm"># from registry by name</span>
+
+<span class="cm"># Sweep truncation rank — see how energy capture changes</span>
+sweep = sys.sweep(<span class="st">"r"</span>, np.arange(<span class="nu">1</span>, <span class="nu">21</span>))
+<span class="kw">for</span> res <span class="kw">in</span> sweep.results:
+    print(res[<span class="st">"rank"</span>], res[<span class="st">"rank_99"</span>], res[<span class="st">"cumulative_energy"</span>][-<span class="nu">1</span>])
+<span class="lang-label">python</span></pre>
+
+<div class="note"><strong>Low-level module API:</strong> <code>decomp.pod_reconstruct()</code>, <code>decomp.pod_rank()</code>, <code>decomp.dmd_reconstruct()</code>, <code>decomp.hankel()</code>, <code>decomp.abel_image()</code>, <code>decomp.abel_center()</code> are available as direct module calls for operations that don't fit the RSQ pattern (e.g. image inversion, Hankel embedding). See the <a href="https://github.com/c-rk/the-anvil-framework">wiki pages 16 &amp; 17</a> for full details.</div>
+</section>
+
 <!-- ══════════════════════════════════════════════════════════════════════════
      ADAPTERS
      ══════════════════════════════════════════════════════════════════════════ -->
 <section id="adapters">
 <h2>Adapters</h2>
 <p>Adapters wrap external Python libraries or CLI tools as native Anvil Relations. Once wrapped, they plug into Systems, sweeps, and sensitivity analysis identically to plain functions.</p>
+
+<div class="insight"><strong>AI-friendly by design.</strong> The adapter pattern is fully specified in this guide. Any LLM or AI coding agent can write a complete, working adapter for any package given two inputs: (1) this adapter guide section, and (2) the target package's documentation. The pattern is unambiguous — input/output spec, backend type, unit declarations, mock fallback — so the agent has no design decisions to make. Paste this section + the package docs into your agent and ask it to write the adapter.</div>
 
 <pre><span class="kw">from</span> anvil <span class="kw">import</span> Adapter, Q
 
@@ -1698,92 +1765,28 @@ anvil.list(domain=<span class="st">"aero"</span>)     <span class="cm"># all RSQ
      DECOMPOSITION
      ══════════════════════════════════════════════════════════════════════════ -->
 <section id="decomp">
-<h2>Decomposition — POD &amp; DMD</h2>
-<p><code>anvil.decomp</code> provides reduced-order analysis for time-series and snapshot data. Both methods take a data matrix where columns are snapshots (time steps or parameter points) and rows are spatial points or variables.</p>
+<h2>Decomposition — Module API</h2>
+<p>For RSQ usage (<code>anvil.R.pod_analysis</code>, <code>anvil.R.dmd_analysis</code>, <code>anvil.R.abel_inverse</code>, <code>anvil.R.abel_forward</code>) see <a href="#rsq-decomp">Built-in RSQs — Decomp &amp; Abel</a> above. This section covers operations that don't fit the RSQ pattern: reconstruction, Hankel embedding, and 2D image inversion.</p>
 
 <pre><span class="kw">from</span> anvil <span class="kw">import</span> decomp
 <span class="kw">import</span> numpy <span class="kw">as</span> np
 
-<span class="cm"># X: (n_vars × n_snapshots) data matrix from a simulation or experiment</span>
+<span class="cm"># Reconstruct data from k dominant POD modes</span>
+pod = decomp.pod(X, r=<span class="nu">20</span>)
+X_recon = decomp.pod_reconstruct(pod, r=<span class="nu">5</span>)
 
-<span class="cm"># ── POD — Proper Orthogonal Decomposition ─────────────────────────────────</span>
-pod = decomp.pod(X, r=<span class="nu">10</span>)      <span class="cm"># truncate at r modes (None = full)</span>
-<span class="cm"># pod["modes"]     (n, r)  — spatial POD modes (left singular vectors)</span>
-<span class="cm"># pod["energy"]    (r,)    — singular values (energy per mode)</span>
-<span class="cm"># pod["energy_frac"] (r,)  — fraction of total energy in each mode</span>
+<span class="cm"># Reconstruct DMD dynamics at arbitrary times</span>
+dmd_r = decomp.dmd(X, dt=<span class="nu">0.005</span>)
+X_future = decomp.dmd_reconstruct(dmd_r, n_steps=<span class="nu">200</span>)
 
-<span class="cm"># Reconstruct with k modes (k &lt; r)</span>
-X_recon = decomp.pod_reconstruct(pod, X, k=<span class="nu">5</span>)
+<span class="cm"># Hankel embedding: lift a 1D signal to a 2D matrix for POD/DMD</span>
+signal = np.sin(<span class="nu">2</span>*np.pi*<span class="nu">3</span>*np.linspace(<span class="nu">0</span>, <span class="nu">4</span>, <span class="nu">400</span>))
+H = decomp.hankel(signal, window=<span class="nu">80</span>)   <span class="cm"># H: (80, 321) → pass to dmd(H, dt=...)</span>
 
-<span class="cm"># Optimal rank for 99% energy retention</span>
-r_opt = decomp.pod_rank(pod, threshold=<span class="nu">0.99</span>)
-<span class="kw">print</span>(<span class="mg">f</span><span class="st">"{r_opt} modes capture 99% of total energy"</span>)
-
-<span class="cm"># ── DMD — Dynamic Mode Decomposition ──────────────────────────────────────</span>
-dmd_r = decomp.dmd(X, dt=<span class="nu">0.005</span>, r=<span class="nu">12</span>)
-<span class="cm"># dmd_r["eigenvalues"]   (r,)     — complex eigenvalues λ</span>
-<span class="cm"># dmd_r["modes"]         (n, r)   — DMD spatial modes</span>
-<span class="cm"># dmd_r["frequencies"]   (r,)     — oscillation frequency [Hz] per mode</span>
-<span class="cm"># dmd_r["growth_rates"]  (r,)     — growth (positive) or decay (negative)</span>
-
-<span class="cm"># Reconstruct at arbitrary times</span>
-X_dmd = decomp.dmd_reconstruct(dmd_r, X[:, <span class="nu">0</span>], t=np.linspace(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">200</span>))
-
-<span class="cm"># ── Hankel embedding (for scalar time series) ──────────────────────────────</span>
-signal = X[<span class="nu">0</span>, :]               <span class="cm"># 1D time series</span>
-H = decomp.hankel(signal, lag=<span class="nu">20</span>)  <span class="cm"># lift to Hankel matrix for POD/DMD</span>
+<span class="cm"># 2D image Abel inversion (full flame/plasma image)</span>
+cx = decomp.abel_center(image)
+radial = decomp.abel_image(image, center=cx, method=<span class="st">"three_point"</span>)
 <span class="lang-label">python</span></pre>
-
-<div class="table-wrap"><table>
-<tr><th>Function</th><th>Use case</th></tr>
-<tr><td><code>decomp.pod(X, r)</code></td><td>Energy-ranked spatial modes, dimensionality reduction, ROM basis</td></tr>
-<tr><td><code>decomp.pod_reconstruct(pod, X, k)</code></td><td>Reconstruct data from k dominant POD modes</td></tr>
-<tr><td><code>decomp.pod_rank(pod, threshold)</code></td><td>Find minimum modes for given energy fraction</td></tr>
-<tr><td><code>decomp.dmd(X, dt, r)</code></td><td>Spatiotemporal mode decomposition with stability analysis</td></tr>
-<tr><td><code>decomp.dmd_reconstruct(dmd_r, x0, t)</code></td><td>Reconstruct dynamics at arbitrary times</td></tr>
-<tr><td><code>decomp.hankel(signal, lag)</code></td><td>Lift scalar time series to matrix for POD/DMD</td></tr>
-</table></div>
-</section>
-
-<!-- ══════════════════════════════════════════════════════════════════════════
-     ABEL TRANSFORM
-     ══════════════════════════════════════════════════════════════════════════ -->
-<section id="abel">
-<h2>Abel Transform</h2>
-<p>Abel transforms invert axisymmetric projection data — used in emission spectroscopy, plasma diagnostics, combustion imaging, and any experiment where a 2D camera captures line-of-sight integrated emission from a cylindrically symmetric source.</p>
-
-<pre><span class="kw">from</span> anvil <span class="kw">import</span> abel
-<span class="kw">import</span> numpy <span class="kw">as</span> np
-
-<span class="cm"># 1D forward transform: f(r) → F(y) (projection)</span>
-r = np.linspace(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">100</span>)
-f = np.exp(-r**<span class="nu">2</span>)              <span class="cm"># radial profile (Gaussian)</span>
-F = abel.abel_forward(f, r)     <span class="cm"># projected profile</span>
-
-<span class="cm"># 1D inverse: three-point method (fast, for smooth profiles)</span>
-f_inv = abel.abel_three_point(F, r)
-
-<span class="cm"># 1D inverse: onion-peeling (layer-by-layer, good for sharp gradients)</span>
-f_inv2 = abel.abel_onion(F, r)
-
-<span class="cm"># 2D image inversion (line-of-sight integrated flame / plasma image)</span>
-image = np.load(<span class="st">"flame_emission.npy"</span>)  <span class="cm"># shape: (rows, cols)</span>
-
-<span class="cm"># Find centerline first (or supply manually)</span>
-cx = abel.abel_center(image)     <span class="cm"># detected center column index</span>
-
-<span class="cm"># Invert full image → radial emission profile at each row</span>
-radial = abel.abel_image(image, center=cx, method=<span class="st">"three_point"</span>)
-<span class="lang-label">python</span></pre>
-
-<div class="table-wrap"><table>
-<tr><th>Function</th><th>Direction</th><th>Use case</th></tr>
-<tr><td><code>abel_forward(f, r)</code></td><td>radial → projected</td><td>Simulate what a camera sees</td></tr>
-<tr><td><code>abel_three_point(F, r)</code></td><td>projected → radial</td><td>Smooth profiles (fast, low noise)</td></tr>
-<tr><td><code>abel_onion(F, r)</code></td><td>projected → radial</td><td>Sharp features, layer-by-layer</td></tr>
-<tr><td><code>abel_image(img, center, method)</code></td><td>2D image → radial</td><td>Full flame/plasma image inversion</td></tr>
-<tr><td><code>abel_center(img)</code></td><td>—</td><td>Auto-detect centerline of symmetric image</td></tr>
-</table></div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════

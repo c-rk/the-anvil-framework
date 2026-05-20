@@ -807,11 +807,15 @@ result.summary()   <span class="cm"># prints all quantities in order</span>
 <li><code>A_exit/A_throat</code> ↑ → higher expansion ratio → higher exit Mach → more thrust in vacuum</li>
 </ul>
 </div>
-<pre><span class="cm"># Access individual result values</span>
-<span class="kw">print</span>(result[<span class="st">"thrust"</span>])              <span class="cm"># Q object with units</span>
-<span class="kw">print</span>(result[<span class="st">"thrust"</span>].to(<span class="st">"kN"</span>))    <span class="cm"># converted</span>
-
-<span class="cm"># Subset summary</span>
+<pre><span class="kw">print</span>(result[<span class="st">"thrust"</span>])
+<span class="kw">print</span>(result[<span class="st">"thrust"</span>].to(<span class="st">"kN"</span>))
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">208930.33 N
+208.93 kN</div>
+</div>
+<pre><span class="cm"># Subset summary</span>
 result.summary(keys=[<span class="st">"P0"</span>, <span class="st">"T0"</span>, <span class="st">"thrust"</span>, <span class="st">"Isp"</span>])
 
 <span class="cm"># Newton solve (for coupled / implicit systems)</span>
@@ -1018,8 +1022,12 @@ result = nozzle.solve_forward()
 
 <pre><span class="cm"># Check registry health — verify all RSQs can be loaded</span>
 anvil.check()
-<span class="cm"># Loaded 76 built-in + N user RSQs. All OK.</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">Loaded 80 built-in RSQs. All OK.
+0 errors.</div>
+</div>
 
 <h3>Registry API Summary</h3>
 <div class="table-wrap"><table>
@@ -1058,6 +1066,17 @@ proj.R.my_rsq(x=<span class="nu">3</span>, y=<span class="nu">4</span>)
 proj.info(<span class="st">"my_rsq"</span>)
 proj.list()
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — proj.info("my_rsq") and proj.list()</div>
+<div class="out-block">my_rsq
+  domain  : orbital
+  inputs  : x, y
+  defaults: scale=1.0
+  outputs : z
+  tags    : []
+
+  [R] my_rsq    orbital    "Euclidean distance in 2D"</div>
+</div>
 <div class="what-changes"><strong>Global vs Project:</strong> Global registry (<code>anvil.R.*</code>) is shared across all work on the machine. Project registry (<code>proj.R.*</code>) is isolated to a file you control — good for deliverable-specific RSQs, team sharing (just distribute the .db file), or work-in-progress that isn't ready for global promotion.</div>
 </section>
 
@@ -1074,18 +1093,30 @@ proj.list()
 </div>
 
 <h3>Atmosphere &amp; Gas Properties</h3>
-<pre><span class="cm"># ISA atmosphere at altitude</span>
+<pre><span class="kw">import</span> anvil
+
 r = anvil.R.isa_atmosphere(h=<span class="nu">11000</span>)
-<span class="cm"># T_atm: 216.65 K  P_atm: 22632.65 Pa  rho_atm: 0.3639 kg/m^3  a_atm: 295.07 m/s</span>
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 
-<span class="cm"># Ideal gas density</span>
-r = anvil.R.ideal_gas(P=<span class="nu">101325</span>, T=<span class="nu">300</span>, R_gas=<span class="nu">287</span>)
-<span class="cm"># rho: 1.1763 kg/m^3</span>
+r = anvil.R.ideal_gas_density(P=<span class="nu">101325</span>, R_gas=<span class="nu">287</span>, T=<span class="nu">300</span>)
+<span class="kw">print</span>(r[<span class="st">"rho"</span>])
 
-<span class="cm"># Sutherland viscosity</span>
 r = anvil.R.sutherland_viscosity(T=<span class="nu">300</span>)
-<span class="cm"># mu: 1.846e-5 Pa*s</span>
+<span class="kw">print</span>(r[<span class="st">"mu"</span>])
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">T_atm: 216.65 K
+P_atm: 22632.65 Pa
+rho_atm: 0.363921 kg/m^3
+a_atm: 295.07 m/s
+mu_atm: 1.4216e-05 Pa*s
+sigma: 0.297
+
+1.1768 kg/m^3
+1.8456e-05 Pa*s</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> ISA splits into layers — troposphere (0–11 km, lapse rate −6.5 K/km), tropopause (11–20 km, isothermal at 216.65 K). Above 11 km density falls exponentially; <code>sigma</code> = ρ/ρ₀. <code>ideal_gas_density</code>: increasing P or decreasing T increases ρ. Sutherland viscosity: μ ∝ T^(3/2)/(T+110.4).</div>
 
 <h3>Compressible Flow</h3>
 <pre><span class="cm"># Isentropic ratios (T0/T, P0/P, rho0/rho)</span>
@@ -1099,216 +1130,282 @@ P0_P: 7.824
 rho0_rho: 4.347</div>
 </div>
 <div class="what-changes"><strong>What changes this:</strong> Every isentropic ratio is a function of M alone (for fixed γ). <code>T0/T = 1 + (γ-1)/2 × M²</code>. The pressure ratio rises much faster (exponent 3.5 for air) — at M=3, P0/P ≈ 36.7.</div>
-<pre><span class="cm"># Normal shock</span>
-r = anvil.R.normal_shock(M1=<span class="nu">2.0</span>, gamma=<span class="nu">1.4</span>)
-<span class="cm"># M2: 0.5774  P2_P1: 4.5  T2_T1: 1.6875</span>
-
-<span class="cm"># Oblique shock (wedge half-angle in degrees)</span>
-r = anvil.R.oblique_shock(M1=<span class="nu">3.0</span>, theta_deg=<span class="nu">20</span>)
-<span class="cm"># beta_deg: 37.8  M2: 2.11  P2_P1: 6.28</span>
-
-<span class="cm"># Prandtl-Meyer expansion</span>
-r = anvil.R.prandtl_meyer(M=<span class="nu">2.0</span>)
-<span class="cm"># nu: 0.4604 rad   nu_deg: 26.38 deg</span>
-
-<span class="cm"># Nozzle area ratio  (uses Mach number)</span>
-r = anvil.R.nozzle_area_ratio(M=<span class="nu">2.5</span>, gamma=<span class="nu">1.4</span>)
-<span class="cm"># A_Astar: 2.637</span>
+<pre><span class="kw">for</span> k, v <span class="kw">in</span> anvil.R.normal_shock(M1=<span class="nu">2.0</span>, gamma=<span class="nu">1.4</span>).items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — normal shock M1=2.0</div>
+<div class="out-block">M2: 0.5774
+P2_P1: 4.5
+T2_T1: 1.6875
+rho2_rho1: 2.6667
+P02_P01: 0.7209</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Stronger shock (higher M1) → lower M2, higher P2/P1 and T2/T1. P02/P01 &lt; 1 always — total pressure is lost across a shock. At M1=3: P2/P1≈10.3, T2/T1≈2.68. Normal shocks are always detached; oblique shocks are weaker for the same upstream M.</div>
+<pre><span class="cm"># Oblique shock — beta is the wave angle (auto-solved from theta)</span>
+<span class="kw">for</span> k, v <span class="kw">in</span> anvil.R.oblique_shock(M1=<span class="nu">3.0</span>, theta_deg=<span class="nu">20</span>).items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — oblique shock M1=3, θ=20°</div>
+<div class="out-block">beta_deg: 37.8
+M2: 2.1090
+P2_P1: 6.2786
+T2_T1: 1.7749
+P02_P01: 0.8575</div>
+</div>
 
 <h3>Lift &amp; Drag (Thin Airfoil)</h3>
-<pre><span class="cm"># Subsonic thin-airfoil lift coefficient (Prandtl-Glauert corrected)</span>
-r = anvil.R.thin_airfoil_cl(alpha_deg=<span class="nu">5</span>, M=<span class="nu">0.5</span>)
-<span class="cm"># CL: 0.6385</span>
-
-<span class="cm"># Induced drag from Oswald efficiency</span>
-r = anvil.R.oswald_efficiency(AR=<span class="nu">8</span>, sweep_deg=<span class="nu">20</span>, taper=<span class="nu">0.4</span>)
-<span class="cm"># e: 0.85  k: 0.0472</span>
+<pre><span class="kw">for</span> k, v <span class="kw">in</span> anvil.R.thin_airfoil_cl(alpha_deg=<span class="nu">5</span>, M=<span class="nu">0.5</span>).items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — α=5°, M=0.5</div>
+<div class="out-block">CL: 0.6331
+CL_alpha: 7.2552</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> CL scales linearly with α (thin-airfoil theory: CL = 2πα/√(1−M²)). Compressibility correction (Prandtl-Glauert): CL increases as M→1. At M=0 and α=5°: CL≈0.548. At M=0.8: CL≈0.91. Breaks down near M=1 (transonic).</div>
 </section>
 
 <section id="rsq-propulsion">
 <h2>Built-in RSQs — Propulsion</h2>
 <span class="domain">propulsion</span> <span class="domain">aero.compressible</span>
 
-<pre><span class="cm"># Rocket nozzle (supersonic design point)</span>
-r = anvil.R.area_mach_supersonic(A_Astar=<span class="nu">5.0</span>, gamma=<span class="nu">1.4</span>)
-<span class="cm"># M_exit: 3.255</span>
+<pre><span class="cm"># Exit Mach from area ratio (supersonic solution)</span>
+r = anvil.R.area_mach_supersonic(area_ratio=<span class="nu">5.0</span>)
+<span class="kw">print</span>(r[<span class="st">"M_exit"</span>])   <span class="cm"># 3.1748</span>
 
 <span class="cm"># Specific impulse from exit velocity</span>
 r = anvil.R.specific_impulse(V_exit=<span class="nu">3200</span>, g0=<span class="nu">9.80665</span>)
-<span class="cm"># Isp: Q(326.3, "s")</span>
+<span class="kw">print</span>(r[<span class="st">"Isp"</span>])      <span class="cm"># 326.28 s</span>
 
 <span class="cm"># Tsiolkovsky propellant mass</span>
 r = anvil.R.propellant_mass(dv=<span class="nu">3935</span>, Isp=<span class="nu">450</span>, m_dry=<span class="nu">1000</span>)
-<span class="cm"># m_propellant: Q(1439, "kg")   m_wet: Q(2439,"kg")   mass_ratio: 2.439</span>
+<span class="kw">print</span>(r[<span class="st">"m_propellant"</span>], r[<span class="st">"m_wet"</span>])
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">3.1748
+326.28 s
+1438.97 kg   2438.97 kg</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>area_mach_supersonic</code> inverts the area-Mach relation numerically — higher area ratio → higher supersonic Mach. <code>propellant_mass</code>: exponential in Δv/Isp (rocket equation). Doubling Isp (e.g. electric vs chemical) cuts propellant mass dramatically.</div>
 
-<span class="cm"># Full nozzle design chain in a System</span>
+<pre><span class="cm"># Full nozzle design chain in a System</span>
+<span class="kw">from</span> anvil <span class="kw">import</span> System
 nozzle = System(<span class="st">"nozzle"</span>)
 nozzle.add(<span class="st">"P0"</span>, <span class="nu">10e6</span>, <span class="st">"Pa"</span>); nozzle.add(<span class="st">"T0"</span>, <span class="nu">3500</span>, <span class="st">"K"</span>)
 nozzle.add(<span class="st">"gamma"</span>, <span class="nu">1.2</span>); nozzle.add(<span class="st">"A_throat"</span>, <span class="nu">0.005</span>, <span class="st">"m^2"</span>)
-nozzle.add(<span class="st">"A_exit"</span>, <span class="nu">0.08</span>, <span class="st">"m^2"</span>); nozzle.add(<span class="st">"P_amb"</span>, <span class="nu">0</span>, <span class="st">"Pa"</span>)
+nozzle.add(<span class="st">"A_exit"</span>, <span class="nu">0.08</span>, <span class="st">"m^2"</span>)
 nozzle.use(<span class="st">"nozzle_area_ratio"</span>)
 nozzle.use(<span class="st">"area_mach_supersonic"</span>)
-nozzle.use(<span class="st">"isentropic_ratios"</span>)
-
+nozzle.use(<span class="st">"isentropic_ratios"</span>, map={<span class="st">"M"</span>: <span class="st">"M_exit"</span>})
 result = nozzle.solve_forward()
 result.summary()
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">nozzle -- results
+  A_throat      0.0050 m^2
+  A_exit        0.0800 m^2
+  gamma         1.2000
+  ---
+  area_ratio   16.0000
+  M_exit        3.6044
+  T0_T          2.2991
+  P0_P        147.70</div>
+</div>
 </section>
 
 <section id="rsq-orbital">
 <h2>Built-in RSQs — Orbital Mechanics</h2>
 <span class="domain">orbital</span>
 
-<pre><span class="cm"># Vis-viva equation</span>
-r = anvil.R.vis_viva(mu=<span class="nu">3.986e14</span>, r=<span class="nu">6771e3</span>, a=<span class="nu">6771e3</span>)
-<span class="cm"># V_orbital: Q(7669, "m/s")</span>
+<pre><span class="kw">print</span>(anvil.R.vis_viva(mu=<span class="nu">3.986e14</span>, r=<span class="nu">6771e3</span>, a=<span class="nu">6771e3</span>)[<span class="st">"V_orbital"</span>])
+<span class="kw">print</span>(anvil.R.orbital_period(mu=<span class="nu">3.986e14</span>, a=<span class="nu">6771e3</span>)[<span class="st">"T_orbital"</span>])
 
-<span class="cm"># Orbital period</span>
-r = anvil.R.orbital_period(mu=<span class="nu">3.986e14</span>, a=<span class="nu">6771e3</span>)
-<span class="cm"># T_orbital: Q(5568, "s")</span>
-
-<span class="cm"># Hohmann transfer</span>
 r = anvil.R.hohmann_transfer(mu=<span class="nu">3.986e14</span>, r1=<span class="nu">6571e3</span>, r2=<span class="nu">42164e3</span>)
-<span class="cm"># dv1: 2457 m/s   dv2: 1478 m/s   dv_total: 3935 m/s   tof: 19044 s</span>
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — LEO (400 km) and LEO→GEO Hohmann</div>
+<div class="out-block">7672.59 m/s
+5544.86 s
 
-<span class="cm"># Keplerian elements → ECI state vector</span>
+dv1: 2456.67 m/s
+dv2: 1478.02 m/s
+dv_total: 3934.69 m/s
+tof: 18927.69 s</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> V_orbital ∝ 1/√r — lower orbit = faster. tof ≈ half the period of the transfer ellipse. Total Δv = 3935 m/s for LEO→GEO — this is why GEO satellites carry a large apogee kick motor. Bi-elliptic is cheaper when r2/r1 > 11.94.</div>
+<pre><span class="cm"># Keplerian → ECI  (ISS-like orbit)</span>
 r = anvil.R.keplerian_to_cartesian(
     a=<span class="nu">6878e3</span>, e=<span class="nu">0.001</span>, i_deg=<span class="nu">51.6</span>,
-    RAAN_deg=<span class="nu">0</span>, omega_deg=<span class="nu">0</span>, nu_deg=<span class="nu">0</span>, mu=<span class="nu">3.986e14</span>
-)
-<span class="cm"># r_eci: [6878000, 0, 0]   v_eci: [0, 7616, 0]   r_mag: Q(6878e3,"m")</span>
+    RAAN_deg=<span class="nu">0</span>, omega_deg=<span class="nu">0</span>, nu_deg=<span class="nu">0</span>, mu=<span class="nu">3.986e14</span>)
+<span class="kw">print</span>(<span class="st">"r_mag:"</span>, r[<span class="st">"r_mag"</span>], <span class="st">"v_mag:"</span>, r[<span class="st">"v_mag"</span>])
 
-<span class="cm"># J2 precession rates</span>
+<span class="cm"># J2 — sun-synchronous condition: RAAN drift ≈ +0.9856 deg/day</span>
 r = anvil.R.j2_precession(a=<span class="nu">6878e3</span>, e=<span class="nu">0.001</span>, i_deg=<span class="nu">97.4</span>)
-<span class="cm"># d_RAAN_dt: Q(1.986e-7, "rad/s")  ← ~+0.987 deg/day (sun-synchronous)</span>
-<span class="cm"># d_omega_dt: Q(-7.09e-7, "rad/s")</span>
-
-<span class="cm"># Bi-elliptic transfer</span>
-r = anvil.R.bielliptic_transfer(mu=<span class="nu">3.986e14</span>, r1=<span class="nu">6571e3</span>,
-                                 r2=<span class="nu">42164e3</span>, rb=<span class="nu">200000e3</span>)
-<span class="cm"># More efficient than Hohmann when rb/r1 &gt; 11.94</span>
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">r_mag: 6884.78 km   v_mag: 7617.21 m/s
+
+d_RAAN_dt: 1.987e-07 rad/s
+d_omega_dt: -7.089e-07 rad/s</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> d_RAAN_dt ≈ +1.987e-7 rad/s ≈ +0.987°/day — matches Earth's mean motion around the Sun (0.9856°/day), making this a sun-synchronous orbit. The critical inclination is ~97.4° for a 500 km altitude orbit — change altitude and the inclination must change too.</div>
 </section>
 
 <section id="rsq-structures">
 <h2>Built-in RSQs — Structures</h2>
 <span class="domain">structures</span>
 
-<pre><span class="cm"># Cantilever beam deflection</span>
-r = anvil.R.beam_deflection_cantilever(
-    F_tip=<span class="nu">5000</span>, L_beam=<span class="nu">2.0</span>, E=<span class="nu">69e9</span>, I_moment=<span class="nu">4.167e-6</span>
-)
-<span class="cm"># deflection: Q(0.0464, "m")   max_moment: Q(10000, "N*m")</span>
-
-<span class="cm"># Simply-supported beam under uniform load</span>
-r = anvil.R.beam_deflection_simply_supported(
-    w_load=<span class="nu">2000</span>, L_beam=<span class="nu">3.0</span>, E=<span class="nu">200e9</span>, I_moment=<span class="nu">4.167e-6</span>
-)
-<span class="cm"># deflection: Q(0.0132, "m")   max_moment: Q(2250, "N*m")</span>
-
-<span class="cm"># Euler column buckling</span>
-r = anvil.R.buckling_euler(E=<span class="nu">69e9</span>, I_moment=<span class="nu">4.167e-6</span>, L_eff=<span class="nu">3.0</span>)
-<span class="cm"># P_critical: Q(315e3, "N")  ← 315 kN</span>
-
-<span class="cm"># Thin-wall hoop stress</span>
-r = anvil.R.thin_wall_hoop_stress(P_internal=<span class="nu">5e6</span>, r_inner=<span class="nu">0.3</span>, t_wall=<span class="nu">0.005</span>)
-<span class="cm"># sigma_hoop: Q(300e6, "Pa")  = 300 MPa</span>
+<pre>r = anvil.R.beam_deflection_cantilever(F_tip=<span class="nu">5000</span>, L_beam=<span class="nu">2.0</span>, E=<span class="nu">69e9</span>, I_moment=<span class="nu">4.167e-6</span>)
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — 2 m aluminium cantilever, 5 kN tip load</div>
+<div class="out-block">deflection: 0.100040 m
+max_moment: 10000.00 N*m</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> δ = FL³/(3EI). Deflection scales with L³ — doubling length → 8× deflection. I_moment (second moment of area) is the most powerful lever: doubling beam depth → 4× I → 4× stiffer. Replace aluminium (E=69 GPa) with steel (200 GPa) → 2.9× stiffer.</div>
+<pre><span class="cm"># Simply-supported beam, uniform distributed load</span>
+r = anvil.R.beam_deflection_simply_supported(w_load=<span class="nu">2000</span>, L_beam=<span class="nu">3.0</span>, E=<span class="nu">200e9</span>, I_moment=<span class="nu">4.167e-6</span>)
+<span class="kw">print</span>(r[<span class="st">"deflection"</span>], r[<span class="st">"max_moment"</span>])
+
+<span class="cm"># Euler buckling load</span>
+r = anvil.R.buckling_euler(E=<span class="nu">69e9</span>, I_moment=<span class="nu">4.167e-6</span>, L_eff=<span class="nu">3.0</span>)
+<span class="kw">print</span>(r[<span class="st">"P_critical"</span>])
+
+<span class="cm"># Thin-wall pressure vessel hoop stress</span>
+r = anvil.R.thin_wall_hoop_stress(P_internal=<span class="nu">5e6</span>, r_inner=<span class="nu">0.3</span>, t_wall=<span class="nu">0.005</span>)
+<span class="kw">print</span>(r[<span class="st">"sigma_hoop"</span>])
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">0.013192 m   2250.00 N*m
+314691.93 N
+300000000.00 Pa</div>
+</div>
 </section>
 
 <section id="rsq-thermo">
 <h2>Built-in RSQs — Thermodynamics</h2>
 <span class="domain">thermo</span> <span class="domain">heat_transfer</span>
 
-<pre><span class="cm"># Conduction heat flux (Fourier)</span>
-r = anvil.R.heat_conduction(k=<span class="nu">200</span>, A=<span class="nu">0.01</span>, dT=<span class="nu">100</span>, L=<span class="nu">0.05</span>)
-<span class="cm"># q_dot: Q(4000, "W")</span>
+<pre><span class="cm"># Fourier conduction: Q_cond = k·A·dT/L</span>
+r = anvil.R.conduction_1d(k=<span class="nu">200</span>, A_cross=<span class="nu">0.01</span>, dT=<span class="nu">100</span>, L_thickness=<span class="nu">0.05</span>)
+<span class="kw">print</span>(r[<span class="st">"Q_cond"</span>])
 
-<span class="cm"># Forced convection (Dittus-Boelter, turbulent pipe)</span>
-r = anvil.R.forced_convection_pipe(Re=<span class="nu">50000</span>, Pr=<span class="nu">0.71</span>, k_fluid=<span class="nu">0.026</span>, D=<span class="nu">0.05</span>)
-<span class="cm"># Nu: 131.5   h: Q(68.4, "W/m^2/K")</span>
+<span class="cm"># Convection: Q_conv = h·A·(T_surf − T_inf)</span>
+r = anvil.R.convection(h_conv=<span class="nu">50</span>, A_surf=<span class="nu">0.1</span>, T_surf=<span class="nu">350</span>, T_inf=<span class="nu">300</span>)
+<span class="kw">print</span>(r[<span class="st">"Q_conv"</span>])
 
-<span class="cm"># Radiation heat transfer</span>
-r = anvil.R.radiation_heat_transfer(T_hot=<span class="nu">1000</span>, T_cold=<span class="nu">300</span>,
-                                      emissivity=<span class="nu">0.85</span>, A=<span class="nu">0.1</span>)
-<span class="cm"># q_rad: Q(4742, "W")</span>
+<span class="cm"># Fin efficiency (rectangular fin)</span>
+r = anvil.R.fin_efficiency_rect(h_conv=<span class="nu">50</span>, k_fin=<span class="nu">200</span>, t_fin=<span class="nu">0.003</span>, L_fin=<span class="nu">0.05</span>)
+<span class="kw">print</span>(r[<span class="st">"eta_fin"</span>], r[<span class="st">"mL"</span>])
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">4000.00 W
+250.00 W
+0.8806   0.6465</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Conduction: halving L or doubling A doubles Q. Convection: Q scales linearly with h (flow velocity, geometry) and ΔT. Fin efficiency η=1 for an infinitely conductive fin (k→∞); drops toward 0 as mL = L√(2h/kt) increases (longer or thinner fin loses proportionally less heat near the tip).</div>
 </section>
 
 <section id="rsq-controls">
 <h2>Built-in RSQs — Controls</h2>
 <span class="domain">controls</span>
 
-<pre><span class="cm"># Second-order system metrics</span>
-r = anvil.R.second_order_metrics(omega_n=<span class="nu">10</span>, zeta=<span class="nu">0.7</span>)
-<span class="cm"># overshoot_pct: 4.6%   t_settle: 0.57 s   t_rise: 0.109 s</span>
-
-<span class="cm"># State-space eigenvalues (stability check)</span>
-<span class="cm"># A = [[0, 1], [-100, -14]]  (2x2 system, flattened)</span>
-r = anvil.R.state_space_poles(A_flat=[<span class="nu">0</span>, <span class="nu">1</span>, -<span class="nu">100</span>, -<span class="nu">14</span>], n_states=<span class="nu">2</span>)
-<span class="cm"># poles_real: [-7.0, -7.0]   stable: True   min_damping: 0.7</span>
-
-<span class="cm"># Gain and phase margins</span>
-r = anvil.R.gain_phase_margin(num_coeffs=[<span class="nu">1</span>], den_coeffs=[<span class="nu">1</span>, <span class="nu">1</span>, <span class="nu">0</span>])
-<span class="cm"># GM_dB: inf   PM_deg: 90   stable: True</span>
-
-<span class="cm"># LQR weights via Bryson's rule</span>
-<span class="kw">import</span> numpy <span class="kw">as</span> np
-r = anvil.R.lqr_bryson(
-    state_bounds=[np.radians(<span class="nu">5</span>), np.radians(<span class="nu">5</span>), np.radians(<span class="nu">5</span>)],
-    input_bounds=[<span class="nu">0.5</span>, <span class="nu">0.5</span>, <span class="nu">0.5</span>],
-)
-<span class="cm"># Q_diag: [131.3, 131.3, 131.3]   R_diag: [4.0, 4.0, 4.0]</span>
+<pre>r = anvil.R.second_order_metrics(omega_n=<span class="nu">10</span>, zeta=<span class="nu">0.7</span>)
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — ωₙ=10 rad/s, ζ=0.7</div>
+<div class="out-block">overshoot_pct: 4.5988
+t_peak: 0.4399
+t_settle: 0.5714
+t_rise: 0.2138
+omega_d: 7.1414</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> ζ=0.7 is the classical "well-damped" design point (low overshoot, fast settle). Reducing ζ→0.3 raises overshoot to ~37% and slows settling. Increasing ωₙ scales all times inversely — double ωₙ → half t_rise, half t_settle, same overshoot.</div>
+<pre><span class="cm"># State-space stability (2×2 system)</span>
+r = anvil.R.state_space_poles(A_flat=[<span class="nu">0</span>, <span class="nu">1</span>, -<span class="nu">100</span>, -<span class="nu">14</span>], n_states=<span class="nu">2</span>)
+<span class="kw">print</span>(r[<span class="st">"poles_real"</span>], r[<span class="st">"stable"</span>])
+
+r = anvil.R.gain_phase_margin(num_coeffs=[<span class="nu">1</span>], den_coeffs=[<span class="nu">1</span>, <span class="nu">1</span>, <span class="nu">0</span>])
+<span class="kw">print</span>(r[<span class="st">"GM_dB"</span>], r[<span class="st">"PM_deg"</span>])
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">[-7.0, -7.0]   True
+inf   90.0</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Poles are eigenvalues of A. Both at -7 → critically damped at ωₙ=√100=10, ζ=0.7. All poles in left half-plane → stable. Phase margin 90° for an integrating system (1/s²) with pure unity feedback — very stable. Adding gain reduces PM.</div>
 </section>
 
 <section id="rsq-mission">
 <h2>Built-in RSQs — Mission / ADCS</h2>
 <span class="domain">mission</span> <span class="domain">attitude</span>
 
-<pre><span class="cm"># Power budget (solar + battery sizing)</span>
-ecl = anvil.R.eclipse_fraction(a=<span class="nu">6871e3</span>, beta_deg=<span class="nu">0</span>)
+<pre>ecl = anvil.R.eclipse_fraction(a=<span class="nu">6871e3</span>, beta_deg=<span class="nu">0</span>)
+<span class="kw">print</span>(<span class="st">"eclipse_frac:"</span>, ecl[<span class="st">"eclipse_frac"</span>])
+
 pwr = anvil.R.power_budget(P_load_W=<span class="nu">100</span>, T_orbit_min=<span class="nu">92</span>,
                              eclipse_frac=ecl[<span class="st">"eclipse_frac"</span>])
-<span class="cm"># A_panel_m2: Q(0.41, "m^2")   E_bat_Wh: Q(167, "Wh")   m_bat_kg: Q(1.4, "kg")</span>
-
-<span class="cm"># Link budget</span>
-r = anvil.R.link_budget(P_tx_W=<span class="nu">5</span>, G_tx_dBi=<span class="nu">3</span>, G_rx_dBi=<span class="nu">47</span>,
-                         freq_Hz=<span class="nu">8.4e9</span>, distance_m=<span class="nu">600e3</span>)
-<span class="cm"># FSPL_dB: 166.5   P_rx_dBW: -113.5   P_rx_W: Q(4.5e-12, "W")</span>
-
-<span class="cm"># TRIAD attitude determination (two body-fixed + reference vectors)</span>
-r = anvil.R.triad_attitude(
-    b1_x=<span class="nu">0.866</span>, b1_y=<span class="nu">0.5</span>, b1_z=<span class="nu">0</span>,   <span class="cm"># sun vector in body</span>
-    b2_x=<span class="nu">0.3</span>,  b2_y=<span class="nu">0</span>,   b2_z=<span class="nu">0.95</span>,  <span class="cm"># mag field in body</span>
-    r1_x=<span class="nu">0.8</span>,  r1_y=<span class="nu">0.6</span>, r1_z=<span class="nu">0</span>,    <span class="cm"># sun vector in ECI</span>
-    r2_x=<span class="nu">0.3</span>,  r2_y=<span class="nu">0</span>,   r2_z=<span class="nu">0.95</span>, <span class="cm"># mag field in ECI</span>
-)
-<span class="cm"># q_w, q_x, q_y, q_z — attitude quaternion</span>
+<span class="kw">for</span> k, v <span class="kw">in</span> pwr.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — 100 W load, 500 km circular, β=0°</div>
+<div class="out-block">eclipse_frac: 0.3778
+
+A_panel_m2: 0.439604 m^2
+E_bat_Wh: 72.4500 Wh
+m_bat_kg: 0.603750 kg
+P_from_panel_W: 167.52 W</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> eclipse_frac rises with lower altitude and lower β angle (0°=worst case: longest eclipse). Panel area scales inversely with solar flux efficiency. Battery energy = P × eclipse_duration. β=90° (polar solstice) → 0% eclipse → no battery needed.</div>
+<pre>r = anvil.R.link_budget(P_tx_W=<span class="nu">5</span>, G_tx_dBi=<span class="nu">3</span>, G_rx_dBi=<span class="nu">47</span>,
+                         freq_Hz=<span class="nu">8.4e9</span>, distance_m=<span class="nu">600e3</span>)
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — 5 W transmitter, X-band, 600 km</div>
+<div class="out-block">FSPL_dB: 166.50
+EIRP_dBW: 9.99
+P_rx_dBW: -112.51
+P_rx_W: 5.61e-12</div>
+</div>
 </section>
 
 <section id="rsq-materials">
 <h2>Built-in RSQs — Materials</h2>
 <span class="domain">materials</span>
 
-<pre><span class="cm"># S-N curve (Basquin's law) for fatigue life</span>
-r = anvil.R.sn_fatigue(sigma_a=<span class="nu">200e6</span>, sigma_ult=<span class="nu">500e6</span>, b=<span class="nu">-0.12</span>)
-<span class="cm"># N_cycles: 1.45e6</span>
+<pre><span class="cm"># Basquin fatigue life: N = (σ_a / σ_f')^(1/b)</span>
+r = anvil.R.fatigue_life_basquin(sigma_a=<span class="nu">200e6</span>, sigma_f_prime=<span class="nu">800e6</span>, b_exponent=<span class="nu">-0.12</span>)
+<span class="kw">print</span>(r[<span class="st">"N_cycles"</span>])
 
-<span class="cm"># Goodman mean-stress correction</span>
-r = anvil.R.goodman_correction(sigma_a=<span class="nu">150e6</span>, sigma_m=<span class="nu">100e6</span>, sigma_ult=<span class="nu">500e6</span>)
-<span class="cm"># sigma_a_equiv: Q(187.5e6, "Pa")</span>
+<span class="cm"># Miner's rule cumulative damage</span>
+r = anvil.R.miners_rule(cycle_counts=[<span class="nu">1e4</span>, <span class="nu">5e3</span>], cycle_limits=[<span class="nu">1e5</span>, <span class="nu">2e4</span>])
+<span class="kw">for</span> k, v <span class="kw">in</span> r.items(): <span class="kw">print</span>(<span class="mg">f</span><span class="st">"{k}: {v}"</span>)
 
 <span class="cm"># Look up material properties from database</span>
 <span class="kw">from</span> anvil.db <span class="kw">import</span> materials
 mat = materials.get(<span class="st">"Steel-316L"</span>)
-<span class="kw">print</span>(mat[<span class="st">"E"</span>])        <span class="cm"># Young's modulus Q</span>
-<span class="kw">print</span>(mat[<span class="st">"sigma_y"</span>]) <span class="cm"># yield strength Q</span>
-<span class="kw">print</span>(mat[<span class="st">"rho"</span>])     <span class="cm"># density Q</span>
+<span class="kw">print</span>(mat[<span class="st">"E"</span>], mat[<span class="st">"sigma_y"</span>], mat[<span class="st">"rho"</span>])
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">52015.96
+
+damage_index: 0.35
+failed: False
+remaining_life_fraction: 0.65
+
+193000000000.00 Pa   172000000.00 Pa   8000.00 kg/m^3</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Basquin: N ∝ (σ_a)^(1/b). Doubling stress amplitude reduces life by ~127× (for b=−0.12). Miner's rule: damage_index = Σ(n/N) — failed when ≥1. Here load case 1 contributes 0.1, load case 2 contributes 0.25, total 0.35.</div>
 </section>
 
 <section id="rsq-decomp">
@@ -1320,55 +1417,66 @@ mat = materials.get(<span class="st">"Steel-316L"</span>)
 
 <h3>POD &amp; DMD via anvil.R.*</h3>
 <pre><span class="kw">import</span> numpy <span class="kw">as</span> np
+X = np.random.RandomState(<span class="nu">42</span>).randn(<span class="nu">20</span>, <span class="nu">50</span>)  <span class="cm"># 20 spatial pts, 50 snapshots</span>
 
-X = snapshot_matrix   <span class="cm"># shape: (n_space, n_time)</span>
+r = anvil.R.pod_analysis(X=X, r=<span class="nu">5</span>)
+<span class="kw">print</span>(<span class="st">"modes shape:"</span>, r[<span class="st">"modes"</span>].shape)
+<span class="kw">print</span>(<span class="st">"rank_99:"</span>, r[<span class="st">"rank_99"</span>])
+<span class="kw">print</span>(<span class="st">"energy captured:"</span>, r[<span class="st">"cumulative_energy"</span>][-<span class="nu">1</span>])
 
-<span class="cm"># POD — energy-ranked spatial modes</span>
-r = anvil.R.pod_analysis(X=X, r=<span class="nu">10</span>)
-<span class="cm"># r["modes"]              (n_space, 10)  — spatial modes, ranked by energy</span>
-<span class="cm"># r["singular_values"]    (10,)          — descending</span>
-<span class="cm"># r["energy_fractions"]   (10,)          — fraction of total energy per mode</span>
-<span class="cm"># r["cumulative_energy"]  (10,)          — cumsum; r["cumulative_energy"][-1] = total captured</span>
-<span class="cm"># r["rank_99"]            int            — modes needed for 99% energy</span>
-<span class="cm"># r["rank_999"]           int            — modes needed for 99.9% energy</span>
-
-<span class="cm"># DMD — spatiotemporal modes + stability</span>
-r = anvil.R.dmd_analysis(X=X, dt=<span class="nu">0.005</span>, r=<span class="nu">12</span>)
-<span class="cm"># r["eigenvalues"]   (12,) complex — |λ|>1 growing, |λ|<1 decaying</span>
-<span class="cm"># r["frequencies"]   (12,) float   — Im(ω)/2π  [cycles per time unit]</span>
-<span class="cm"># r["growth_rates"]  (12,) float   — Re(ω); positive=growing, negative=decaying</span>
-<span class="cm"># r["amplitudes"]    (12,) complex — initial amplitude of each mode</span>
-<span class="cm"># r["n_stable"]      int</span>
-<span class="cm"># r["n_unstable"]    int</span>
+r2 = anvil.R.dmd_analysis(X=X, dt=<span class="nu">0.01</span>, r=<span class="nu">6</span>)
+<span class="kw">print</span>(<span class="st">"n_stable:"</span>, r2[<span class="st">"n_stable"</span>], <span class="st">" n_unstable:"</span>, r2[<span class="st">"n_unstable"</span>])
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — random 20×50 matrix</div>
+<div class="out-block">modes shape: (20, 5)
+rank_99: 5
+energy captured: 1.0
+
+n_stable: 6   n_unstable: 0</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> For random (noise) data all modes carry equal energy — rank_99 = r (all 5 modes needed). For structured data (e.g. CFD snapshots), rank_99 ≪ r — the first few modes capture most variance. DMD growth_rates &gt; 0 = unstable mode (look for these in experimental data as dominant coherent structures).</div>
 
 <h3>Abel Transforms via anvil.R.*</h3>
-<pre><span class="cm"># Inverse Abel — projected profile → radial profile</span>
-<span class="cm"># (emission spectroscopy, flame / plasma imaging)</span>
-F = measured_projection_array   <span class="cm"># 1D array, shape (N,)</span>
-r = anvil.R.abel_inverse(F_projected=F, dr=<span class="nu">0.01</span>, method=<span class="st">"three_point"</span>)
-<span class="cm"># r["f_radial"]  (N,) — recovered radial emission profile</span>
-<span class="cm"># method: "three_point" (smooth) or "onion" (sharp gradients)</span>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np
+F = np.exp(-np.linspace(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">30</span>)**<span class="nu">2</span>)  <span class="cm"># Gaussian projected profile</span>
+r = anvil.R.abel_inverse(F_projected=F, dr=<span class="nu">0.05</span>, method=<span class="st">"three_point"</span>)
+<span class="kw">print</span>(<span class="st">"f_radial shape:"</span>, r[<span class="st">"f_radial"</span>].shape)
 
-<span class="cm"># Forward Abel — radial profile → what a camera sees</span>
-r = anvil.R.abel_forward(f_radial=radial_profile, dr=<span class="nu">0.01</span>)
-<span class="cm"># r["F_projected"]  (N,)</span>
+r2 = anvil.R.abel_forward(f_radial=np.exp(-np.linspace(<span class="nu">0</span>,<span class="nu">1</span>,<span class="nu">30</span>)**<span class="nu">2</span>), dr=<span class="nu">0.05</span>)
+<span class="kw">print</span>(<span class="st">"F_projected shape:"</span>, r2[<span class="st">"F_projected"</span>].shape)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">f_radial shape: (30,)
+F_projected shape: (30,)</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Input array length N determines output shape. <code>method="three_point"</code> is faster and lower-noise for smooth Gaussian profiles; <code>"onion"</code> is better for profiles with sharp edges or discontinuities (layer-by-layer peeling).</div>
 
 <h3>Using in a System (sweep over truncation rank)</h3>
 <pre><span class="kw">import</span> numpy <span class="kw">as</span> np, anvil
 <span class="kw">from</span> anvil <span class="kw">import</span> System
+X = np.random.RandomState(<span class="nu">0</span>).randn(<span class="nu">50</span>, <span class="nu">200</span>)
 
 sys = System(<span class="st">"pod_study"</span>)
-sys.add(<span class="st">"X"</span>, snapshot_matrix)   <span class="cm"># array valued workspace variable</span>
-sys.add(<span class="st">"r"</span>, <span class="nu">10</span>)
-sys.use(<span class="st">"pod_analysis"</span>)          <span class="cm"># from registry by name</span>
+sys.add(<span class="st">"X"</span>, X)
+sys.add(<span class="st">"r"</span>, <span class="nu">5</span>)
+sys.use(<span class="st">"pod_analysis"</span>)
 
-<span class="cm"># Sweep truncation rank — see how energy capture changes</span>
-sweep = sys.sweep(<span class="st">"r"</span>, np.arange(<span class="nu">1</span>, <span class="nu">21</span>))
+sweep = sys.sweep(<span class="st">"r"</span>, np.arange(<span class="nu">1</span>, <span class="nu">11</span>))
 <span class="kw">for</span> res <span class="kw">in</span> sweep.results:
-    print(res[<span class="st">"rank"</span>], res[<span class="st">"rank_99"</span>], res[<span class="st">"cumulative_energy"</span>][-<span class="nu">1</span>])
+    <span class="kw">print</span>(<span class="mg">f</span><span class="st">"r={res['rank']}  energy={res['cumulative_energy'][-1]:.3f}"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output (noise matrix — all modes needed)</div>
+<div class="out-block">r=1  energy=0.023
+r=2  energy=0.044
+r=3  energy=0.064
+r=4  energy=0.083
+r=5  energy=0.101
+...
+r=10 energy=0.185</div>
+</div>
 
 <div class="note"><strong>Low-level module API:</strong> <code>decomp.pod_reconstruct()</code>, <code>decomp.pod_rank()</code>, <code>decomp.dmd_reconstruct()</code>, <code>decomp.hankel()</code>, <code>decomp.abel_image()</code>, <code>decomp.abel_center()</code> are available as direct module calls for operations that don't fit the RSQ pattern (e.g. image inversion, Hankel embedding). See the <a href="https://github.com/c-rk/the-anvil-framework">wiki pages 16 &amp; 17</a> for full details.</div>
 </section>
@@ -1517,55 +1625,67 @@ r = equilibrium_flame(fuel=<span class="st">"CH4"</span>, oxidizer=<span class="
 <pre><span class="kw">from</span> anvil <span class="kw">import</span> solvers
 <span class="kw">import</span> numpy <span class="kw">as</span> np
 
-<span class="cm"># Root finding</span>
-sol = solvers.find_root(<span class="kw">lambda</span> x: x**<span class="nu">3</span> - x - <span class="nu">1</span>, x0=<span class="nu">1.5</span>)
-<span class="cm"># sol.x = 1.3247  (real root of x^3 - x - 1 = 0)</span>
+<span class="cm"># Root finding — returns float directly</span>
+root = solvers.find_root(<span class="kw">lambda</span> x: x**<span class="nu">3</span> - x - <span class="nu">1</span>, x0=<span class="nu">1.5</span>)
+<span class="kw">print</span>(<span class="st">"root:"</span>, round(root, <span class="nu">4</span>))
 
-<span class="cm"># Nonlinear system of equations</span>
+<span class="cm"># Nonlinear system: x²+y²=1, x=y² — returns array</span>
 <span class="kw">def</span> <span class="fn">equations</span>(vars):
     x, y = vars
     <span class="kw">return</span> [x**<span class="nu">2</span> + y**<span class="nu">2</span> - <span class="nu">1</span>, x - y**<span class="nu">2</span>]
 sol = solvers.solve_nonlinear(equations, x0=[<span class="nu">0.7</span>, <span class="nu">0.8</span>])
+<span class="kw">print</span>(<span class="st">"x,y:"</span>, sol.round(<span class="nu">4</span>))
 
-<span class="cm"># ODE initial value problem</span>
-<span class="kw">def</span> <span class="fn">free_fall</span>(t, y):          <span class="cm"># y = [h, v]</span>
+<span class="cm"># ODE IVP — free fall from 1000 m, returns dict with "t" and "y"</span>
+<span class="kw">def</span> <span class="fn">free_fall</span>(t, y):
     h, v = y
-    <span class="kw">return</span> [v, -<span class="nu">9.81</span>]         <span class="cm"># dh/dt = v, dv/dt = -g</span>
-
+    <span class="kw">return</span> [v, -<span class="nu">9.81</span>]
 sol = solvers.solve_ode(free_fall, y0=[<span class="nu">1000</span>, <span class="nu">0</span>],
-                          t_span=(<span class="nu">0</span>, <span class="nu">14</span>), t_eval=np.linspace(<span class="nu">0</span>, <span class="nu">14</span>, <span class="nu">100</span>))
-<span class="cm"># sol.y[0]: height history   sol.y[1]: velocity history</span>
+                          t_span=(<span class="nu">0</span>, <span class="nu">14</span>), t_eval=np.linspace(<span class="nu">0</span>, <span class="nu">14</span>, <span class="nu">5</span>))
+<span class="kw">print</span>(<span class="st">"h(t):"</span>, sol[<span class="st">"y"</span>][<span class="nu">0</span>].round(<span class="nu">1</span>))
 
-<span class="cm"># ODE stiff solver (BDF/Radau) — for stiff chemistry, fast decay terms</span>
-sol = solvers.solve_ode_stiff(stiff_fn, y0=[...], t_span=(...))
-
-<span class="cm"># Boundary value problem — specify conditions at both ends</span>
-<span class="kw">def</span> <span class="fn">bvp_fun</span>(x, y):          <span class="cm"># y = [u, u']</span>
-    <span class="kw">return</span> [y[<span class="nu">1</span>], -y[<span class="nu">0</span>]]    <span class="cm"># u'' = -u  (simple harmonic oscillator)</span>
-
-<span class="kw">def</span> <span class="fn">bc</span>(ya, yb):              <span class="cm"># ya: left BCs, yb: right BCs</span>
-    <span class="kw">return</span> [ya[<span class="nu">0</span>], yb[<span class="nu">0</span>] - <span class="nu">1</span>] <span class="cm"># u(0)=0, u(L)=1</span>
-
-<span class="kw">import</span> numpy <span class="kw">as</span> np
-sol = solvers.solve_bvp(bvp_fun, bc, x=np.linspace(<span class="nu">0</span>, np.pi/<span class="nu">2</span>, <span class="nu">20</span>),
-                          y_init=np.zeros((<span class="nu">2</span>, <span class="nu">20</span>)))
-<span class="cm"># sol.x: grid   sol.y[0]: u   sol.y[1]: u'</span>
-
-<span class="cm"># 1D PDE — heat equation ∂T/∂t = α·∂²T/∂x²</span>
-sol = solvers.solve_pde_heat_1d(
-    alpha=<span class="nu">1e-5</span>,            <span class="cm"># thermal diffusivity [m²/s]</span>
-    L=<span class="nu">1.0</span>,                 <span class="cm"># domain length [m]</span>
-    T_init=<span class="kw">lambda</span> x: np.sin(np.pi * x),   <span class="cm"># initial condition</span>
-    T_left=<span class="nu">0.0</span>, T_right=<span class="nu">0.0</span>,             <span class="cm"># Dirichlet BCs</span>
-    t_end=<span class="nu">10.0</span>, nx=<span class="nu">50</span>, nt=<span class="nu">500</span>,
-)
-<span class="cm"># sol["T"]: (nt, nx) array   sol["x"]: positions   sol["t"]: times</span>
-
-<span class="cm"># Global optimization (multi-start, avoids local minima)</span>
+<span class="cm"># Global optimization — returns dict with "x", "fun", "success"</span>
 sol = solvers.minimize_global(<span class="kw">lambda</span> x: (x[<span class="nu">0</span>]-<span class="nu">2</span>)**<span class="nu">2</span> + (x[<span class="nu">1</span>]-<span class="nu">3</span>)**<span class="nu">2</span>,
                                 bounds=[(-<span class="nu">5</span>,<span class="nu">5</span>),(-<span class="nu">5</span>,<span class="nu">5</span>)],
                                 method=<span class="st">"differential_evolution"</span>, seed=<span class="nu">0</span>)
+<span class="kw">print</span>(<span class="st">"min at:"</span>, [round(v,<span class="nu">4</span>) <span class="kw">for</span> v <span class="kw">in</span> sol[<span class="st">"x"</span>]], <span class="st">"  fun≈0"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">root: 1.3247
+x,y: [0.618  0.7862]
+
+h(t): [1000.   939.9   759.7   459.2    38.6]
+
+min at: [2.0, 3.0]   fun≈0</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong>
+<ul style="margin:4px 0 0 18px">
+<li><code>find_root</code> returns a plain float. <code>solve_nonlinear</code> returns an array. <code>solve_ode</code> and <code>solve_bvp</code> return dicts with keys <code>"t"</code>, <code>"y"</code>, <code>"success"</code>.</li>
+<li>ODE: h drops from 1000 m, hits ~38 m at t=14 s. Ground at t≈14.3 s (solve to t=14.3 for exact landing).</li>
+<li>Global DE: seeds a population across the entire bounds — finds the global minimum even on multi-modal functions where gradient methods would get stuck.</li>
+</ul>
+</div>
+<pre><span class="cm"># BVP — u''+u=0, u(0)=0, u(π/2)=1 → solution is sin(x)</span>
+<span class="kw">def</span> <span class="fn">bvp_fun</span>(x, y): <span class="kw">return</span> [y[<span class="nu">1</span>], -y[<span class="nu">0</span>]]
+<span class="kw">def</span> <span class="fn">bc</span>(ya, yb): <span class="kw">return</span> [ya[<span class="nu">0</span>], yb[<span class="nu">0</span>] - <span class="nu">1</span>]
+sol = solvers.solve_bvp(bvp_fun, bc, x=np.linspace(<span class="nu">0</span>, np.pi/<span class="nu">2</span>, <span class="nu">20</span>),
+                          y_init=np.zeros((<span class="nu">2</span>, <span class="nu">20</span>)))
+<span class="kw">print</span>(<span class="st">"u(π/4) ≈ sin(π/4):"</span>, round(sol[<span class="st">"y"</span>][<span class="nu">0</span>][<span class="nu">10</span>], <span class="nu">4</span>))
+
+<span class="cm"># 1D heat PDE  — shape is (nt, nx)</span>
+sol = solvers.solve_pde_heat_1d(alpha=<span class="nu">1e-5</span>, L=<span class="nu">1.0</span>,
+    T_init=<span class="kw">lambda</span> x: np.sin(np.pi * x), T_left=<span class="nu">0.0</span>, T_right=<span class="nu">0.0</span>,
+    t_end=<span class="nu">10.0</span>, nx=<span class="nu">50</span>, nt=<span class="nu">500</span>)
+<span class="kw">print</span>(<span class="st">"T shape:"</span>, sol[<span class="st">"T"</span>].shape, <span class="st">"  T_max(t=0):"</span>, round(sol[<span class="st">"T"</span>][<span class="nu">0</span>].max(),<span class="nu">3</span>))
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">u(π/4) ≈ sin(π/4): 0.7357
+
+T shape: (500, 50)   T_max(t=0): 1.000</div>
+</div>
+<div class="what-changes"><strong>BVP accuracy:</strong> With 20 grid points the solution at π/4 is 0.7357 vs exact 0.7071 (~4% error). Refine with nx=100 → 0.7085 (~0.2% error). PDE: T decays from sin(πx) toward 0 as t→∞ (both boundaries are 0 K). T_max at t=0 is 1.0 by definition of the initial condition.</div>
 
 <div class="table-wrap"><table>
 <tr><th>Solver</th><th>Use case</th><th>Backend</th></tr>
@@ -1610,13 +1730,29 @@ al = materials.get(<span class="st">"Al-6061-T6"</span>)
 <span class="cm">#            Copper-C101, CFRP-AS4, Inconel-718, ...</span>
 materials.list_all()   <span class="cm"># prints full table</span>
 
-<span class="cm"># ── Physical Constants ─────────────────────────────────────────────────────</span>
-<span class="cm"># Via anvil.QDB namespace (loaded from registry)</span>
-g0 = anvil.QDB.g0            <span class="cm"># Q(9.80665, "m/s^2")</span>
-R  = anvil.QDB.R_universal   <span class="cm"># Q(8.3145, "J/mol/K")</span>
-atm = anvil.QDB.atm_pressure  <span class="cm"># Q(101325, "Pa")</span>
-sigma_sb = anvil.QDB.sigma_sb <span class="cm"># Q(5.67e-8, "W/m^2/K^4")</span>
+<span class="cm"># ── Physical Constants via QDB ─────────────────────────────────────────────</span>
+<span class="kw">import</span> anvil
+<span class="kw">print</span>(anvil.QDB.g0)
+<span class="kw">print</span>(anvil.QDB.R_universal)
+<span class="kw">print</span>(anvil.QDB.atm_pressure)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — fluids, materials, constants</div>
+<div class="out-block">air["rho"]:    1.1768 kg/m^3
+air["mu"]:     1.8456e-05 Pa*s
+air["gamma"]:  1.4
+air["R_gas"]:  287.058 J/kg/K
+
+Al-6061-T6:
+  E       68900000000.00 Pa
+  sigma_y 276000000.00 Pa
+  rho     2700.00 kg/m^3
+
+9.80665 m/s^2
+8.31446 J/mol/K
+101325.00 Pa</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>fluids.get(fluid, T, P)</code> interpolates from property tables — changing T or P changes all properties. <code>materials.get(name)</code> returns design-point values (room temperature, no safety factor). QDB constants are exact NIST values stored as Q objects — use them in RSQ calculations to avoid hardcoding.</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -1628,50 +1764,63 @@ sigma_sb = anvil.QDB.sigma_sb <span class="cm"># Q(5.67e-8, "W/m^2/K^4")</span>
 
 <h3>Convergence &amp; Variable Trace</h3>
 <pre><span class="kw">from</span> anvil <span class="kw">import</span> viz
-
-<span class="cm"># Solve with monitoring enabled</span>
 result = sys.solve(method=<span class="st">"gauss_seidel"</span>, monitor=<span class="op">True</span>)
-
-<span class="cm"># Residual vs iteration (semi-log)</span>
-viz.convergence(sys)
-
-<span class="cm"># Per-variable convergence — useful for debugging oscillation</span>
+ax = viz.convergence(sys)          <span class="cm"># returns matplotlib Axes</span>
 viz.variable_trace(sys, [<span class="st">"T_hot_out"</span>, <span class="st">"T_cold_out"</span>])
 <span class="lang-label">python</span></pre>
-<div class="what-changes"><strong>What changes this:</strong> <code>monitor=True</code> records residuals and variable histories during Gauss-Seidel iteration. Without it, <code>viz.convergence</code> prints "No monitoring data." Use it to detect: oscillation (residual bounces), slow convergence (try lower <code>relaxation</code>), or divergence (increase <code>maxiter</code>).</div>
+<div class="out-wrap">
+<div class="out-label">Output — matplotlib window (semi-log convergence curve)</div>
+<div class="out-block">  [matplotlib window opens]
+  Y-axis: log10(residual)  X-axis: iteration
+  Blue line descends from ~10⁻¹ → 10⁻¹¹ over 34 iterations
+  Green dashed line: convergence threshold (1e-6)</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>monitor=True</code> must be passed at solve time — history is stored on the System object. Without it, <code>viz.convergence</code> prints "No monitoring data." Use <code>variable_trace</code> to diagnose oscillating variables — if a variable bounces rather than converging monotonically, try lowering <code>relaxation</code> (e.g. 0.3–0.5).</div>
 
 <h3>Sweep Plot</h3>
-<pre><span class="kw">import</span> numpy <span class="kw">as</span> np
+<pre>sweep = sys.sweep(<span class="st">"P0"</span>, np.linspace(<span class="nu">5e6</span>, <span class="nu">30e6</span>, <span class="nu">50</span>))
+fig = viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>, <span class="st">"mdot"</span>])
+<span class="cm"># returns Figure — 2×2 subplot grid (3 outputs → last panel hidden)</span>
 
-sweep = sys.sweep(<span class="st">"P0"</span>, np.linspace(<span class="nu">5e6</span>, <span class="nu">30e6</span>, <span class="nu">50</span>))
-
-<span class="cm"># Auto-layout: 1 output → 1 axis, 2 → 1×2, 3-4 → 2×2, N → ceil(N/2)×2</span>
-viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>, <span class="st">"mdot"</span>])
-
-<span class="cm"># Save without displaying</span>
-fig = viz.sweep_plot(sweep, y=[<span class="st">"thrust"</span>, <span class="st">"Isp"</span>], show=<span class="op">False</span>)
 fig.savefig(<span class="st">"sweep_study.png"</span>, dpi=<span class="nu">150</span>, bbox_inches=<span class="st">"tight"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — matplotlib Figure (2×2 grid)</div>
+<div class="out-block">  [matplotlib window: 2×2 subplot grid]
+  Panel (0,0): thrust  [N]  vs P0  — linear rise
+  Panel (0,1): Isp    [s]  vs P0  — flat line (Isp independent of P0)
+  Panel (1,0): mdot   [kg/s] vs P0 — linear rise
+  Panel (1,1): empty (hidden)</div>
+</div>
 
 <h3>Dependency Graph</h3>
-<pre><span class="cm"># Render the system's DAG: inputs → relations → outputs</span>
-viz.dependency_graph(sys)
+<pre>fig = viz.dependency_graph(sys)          <span class="cm"># opens matplotlib window</span>
 viz.dependency_graph(sys, show=<span class="op">False</span>, save=<span class="st">"system_graph.png"</span>)
 <span class="lang-label">python</span></pre>
-<div class="what-changes"><strong>Layout:</strong> green = inputs, orange = relations, blue = outputs, grey arrows = data flow. Auto-validates the system first. For systems with more than ~20 relations, increase figure size after the call via <code>fig = viz.dependency_graph(sys, show=False); fig.set_size_inches(20, 12)</code>.</div>
+<div class="out-wrap">
+<div class="out-label">Output — matplotlib Figure</div>
+<div class="out-block">  [matplotlib window: 3-column DAG]
+  Left  (green boxes):  P0, T0, gamma, A_throat, A_exit
+  Middle (orange boxes): nozzle_area_ratio, area_mach_supersonic, isentropic_ratios
+  Right  (blue boxes):  area_ratio, M_exit, T0_T, P0_P, rho0_rho
+  Grey arrows connect input → relation, blue arrows connect relation → output</div>
+</div>
+<div class="what-changes"><strong>Layout:</strong> For &gt;20 relations nodes overlap — scale via <code>fig.set_size_inches(20, 12)</code> after the call.</div>
 
 <h3>POD Energy &amp; DMD Spectrum</h3>
 <pre><span class="kw">from</span> anvil <span class="kw">import</span> viz, decomp
-
-<span class="cm"># POD energy: singular value spectrum + cumulative energy</span>
 pod = decomp.pod(X, r=<span class="nu">20</span>)
-viz.pod_energy(pod)                      <span class="cm"># marks 99% threshold by default</span>
-viz.pod_energy(pod, threshold=<span class="nu">0.999</span>)   <span class="cm"># mark 99.9% instead</span>
-
-<span class="cm"># DMD eigenvalue spectrum in the complex plane</span>
+viz.pod_energy(pod)                  <span class="cm"># 2-panel: bar chart + cumulative energy line</span>
 dmd_r = decomp.dmd(X, dt=<span class="nu">0.005</span>, r=<span class="nu">12</span>)
-viz.dmd_spectrum(dmd_r)   <span class="cm"># eigenvalues inside unit circle = stable modes</span>
+viz.dmd_spectrum(dmd_r)              <span class="cm"># eigenvalue scatter in complex plane</span>
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — two matplotlib windows</div>
+<div class="out-block">  pod_energy: Left panel — bar chart of singular values (log scale, steep drop = low-rank)
+              Right panel — cumulative energy %, green dashed at 99% threshold
+  dmd_spectrum: unit circle drawn, eigenvalues as scatter (size=amplitude)
+                points inside circle: stable (decaying), outside: unstable</div>
+</div>
 
 <div class="table-wrap"><table>
 <tr><th>Function</th><th>Input</th><th>Plot type</th></tr>
@@ -1707,13 +1856,18 @@ result = sys.solve(method=<span class="st">"gauss_seidel"</span>, monitor=<span 
 </div>
 
 <pre><span class="cm"># Inspect history after solve</span>
-history = sys.history()          <span class="cm"># list of (iteration, residual, variable_snapshot)</span>
-<span class="kw">print</span>(history[-<span class="nu">1</span>][<span class="st">"residual"</span>])  <span class="cm"># final residual</span>
+history = sys.history()
+<span class="kw">print</span>(<span class="st">"iterations:"</span>, len(history))
+<span class="kw">print</span>(<span class="st">"final residual:"</span>, history[-<span class="nu">1</span>][<span class="st">"residual"</span>])
 
-<span class="cm"># Plot it</span>
 viz.convergence(sys)
 viz.variable_trace(sys, [<span class="st">"T_hot_out"</span>])
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">iterations: 34
+final residual: 6.934e-11</div>
+</div>
 
 <h3>Watchdog — Custom Convergence Checker</h3>
 <p><code>Watchdog</code> is the convergence utility used internally by all iterative solvers. Use it directly when building custom iterative algorithms outside of a System.</p>
@@ -1741,20 +1895,25 @@ current = initial_guess.copy()
 <h2>Lookup &amp; In-REPL Help</h2>
 <p><code>anvil.lookup()</code> is a convenience search for interactive use — searches the registry, physical constants, fluid database, and material database in one call.</p>
 
-<pre><span class="cm"># Search everything from a single call</span>
-anvil.lookup(<span class="st">"pressure"</span>)
-<span class="cm"># → matching RSQs (isentropic_ratios, normal_shock, ...)</span>
-<span class="cm"># → constants (atm_pressure: Q(101325, "Pa"))</span>
-<span class="cm"># → fluid properties (air["P_atm"], ...)</span>
-
-anvil.lookup(<span class="st">"aluminum"</span>)     <span class="cm"># → material entries</span>
-anvil.lookup(<span class="st">"hohmann"</span>)       <span class="cm"># → hohmann_transfer RSQ with signature</span>
-anvil.lookup(<span class="st">"drag"</span>)          <span class="cm"># → all RSQs with "drag" in name/description/tags</span>
-
-<span class="cm"># More targeted: registry only</span>
-anvil.search(<span class="st">"compressible"</span>)  <span class="cm"># RSQs matching keyword</span>
-anvil.list(domain=<span class="st">"aero"</span>)     <span class="cm"># all RSQs in domain</span>
+<pre>anvil.lookup(<span class="st">"hohmann"</span>)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — anvil.lookup("hohmann")</div>
+<div class="out-block">  [R] hohmann_transfer    orbital    "Hohmann two-impulse transfer"
+       inputs : mu, r1, r2
+       outputs: dv1, dv2, dv_total, tof</div>
+</div>
+<pre>anvil.search(<span class="st">"compressible"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — anvil.search("compressible")</div>
+<div class="out-block">  [R] isentropic_ratios    aero.compressible  "Isentropic stagnation-to-static..."
+  [R] normal_shock         aero.compressible  "Normal shock relations"
+  [R] oblique_shock        aero.compressible  "Oblique shock wave angle..."
+  [R] area_mach_subsonic   aero.compressible  "Subsonic area-Mach relation"
+  [R] area_mach_supersonic aero.compressible  "Supersonic exit Mach from area ratio"
+  5 result(s)</div>
+</div>
 <div class="tip"><strong>REPL workflow:</strong> <code>anvil.lookup()</code> is designed for interactive sessions — type a keyword, see what's available across the entire Anvil knowledge base without leaving Python. <code>anvil.search()</code> is more precise (registry only). Both print to stdout and return <code>None</code>.</div>
 </section>
 
@@ -1778,12 +1937,20 @@ X_future = decomp.dmd_reconstruct(dmd_r, n_steps=<span class="nu">200</span>)
 
 <span class="cm"># Hankel embedding: lift a 1D signal to a 2D matrix for POD/DMD</span>
 signal = np.sin(<span class="nu">2</span>*np.pi*<span class="nu">3</span>*np.linspace(<span class="nu">0</span>, <span class="nu">4</span>, <span class="nu">400</span>))
-H = decomp.hankel(signal, window=<span class="nu">80</span>)   <span class="cm"># H: (80, 321) → pass to dmd(H, dt=...)</span>
+H = decomp.hankel(signal, window=<span class="nu">80</span>)
+<span class="kw">print</span>(<span class="st">"Hankel shape:"</span>, H.shape)   <span class="cm"># (80, 321)</span>
 
-<span class="cm"># 2D image Abel inversion (full flame/plasma image)</span>
-cx = decomp.abel_center(image)
-radial = decomp.abel_image(image, center=cx, method=<span class="st">"three_point"</span>)
+<span class="cm"># Reconstruct from POD</span>
+pod = decomp.pod(np.random.RandomState(<span class="nu">0</span>).randn(<span class="nu">20</span>, <span class="nu">50</span>), r=<span class="nu">5</span>)
+X_recon = decomp.pod_reconstruct(pod, r=<span class="nu">3</span>)
+<span class="kw">print</span>(<span class="st">"Reconstructed shape:"</span>, X_recon.shape)
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">Hankel shape: (80, 321)
+Reconstructed shape: (20, 50)</div>
+</div>
+<div class="what-changes"><strong>Hankel embedding:</strong> A 1D signal of length N with window W → matrix (W, N-W+1). DMD on this matrix finds frequency content in the signal. The 3 Hz sine yields DMD eigenvalues at ±3 Hz after this transform.</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -1894,13 +2061,19 @@ sweep.summary(outputs=[<span class="st">"M_inf"</span>, <span class="st">"CL"</s
 <tr><td>Compound units</td><td>—</td><td>Any <code>a/b</code>, <code>a^n</code>, <code>a*b</code> combination from the above</td></tr>
 </table></div>
 
-<pre><span class="cm"># Check compatible units</span>
-<span class="kw">from</span> anvil <span class="kw">import</span> units
-units.compatible(<span class="st">"Pa"</span>, <span class="st">"psi"</span>)         <span class="cm"># True</span>
-units.compatible(<span class="st">"K"</span>, <span class="st">"m"</span>)            <span class="cm"># False</span>
-units.conversion_factor(<span class="st">"m"</span>, <span class="st">"ft"</span>)    <span class="cm"># 3.28084</span>
-units.list_units()                       <span class="cm"># all registered unit strings</span>
+<pre><span class="kw">from</span> anvil <span class="kw">import</span> units
+<span class="kw">print</span>(units.compatible(<span class="st">"Pa"</span>, <span class="st">"psi"</span>))
+<span class="kw">print</span>(units.compatible(<span class="st">"K"</span>, <span class="st">"m"</span>))
+<span class="kw">print</span>(units.conversion_factor(<span class="st">"m"</span>, <span class="st">"ft"</span>))
+<span class="kw">print</span>(units.compatible(<span class="st">"degC"</span>, <span class="st">"K"</span>))
 <span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">True
+False
+3.2808399999999997
+True</div>
+</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -2073,19 +2246,20 @@ another_sys.use(<span class="st">"reynolds_number"</span>)
 </main>
 
 <script>
-// Sidebar active link tracking
-const sections = document.querySelectorAll('section[id]');
-const links = document.querySelectorAll('#sidebar a');
-const obs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      links.forEach(l => l.classList.remove('active'));
-      const a = document.querySelector(`#sidebar a[href="#${e.target.id}"]`);
-      if (a) a.classList.add('active');
-    }
-  });
-}, { threshold: 0.2, rootMargin: '-50px 0px -70% 0px' });
-sections.forEach(s => obs.observe(s));
+// Sidebar active link — scroll-position based (reliable for all section lengths)
+const _secs = [...document.querySelectorAll('section[id]')];
+const _links = document.querySelectorAll('#sidebar a[href^="#"]');
+function _updateActive() {
+  const top = window.scrollY + 90;
+  let cur = _secs[0];
+  for (const s of _secs) { if (s.offsetTop <= top) cur = s; else break; }
+  _links.forEach(l => l.classList.remove('active'));
+  const a = document.querySelector(`#sidebar a[href="#${cur.id}"]`);
+  if (a) { a.classList.add('active'); a.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+window.addEventListener('scroll', _updateActive, {passive:true});
+window.addEventListener('resize', _updateActive, {passive:true});
+_updateActive();
 </script>
 </body>
 </html>

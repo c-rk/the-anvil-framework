@@ -84,20 +84,40 @@ Reduces iteration count significantly for slowly varying parameters. Incompatibl
 
 ## 2. Quantity Gotchas
 
-### Celsius and Fahrenheit NOT supported
+### Celsius and Fahrenheit — offset arithmetic ✓ supported (v1.3+)
+
+`degC`, `°C`, `degF`, `°F` are now registered as offset units with full conversion:
 
 ```python
-Q(25, "°C")   # creates custom dimension "°C" — NOT 298.15 K
-Q(25, "C")    # creates custom dimension "C"
-Q(77, "F")    # creates custom dimension "F"
+Q(25, "degC").si          # 298.15 K — correct
+Q(25, "degC").to("K")     # 298.15 K
+Q(25, "degC").to("degF")  # 77.00 degF
+Q(32, "degF").to("K")     # 273.15 K
 ```
 
-There is no offset-based unit conversion. Convert manually:
+**Gotcha — arithmetic between offset temperatures:**
 
 ```python
-T_K = Q(25 + 273.15, "K")    # Celsius to Kelvin
-T_K = Q((77 - 32) * 5/9 + 273.15, "K")   # Fahrenheit to Kelvin
+Q(100, "degC") + Q(100, "degC")
+# SI values: 373.15 + 373.15 = 746.30 K
+# → displayed as 746.30 K (not 200°C)
 ```
+
+Addition/subtraction operates on SI (Kelvin) values. The result has no `_unit_hint`, so it displays in K. This is the correct behaviour for absolute temperature arithmetic — adding two absolute temperatures is physically meaningful only as K. For temperature *differences*, the result is correct. If you need to display the result in °C:
+
+```python
+result = Q(100, "degC") + Q(0, "degC")  # purely as K arithmetic
+print(result.to("degC"))  # 100.00 degC — force display unit
+```
+
+**Gotcha — `"C"` or `"F"` still create custom dimensions:**
+
+```python
+Q(25, "C")   # custom dim [C] — NOT Celsius
+Q(77, "F")   # custom dim [F] — NOT Fahrenheit
+```
+
+Use `"degC"` / `"°C"` / `"degF"` / `"°F"` explicitly.
 
 ### Adding scalar to dimensional Q
 
@@ -422,6 +442,10 @@ Each sweep point stores a full Result object with all workspace variables. For l
 | `anvil.R.*` stale after `push()` | ✓ **Fixed** | Namespace rebuilt automatically |
 | DOF: declared var overwritten with no warning | ✓ **Fixed** | `validate()` warns once per system |
 | No warm-start between sweep points | ✓ **Fixed** | `sweep(warm_start=True)` |
+| Celsius/Fahrenheit not supported | ✓ **Fixed** (v1.3) | `degC`, `°C`, `degF`, `°F` with full offset arithmetic |
+| Seed not updating changed built-in RSQs | ✓ **Fixed** (v1.3) | Source strings compared; changed RSQs re-seed automatically |
+| Beam RSQ `max_moment` wrong unit (`"N"` instead of `"N*m"`) | ✓ **Fixed** (v1.3) | Corrected in seed.py |
+| `deg` unit not working as angle input to RSQs | ✓ **Fixed** (v1.3) | `_rad()` helper in loader handles both `Q(deg)` and plain float |
 | `viz.dependency_graph()` overlaps nodes for large systems | Open | Scale figure: `fig.set_size_inches(20, 15)` |
 | `block` relation returns all workspace keys, not just declared outputs | Open | Access only the keys you care about |
 | `_qty_compatible` cache resets on `copy()` | Open | Negligible — first call recaches |
@@ -430,3 +454,5 @@ Each sweep point stores a full Result object with all workspace variables. For l
 | `anvil.project()` prints "Project opened" in silent scripts | Open | Redirect stdout if needed |
 | `as_relation()` closure re-validates on every call | Open | Avoid composition inside tight loops |
 | `solve_ode` `success=True` for singular/ill-conditioned problems | Open | Check `r["message"]`; validate results physically |
+| `degC`/`degF` arithmetic result displays in K, not °C | By design | Use `.to("degC")` on result if display unit matters |
+| `"C"` or `"F"` (without prefix) create custom dimensions, not Celsius/Fahrenheit | By design | Always use `"degC"` / `"°C"` / `"degF"` / `"°F"` |

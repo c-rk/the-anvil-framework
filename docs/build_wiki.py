@@ -125,143 +125,164 @@ HTML_TEMPLATE = """\
 *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
 html{{scroll-behavior:smooth}}
 body{{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-     font-size:15px;line-height:1.75;color:#1a1a2e;background:#f7f8fa}}
+     font-size:15px;line-height:1.78;color:#1a1a2e;background:#f7f8fa}}
 
 /* ── Layout ─────────────────────────────────────────────────────────────────── */
 #sidebar{{
-  position:fixed;top:0;left:0;width:270px;height:100vh;
+  position:fixed;top:0;left:0;width:268px;height:100vh;
   background:#0d1117;color:#c9d1d9;overflow-y:auto;
-  padding:0 0 40px;z-index:100;font-size:13.5px;
+  padding:0 0 48px;z-index:100;font-size:13px;
 }}
-#sidebar::-webkit-scrollbar{{width:4px}}
-#sidebar::-webkit-scrollbar-thumb{{background:#333;border-radius:2px}}
-#main{{margin-left:270px;min-height:100vh;padding:0}}
-.page-wrap{{max-width:900px;padding:48px 56px 80px}}
+#sidebar::-webkit-scrollbar{{width:3px}}
+#sidebar::-webkit-scrollbar-thumb{{background:#242b36;border-radius:2px}}
+#main{{margin-left:268px;min-height:100vh;padding:0}}
+.page-wrap{{max-width:920px;padding:52px 60px 90px}}
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
 .sb-brand{{
-  padding:22px 20px 16px;border-bottom:1px solid #21262d;
-  font-weight:700;font-size:16px;color:#58a6ff;letter-spacing:-.3px;
+  padding:24px 20px 16px;border-bottom:1px solid #1a2130;
+  font-family:'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+  font-weight:400;font-size:15px;color:#a8c4e0;letter-spacing:.3px;
   cursor:pointer;
 }}
-.sb-brand small{{display:block;font-size:11px;color:#8b949e;font-weight:400;margin-top:3px}}
-.sb-search{{
-  padding:10px 14px;border-bottom:1px solid #21262d;
-}}
+.sb-brand small{{display:block;font-size:11px;color:#4a5a6a;
+  font-weight:400;margin-top:4px;font-style:italic;letter-spacing:.2px}}
+.sb-search{{padding:10px 14px;border-bottom:1px solid #1a2130}}
 .sb-search input{{
-  width:100%;background:#161b22;border:1px solid #30363d;
-  color:#c9d1d9;border-radius:6px;padding:6px 10px;font-size:13px;
-  outline:none;
+  width:100%;background:#131920;border:1px solid #252e3b;
+  color:#c9d1d9;border-radius:5px;padding:6px 10px;font-size:12.5px;
+  outline:none;font-family:inherit;transition:border-color .15s;
 }}
-.sb-search input:focus{{border-color:#58a6ff}}
+.sb-search input:focus{{border-color:#4a7fa0}}
 .sb-section{{
-  padding:12px 20px 4px;font-size:10px;text-transform:uppercase;
-  letter-spacing:.8px;color:#6e7681;font-weight:600;margin-top:4px;
+  padding:13px 20px 4px;font-size:9.5px;text-transform:uppercase;
+  letter-spacing:1.1px;color:#3d4d5e;font-weight:600;margin-top:6px;
+  font-family:'Segoe UI',system-ui,sans-serif;
 }}
 #sidebar a{{
-  display:block;padding:5px 20px 5px 26px;color:#8b949e;
-  text-decoration:none;transition:color .15s,background .15s;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+  display:block;padding:4px 20px 4px 26px;color:#7a8a9a;
+  text-decoration:none;transition:color .12s,background .12s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  cursor:pointer;line-height:1.7;
 }}
-#sidebar a:hover{{color:#e6edf3;background:#161b22}}
-#sidebar a.active{{color:#58a6ff;background:#161b22;
-  border-left:2px solid #58a6ff;padding-left:24px;font-weight:600}}
-.search-highlight{{background:#ffd700;color:#000;border-radius:2px;padding:0 2px}}
+#sidebar a:hover{{color:#c8d8e8;background:#111820}}
+#sidebar a.active{{color:#7eb8d8;background:#0e1620;
+  border-left:1px solid #4a7fa0;padding-left:25px}}
+.search-highlight{{background:#f5d76e;color:#1a1a2e;border-radius:2px;padding:0 2px}}
 
 /* ── Typography ──────────────────────────────────────────────────────────────── */
-.wiki-page h1{{font-size:2em;font-weight:800;color:#0f1117;
-  line-height:1.2;margin:0 0 10px}}
-.wiki-page h2{{font-size:1.45em;font-weight:700;color:#0f1117;
-  margin:40px 0 12px;padding-top:18px;border-top:2px solid #e1e4e8}}
+.wiki-page h1{{
+  font-family:'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+  font-size:2.1em;font-weight:300;color:#0f1117;
+  line-height:1.2;margin:0 0 12px;letter-spacing:-.2px;
+}}
+.wiki-page h2{{
+  font-family:'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+  font-size:1.42em;font-weight:400;color:#0f1117;
+  margin:44px 0 14px;padding-top:20px;border-top:1px solid #e1e4e8;
+  letter-spacing:-.05px;
+}}
 .wiki-page h2:first-child{{border-top:none;margin-top:0;padding-top:0}}
-.wiki-page h3{{font-size:1.18em;font-weight:700;color:#24292f;margin:28px 0 10px}}
-.wiki-page h4{{font-size:1em;font-weight:600;color:#444d56;margin:18px 0 6px}}
+.wiki-page h3{{font-size:1.08em;font-weight:600;color:#1a2432;margin:28px 0 10px}}
+.wiki-page h4{{font-size:.96em;font-weight:600;color:#444d56;margin:18px 0 6px}}
 .wiki-page p{{margin:10px 0;color:#24292f}}
 .wiki-page ul,.wiki-page ol{{margin:10px 0 10px 22px}}
-.wiki-page li{{margin:5px 0}}
+.wiki-page li{{margin:4px 0}}
 .wiki-page strong{{color:#0f1117}}
-.wiki-page em{{color:#555}}
+.wiki-page em{{color:#57606a;font-style:italic}}
 .wiki-page blockquote{{
-  border-left:4px solid #58a6ff;padding:10px 16px;
-  background:#f0f7ff;border-radius:0 6px 6px 0;margin:14px 0;
-  color:#0550ae;font-style:normal;
+  border-left:3px solid #4a7fa0;padding:10px 16px;
+  background:#f0f5fb;border-radius:0 6px 6px 0;margin:16px 0;
+  color:#2a4a6a;font-style:normal;
 }}
-.wiki-page hr{{border:none;border-top:1px solid #d0d7de;margin:28px 0}}
-.wiki-page a{{color:#0969da;text-decoration:none}}
-.wiki-page a:hover{{text-decoration:underline}}
+.wiki-page hr{{border:none;border-top:1px solid #e1e4e8;margin:30px 0}}
+.wiki-page a{{color:#2a6fa0;text-decoration:none}}
+.wiki-page a:hover{{text-decoration:underline;color:#0969da}}
+
+/* ── Page transition ─────────────────────────────────────────────────────────── */
+.wiki-page{{animation:fadein .18s ease}}
+@keyframes fadein{{from{{opacity:0;transform:translateY(4px)}}to{{opacity:1;transform:none}}}}
 
 /* ── Code ────────────────────────────────────────────────────────────────────── */
 .wiki-page :not(pre) > code {{
   font-family:'Consolas','Cascadia Code','Fira Mono',monospace;
-  font-size:.87em;background:#f0f2f5;color:#c7254e;
+  font-size:.86em;background:#eef0f4;color:#b5303a;
   padding:1px 6px;border-radius:4px;
 }}
-.wiki-page pre{{margin:14px 0;border-radius:8px;overflow-x:auto;border:1px solid #30363d}}
+.wiki-page pre{{margin:14px 0;border-radius:7px;overflow-x:auto;border:1px solid #2a3340}}
 .wiki-page pre code {{
   background:none!important;color:inherit!important;padding:0!important;
   border-radius:0!important;font-size:1em!important;
 }}
-/* Override codehilite to use our dark theme */
-.codehilite{{background:#0d1117!important;padding:18px 22px;border-radius:8px;
+.codehilite{{background:#0d1117!important;padding:18px 22px;border-radius:7px;
   font-family:'Consolas','Cascadia Code','Fira Mono',monospace;font-size:.84em;
-  line-height:1.6;border:1px solid #30363d;overflow-x:auto}}
+  line-height:1.62;border:1px solid #2a3340;overflow-x:auto}}
 .codehilite .hll{{background:#ff03}}
-/* Pygments one-dark overrides */
 PYGMENTS_CSS_PLACEHOLDER
 
 /* ── Tables ──────────────────────────────────────────────────────────────────── */
-.wiki-page table{{border-collapse:collapse;width:100%;font-size:.88em;margin:14px 0;overflow-x:auto;display:block}}
+.wiki-page .table-wrap{{overflow-x:auto;margin:14px 0}}
+.wiki-page table{{border-collapse:collapse;width:100%;font-size:.88em;margin:0}}
 .wiki-page th{{background:#0d1117;color:#e6edf3;padding:9px 14px;
-  text-align:left;font-weight:600;white-space:nowrap}}
-.wiki-page td{{padding:8px 14px;border-bottom:1px solid #e1e4e8;vertical-align:top}}
-.wiki-page tr:hover td{{background:#f6f8fa}}
-.wiki-page td code{{background:#f0f2f5;color:#c7254e}}
+  text-align:left;font-weight:500;white-space:nowrap;letter-spacing:.02em}}
+.wiki-page td{{padding:7px 14px;border-bottom:1px solid #eaecf0;vertical-align:top}}
+.wiki-page tr:last-child td{{border-bottom:none}}
+.wiki-page tr:hover td{{background:#f5f7fa}}
+.wiki-page td code{{background:#eef0f4;color:#b5303a}}
 
 /* ── TOC ─────────────────────────────────────────────────────────────────────── */
 .wiki-page .toc{{
-  background:#f6f8fa;border:1px solid #d0d7de;border-radius:8px;
-  padding:16px 20px;margin:0 0 28px;font-size:.9em;
+  background:#f8f9fb;border:1px solid #d8dce4;border-radius:7px;
+  padding:16px 22px;margin:0 0 30px;font-size:.89em;
 }}
 .wiki-page .toc ul{{margin:4px 0 4px 16px;list-style:none}}
-.wiki-page .toc li{{margin:2px 0}}
-.wiki-page .toc a{{color:#0969da}}
+.wiki-page .toc li{{margin:3px 0}}
+.wiki-page .toc a{{color:#2a6fa0}}
+.wiki-page .toc a:hover{{color:#0969da}}
 .wiki-page .toc::before{{
-  content:'Contents';display:block;font-weight:700;
-  color:#24292f;margin-bottom:8px;font-size:.95em;
+  content:'Contents';display:block;
+  font-family:'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;
+  font-weight:400;font-size:1em;color:#1a2432;margin-bottom:10px;
+  letter-spacing:.02em;
 }}
 
 /* ── Header bar ──────────────────────────────────────────────────────────────── */
 #topbar{{
-  background:#fff;border-bottom:1px solid #e1e4e8;
-  padding:14px 56px 14px 40px;display:flex;align-items:center;gap:16px;
+  background:#fff;border-bottom:1px solid #e8eaee;
+  padding:12px 56px 12px 36px;display:flex;align-items:center;gap:16px;
   position:sticky;top:0;z-index:90;
 }}
-#topbar .breadcrumb{{color:#6e7681;font-size:.9em}}
-#topbar .breadcrumb span{{color:#0969da;font-weight:600}}
-#topbar .nav-btns{{margin-left:auto;display:flex;gap:8px}}
+#topbar .breadcrumb{{color:#7a8694;font-size:.88em;letter-spacing:.01em}}
+#topbar .breadcrumb span{{color:#2a6fa0;font-weight:600}}
+#topbar .nav-btns{{margin-left:auto;display:flex;gap:6px}}
 #topbar button{{
-  background:#f0f2f5;border:1px solid #d0d7de;border-radius:6px;
-  padding:5px 12px;font-size:.85em;cursor:pointer;color:#24292f;
-  transition:background .15s;
+  background:transparent;border:1px solid #d0d7de;border-radius:5px;
+  padding:4px 12px;font-size:.82em;cursor:pointer;color:#555f6d;
+  transition:all .12s;letter-spacing:.01em;
 }}
-#topbar button:hover{{background:#e1e4e8}}
+#topbar button:hover{{background:#f0f2f5;border-color:#b0bac4;color:#1a1a2e}}
 
-/* ── Search results overlay ─────────────────────────────────────────────────── */
+/* ── Search overlay ──────────────────────────────────────────────────────────── */
 #search-results{{
-  position:fixed;top:0;left:270px;right:0;bottom:0;background:rgba(0,0,0,.6);
+  position:fixed;top:0;left:268px;right:0;bottom:0;
+  background:rgba(10,14,20,.65);
   z-index:200;display:none;align-items:flex-start;justify-content:center;
-  padding-top:80px;
+  padding-top:80px;backdrop-filter:blur(2px);
 }}
 #search-results.open{{display:flex}}
 #search-box{{
-  background:#fff;border-radius:10px;padding:20px;width:min(700px,90%);
-  max-height:70vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);
+  background:#fff;border-radius:10px;padding:22px;width:min(680px,90%);
+  max-height:68vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.28);
 }}
-#search-box h3{{margin:0 0 14px;font-size:1em;color:#444}}
-.sr-item{{padding:10px 14px;border-radius:6px;cursor:pointer;margin-bottom:6px;border:1px solid #e1e4e8}}
-.sr-item:hover{{background:#f0f7ff;border-color:#58a6ff}}
-.sr-item strong{{color:#0550ae;display:block;font-size:.95em}}
-.sr-item span{{color:#555;font-size:.85em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
+#search-box h3{{margin:0 0 14px;font-size:.95em;color:#555;font-weight:500}}
+.sr-item{{
+  padding:10px 14px;border-radius:6px;cursor:pointer;
+  margin-bottom:5px;border:1px solid #e8eaee;transition:all .1s;
+}}
+.sr-item:hover{{background:#f2f7fc;border-color:#4a7fa0}}
+.sr-item strong{{color:#2a6fa0;display:block;font-size:.93em;margin-bottom:2px}}
+.sr-item span{{color:#57606a;font-size:.84em;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
 </style>
 </head>
 <body>

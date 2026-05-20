@@ -45,6 +45,7 @@ PAGES = [
     ("15",       "Advanced",               "wiki/15_advanced.md"),
     ("16",       "Decomposition",          "wiki/16_decomp.md"),
     ("17",       "Abel Transform",         "wiki/17_abel.md"),
+    ("18",       "CFD Solver",             "wiki/18_cfd.md"),
 ]
 
 # ── Markdown → HTML conversion ────────────────────────────────────────────────
@@ -81,7 +82,7 @@ SECTION_GROUPS = [
     ("Computation",      ["06", "07", "08"]),
     ("RSQs & Adapters",  ["09", "10"]),
     ("Analysis",         ["11", "12"]),
-    ("Reference",        ["13", "14", "15", "16", "17"]),
+    ("Reference",        ["13", "14", "15", "16", "17", "18"]),
 ]
 
 

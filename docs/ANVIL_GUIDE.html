@@ -275,6 +275,7 @@ section { scroll-margin-top: 20px; }
   <a href="#lookup">Lookup</a>
   <a href="#decomp">Decomposition</a>
   <a href="#abel">Abel Transform</a>
+  <a href="#cfd">CFD Solver</a>
   <a href="#unit-table">Unit Table</a>
   <a href="#patterns">Common Patterns</a>
 </nav>
@@ -509,7 +510,7 @@ conda install -c cantera cantera   <span class="cm"># Cantera combustion</span>
 <p>Anvil is not the right tool for every problem. Be specific about where it fits:</p>
 
 <ul>
-  <li><strong>Large-scale FEM / CFD</strong> — Use OpenFOAM, Abaqus, or ANSYS. Anvil's CFD module is for 1D/2D instructional-scale problems.</li>
+  <li><strong>Large-scale FEM / CFD</strong> — Anvil includes a 2D structured Euler solver (<code>anvil.cfd</code>) for parametric studies. For viscous, turbulent, unstructured, or 3D flows use OpenFOAM/SU2/ANSYS via a CLI Adapter.</li>
   <li><strong>Symbolic algebra</strong> — Use SymPy. Anvil operates numerically.</li>
   <li><strong>Real-time control loops</strong> — Anvil solvers are not designed for sub-millisecond execution.</li>
   <li><strong>Gradient-based MDO at scale</strong> — OpenMDAO with analytic derivatives is faster for large design spaces requiring exact Jacobians.</li>
@@ -1783,6 +1784,86 @@ radial = abel.abel_image(image, center=cx, method=<span class="st">"three_point"
 <tr><td><code>abel_image(img, center, method)</code></td><td>2D image → radial</td><td>Full flame/plasma image inversion</td></tr>
 <tr><td><code>abel_center(img)</code></td><td>—</td><td>Auto-detect centerline of symmetric image</td></tr>
 </table></div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     CFD
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="cfd">
+<h2>CFD Solver — 2D Euler</h2>
+<p><code>anvil.cfd</code> is a native finite-volume solver for the 2D Euler (inviscid) equations on structured body-fitted meshes. Handles subsonic through supersonic flows including shocks. Integrates with Anvil Systems via <code>solver.as_relation()</code>.</p>
+
+<pre><span class="kw">from</span> anvil.cfd <span class="kw">import</span> CFDSolver, Mesh
+<span class="kw">from</span> anvil.cfd.bc <span class="kw">import</span> SupersonicInlet, SupersonicOutlet, SlipWall, Farfield
+
+<span class="cm"># 1. Mesh — built-in geometry factories</span>
+mesh = Mesh.wedge(half_angle_deg=<span class="nu">10</span>, chord=<span class="nu">1.0</span>, height=<span class="nu">0.8</span>, nx=<span class="nu">80</span>, ny=<span class="nu">40</span>)
+<span class="cm"># also: Mesh.bump(), Mesh.cartesian(), Mesh.compression_ramp(), Mesh.from_arrays(X,Y)</span>
+
+<span class="cm"># 2. Boundary conditions</span>
+M_inf, p_inf, T_inf = <span class="nu">2.0</span>, <span class="nu">101325.0</span>, <span class="nu">300.0</span>
+bcs = {
+    <span class="st">"west"</span>:  SupersonicInlet(M=M_inf, p=p_inf, T=T_inf),
+    <span class="st">"east"</span>:  SupersonicOutlet(),
+    <span class="st">"south"</span>: SlipWall(),
+    <span class="st">"north"</span>: Farfield(M=M_inf, p=p_inf, T=T_inf),
+}
+
+<span class="cm"># 3. Solver</span>
+solver = CFDSolver(mesh, bcs, gamma=<span class="nu">1.4</span>, flux_scheme=<span class="st">"roe"</span>, order=<span class="nu">2</span>, cfl=<span class="nu">0.5</span>)
+solver.initialize(M=M_inf, p=p_inf, T=T_inf, alpha_deg=<span class="nu">0.0</span>)
+
+<span class="cm"># 4. Run</span>
+result = solver.run(max_iter=<span class="nu">5000</span>, tol=<span class="nu">1e-6</span>, monitor=<span class="op">True</span>, print_every=<span class="nu">200</span>)
+result.summary()
+result.to_vtk(<span class="st">"wedge.vtk"</span>)      <span class="cm"># open in ParaView</span>
+result.to_tecplot(<span class="st">"wedge.dat"</span>)  <span class="cm"># open in Tecplot</span>
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — solver.run() convergence</div>
+<div class="out-block">iter     0   res = 2.4812e+00
+iter   200   res = 4.3271e-01
+iter   400   res = 6.1843e-02
+iter   600   res = 9.2441e-03
+...
+iter  3200   res = 8.4312e-07
+Converged in 3246 iterations  (res = 9.98e-07)</div>
+</div>
+
+<h3>System Integration via as_relation()</h3>
+<p>This is the key Anvil integration point — converts the CFD solver into a Relation with scalar Q inputs/outputs, composable with any System.</p>
+
+<pre><span class="cm"># Wrap solver as an Anvil Relation (scalar Q inputs/outputs)</span>
+rel = solver.as_relation(
+    inputs  = [<span class="st">"M_inf"</span>, <span class="st">"p_inf"</span>, <span class="st">"T_inf"</span>],
+    outputs = [<span class="st">"CL"</span>, <span class="st">"CD"</span>, <span class="st">"M_max"</span>, <span class="st">"p_wall_max"</span>],
+    name    = <span class="st">"wedge_cfd"</span>,
+)
+
+<span class="cm"># Wire into a System and sweep Mach number</span>
+<span class="kw">import</span> anvil, numpy <span class="kw">as</span> np
+sys = anvil.System(<span class="st">"mach_study"</span>)
+sys.add(<span class="st">"M_inf"</span>,  <span class="nu">2.0</span>)
+sys.add(<span class="st">"p_inf"</span>,  <span class="nu">101325.0</span>, <span class="st">"Pa"</span>)
+sys.add(<span class="st">"T_inf"</span>,  <span class="nu">300.0</span>,    <span class="st">"K"</span>)
+sys.use(rel)
+
+<span class="cm"># Sweep M_inf from 1.5 to 3.5 — each point runs full CFD</span>
+sweep = sys.sweep(<span class="st">"M_inf"</span>, np.linspace(<span class="nu">1.5</span>, <span class="nu">3.5</span>, <span class="nu">8</span>), parallel=<span class="nu">4</span>)
+sweep.summary(outputs=[<span class="st">"M_inf"</span>, <span class="st">"CL"</span>, <span class="st">"CD"</span>])
+<span class="lang-label">python</span></pre>
+
+<div class="table-wrap"><table>
+<tr><th>Component</th><th>Options / Notes</th></tr>
+<tr><td>Mesh factories</td><td><code>wedge</code>, <code>bump</code>, <code>cartesian</code>, <code>compression_ramp</code>, <code>from_arrays</code>, <code>from_file</code></td></tr>
+<tr><td>Flux schemes</td><td><code>"roe"</code> (robust, shocks), <code>"hllc"</code> (faster, entropy fix)</td></tr>
+<tr><td>Order</td><td>1 = first-order upwind; 2 = MUSCL (2nd order, requires CFL ≤ 0.5)</td></tr>
+<tr><td>Boundary conditions</td><td>SupersonicInlet/Outlet, SubsonicInlet/Outlet, SlipWall, Farfield, BackPressure, MassFlowInlet</td></tr>
+<tr><td>Post-processing</td><td><code>wall_pressure()</code>, <code>force_coefficients()</code>, <code>to_vtk()</code>, <code>to_tecplot()</code>, <code>to_restart()</code></td></tr>
+<tr><td>Not supported</td><td>Viscous (NS), turbulence, unstructured meshes, real gas EOS, 3D</td></tr>
+</table></div>
+
+<div class="note"><strong>For large-scale / production CFD:</strong> Use OpenFOAM, SU2, or Fluent via a CLI Adapter. Anvil's CFD module is for structured 2D inviscid problems — parametric studies, shock analysis, educational use.</div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════

@@ -919,4 +919,88 @@ _SEED_ENTRIES = [
          '    return {"GM_dB":GM_dB,"PM_deg":PM_deg,"stable":GM_dB>0 and PM_deg>0}\n'
          'export = gain_phase_margin'
      )},
+
+    # ==================== DECOMPOSITION ====================
+    {"name": "pod_analysis", "type": "R", "domain": "decomp.pod",
+     "desc": "Proper Orthogonal Decomposition of snapshot matrix X (n_space × n_time)",
+     "tags": ["pod", "svd", "decomposition", "rom", "modes"],
+     "source": (
+         'def pod_analysis(X, r=None, subtract_mean=True):\n'
+         '    """POD of snapshot matrix X (n_space × n_time). Returns modes, energy, rank."""\n'
+         '    from anvil.decomp import pod, pod_rank\n'
+         '    import numpy as np\n'
+         '    result = pod(X, r=r, subtract_mean=bool(subtract_mean))\n'
+         '    rank_99  = int(pod_rank(result, target_energy=0.99))\n'
+         '    rank_999 = int(pod_rank(result, target_energy=0.999))\n'
+         '    return {\n'
+         '        "modes":                result["modes"],\n'
+         '        "singular_values":      result["singular_values"],\n'
+         '        "temporal_coefficients":result["temporal_coefficients"],\n'
+         '        "energy_fractions":     result["energy_fractions"],\n'
+         '        "cumulative_energy":    result["cumulative_energy"],\n'
+         '        "mean":                 result["mean"],\n'
+         '        "rank":                 result["rank"],\n'
+         '        "rank_99":              rank_99,\n'
+         '        "rank_999":             rank_999,\n'
+         '    }\n'
+         'export = pod_analysis'
+     )},
+
+    {"name": "dmd_analysis", "type": "R", "domain": "decomp.dmd",
+     "desc": "Dynamic Mode Decomposition of snapshot matrix X (n_space × n_time)",
+     "tags": ["dmd", "decomposition", "eigenvalues", "stability", "modes"],
+     "source": (
+         'def dmd_analysis(X, dt=1.0, r=None):\n'
+         '    """DMD of snapshot matrix X (n_space × n_time). dt = time step between columns."""\n'
+         '    from anvil.decomp import dmd\n'
+         '    import numpy as np\n'
+         '    result = dmd(X, dt=float(dt), r=r)\n'
+         '    gr = result["growth_rates"]\n'
+         '    return {\n'
+         '        "eigenvalues":    result["eigenvalues"],\n'
+         '        "omega":          result["omega"],\n'
+         '        "modes":          result["modes"],\n'
+         '        "amplitudes":     result["amplitudes"],\n'
+         '        "frequencies":    result["frequencies"],\n'
+         '        "growth_rates":   gr,\n'
+         '        "singular_values":result["singular_values"],\n'
+         '        "n_stable":       int(np.sum(gr < 0)),\n'
+         '        "n_unstable":     int(np.sum(gr > 0)),\n'
+         '        "n_neutral":      int(np.sum(np.abs(gr) < 1e-8)),\n'
+         '    }\n'
+         'export = dmd_analysis'
+     )},
+
+    {"name": "abel_inverse", "type": "R", "domain": "decomp.abel",
+     "desc": "Inverse Abel transform: projected profile F(y) → radial profile f(r)",
+     "tags": ["abel", "inverse", "spectroscopy", "axisymmetric", "combustion"],
+     "source": (
+         'def abel_inverse(F_projected, dr=1.0, method="three_point"):\n'
+         '    """Inverse Abel transform. F_projected: 1D projected profile array.\n'
+         '    dr: radial step size. method: "three_point" (smooth) or "onion" (sharp features).\n'
+         '    """\n'
+         '    import numpy as np\n'
+         '    from anvil.decomp import abel_three_point, abel_onion\n'
+         '    F = np.asarray(F_projected, dtype=float)\n'
+         '    if method == "three_point":\n'
+         '        f = abel_three_point(F, dr=float(dr))\n'
+         '    elif method == "onion":\n'
+         '        f = abel_onion(F, dr=float(dr))\n'
+         '    else:\n'
+         '        raise ValueError(f"method must be \'three_point\' or \'onion\', got \'{method}\'")\n'
+         '    return {"f_radial": f}\n'
+         'export = abel_inverse'
+     )},
+
+    {"name": "abel_forward", "type": "R", "domain": "decomp.abel",
+     "desc": "Forward Abel transform: radial profile f(r) → projected profile F(y)",
+     "tags": ["abel", "forward", "spectroscopy", "axisymmetric", "projection"],
+     "source": (
+         'def abel_forward(f_radial, dr=1.0):\n'
+         '    """Forward Abel transform. f_radial: 1D radial profile. dr: radial step."""\n'
+         '    import numpy as np\n'
+         '    from anvil.decomp import abel_forward as _af\n'
+         '    return {"F_projected": _af(np.asarray(f_radial, dtype=float), dr=float(dr))}\n'
+         'export = abel_forward'
+     )},
 ]

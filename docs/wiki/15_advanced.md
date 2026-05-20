@@ -232,24 +232,26 @@ This is used internally by the monitor mode of `solve_gauss_seidel`. Direct use 
 
 ## CFD Module
 
-`anvil.cfd` is a separate subpackage for computational fluid dynamics on structured meshes.
+`anvil.cfd` is a 2D finite-volume Euler solver for structured body-fitted meshes. It handles subsonic through supersonic flows with Roe/HLLC flux schemes, MUSCL reconstruction, and multiple BC types.
+
+See **[CFD Solver](18)** for the full reference: mesh factories, boundary conditions, solver parameters, post-processing, VTK/Tecplot export, and System integration via `solver.as_relation()`.
 
 ```python
-from anvil import cfd
-from anvil.cfd import Mesh, BoundaryCondition, FluxSolver
+from anvil.cfd import CFDSolver, Mesh
+from anvil.cfd.bc import SupersonicInlet, SlipWall, SupersonicOutlet, Farfield
+
+mesh   = Mesh.wedge(half_angle_deg=10, chord=1.0, height=0.8, nx=80, ny=40)
+bcs    = {"west": SupersonicInlet(M=2.0, p=101325, T=300),
+          "east": SupersonicOutlet(), "south": SlipWall(),
+          "north": Farfield(M=2.0, p=101325, T=300)}
+solver = CFDSolver(mesh, bcs, flux_scheme="roe", order=2, cfl=0.5)
+solver.initialize(M=2.0, p=101325, T=300)
+result = solver.run(max_iter=5000, tol=1e-6, monitor=True)
+result.to_vtk("wedge.vtk")
+
+# Integrate into an Anvil System
+rel = solver.as_relation(inputs=["M_inf","p_inf","T_inf"], outputs=["CL","CD"])
 ```
-
-**Status:** The CFD module is in active development. As of v1.1.0, it supports:
-- 2D structured rectangular meshes
-- Euler equations (inviscid compressible flow)
-- Named boundary patches (left, right, top, bottom)
-- BCs: inlet, outlet, wall (slip), periodic
-- Simple upwind flux scheme
-- VTK output for visualization in ParaView
-
-**Not yet supported:** Navier-Stokes (viscous), turbulence models, unstructured meshes, AMR.
-
-See `examples/` for CFD examples (if present). The CFD module is not documented in detail here because its API is still evolving.
 
 ---
 

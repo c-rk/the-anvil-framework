@@ -289,6 +289,7 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 <a href="#15" onclick="showPage('15')">Advanced</a>
 <a href="#16" onclick="showPage('16')">Decomposition</a>
 <a href="#17" onclick="showPage('17')">Abel Transform</a>
+<a href="#18" onclick="showPage('18')">CFD Solver</a>
 </nav>
 
 <!-- ══ MAIN ═══════════════════════════════════════════════════════════════ -->
@@ -8176,20 +8177,24 @@ nx=200:  dx=0.005  spatial error ~ 2.5e-5
 <p>This is used internally by the monitor mode of <code>solve_gauss_seidel</code>. Direct use is uncommon unless you're building custom iterative algorithms.</p>
 <hr />
 <h2 id="cfd-module">CFD Module<a class="headerlink" href="#cfd-module" title="Permanent link">&para;</a></h2>
-<p><code>anvil.cfd</code> is a separate subpackage for computational fluid dynamics on structured meshes.</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil</span><span class="w"> </span><span class="kn">import</span> <span class="n">cfd</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">BoundaryCondition</span><span class="p">,</span> <span class="n">FluxSolver</span>
+<p><code>anvil.cfd</code> is a 2D finite-volume Euler solver for structured body-fitted meshes. It handles subsonic through supersonic flows with Roe/HLLC flux schemes, MUSCL reconstruction, and multiple BC types.</p>
+<p>See <strong><a href="18">CFD Solver</a></strong> for the full reference: mesh factories, boundary conditions, solver parameters, post-processing, VTK/Tecplot export, and System integration via <code>solver.as_relation()</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd</span><span class="w"> </span><span class="kn">import</span> <span class="n">CFDSolver</span><span class="p">,</span> <span class="n">Mesh</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd.bc</span><span class="w"> </span><span class="kn">import</span> <span class="n">SupersonicInlet</span><span class="p">,</span> <span class="n">SlipWall</span><span class="p">,</span> <span class="n">SupersonicOutlet</span><span class="p">,</span> <span class="n">Farfield</span>
+
+<span class="n">mesh</span>   <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">wedge</span><span class="p">(</span><span class="n">half_angle_deg</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">chord</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">nx</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+<span class="n">bcs</span>    <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;west&quot;</span><span class="p">:</span> <span class="n">SupersonicInlet</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">101325</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">300</span><span class="p">),</span>
+          <span class="s2">&quot;east&quot;</span><span class="p">:</span> <span class="n">SupersonicOutlet</span><span class="p">(),</span> <span class="s2">&quot;south&quot;</span><span class="p">:</span> <span class="n">SlipWall</span><span class="p">(),</span>
+          <span class="s2">&quot;north&quot;</span><span class="p">:</span> <span class="n">Farfield</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">101325</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">300</span><span class="p">)}</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">CFDSolver</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">flux_scheme</span><span class="o">=</span><span class="s2">&quot;roe&quot;</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">cfl</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">101325</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">monitor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">result</span><span class="o">.</span><span class="n">to_vtk</span><span class="p">(</span><span class="s2">&quot;wedge.vtk&quot;</span><span class="p">)</span>
+
+<span class="c1"># Integrate into an Anvil System</span>
+<span class="n">rel</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">as_relation</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;M_inf&quot;</span><span class="p">,</span><span class="s2">&quot;p_inf&quot;</span><span class="p">,</span><span class="s2">&quot;T_inf&quot;</span><span class="p">],</span> <span class="n">outputs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">,</span><span class="s2">&quot;CD&quot;</span><span class="p">])</span>
 </code></pre></div>
 
-<p><strong>Status:</strong> The CFD module is in active development. As of v1.1.0, it supports:
-- 2D structured rectangular meshes
-- Euler equations (inviscid compressible flow)
-- Named boundary patches (left, right, top, bottom)
-- BCs: inlet, outlet, wall (slip), periodic
-- Simple upwind flux scheme
-- VTK output for visualization in ParaView</p>
-<p><strong>Not yet supported:</strong> Navier-Stokes (viscous), turbulence models, unstructured meshes, AMR.</p>
-<p>See <code>examples/</code> for CFD examples (if present). The CFD module is not documented in detail here because its API is still evolving.</p>
 <hr />
 <h2 id="anvilhelp_lookup-in-repl-reference"><code>anvil.help_.lookup()</code> — In-REPL Reference<a class="headerlink" href="#anvilhelp_lookup-in-repl-reference" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code><span class="n">anvil</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="s2">&quot;pressure&quot;</span><span class="p">)</span>
@@ -9308,6 +9313,371 @@ Source is <code>export = Q(value, "unit")</code>. Executed to get the Q object.<
 </tr>
 </tbody>
 </table></section>
+<section id="page-18" class="wiki-page" style="display:none"><h1 id="2d-euler-cfd-solver">2D Euler CFD Solver<a class="headerlink" href="#2d-euler-cfd-solver" title="Permanent link">&para;</a></h1>
+<p><code>anvil.cfd</code> is a native finite-volume CFD solver for the 2D inviscid (Euler) equations on structured body-fitted meshes. It handles subsonic, transonic, and supersonic flows including normal and oblique shocks.</p>
+<p>The key integration point: <code>solver.as_relation()</code> wraps the CFD result into an Anvil Relation — making it fully composable with Systems, sweepable over Mach number or geometry, and registerable like any other RSQ.</p>
+<hr />
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd</span><span class="w"> </span><span class="kn">import</span> <span class="n">CFDSolver</span><span class="p">,</span> <span class="n">Mesh</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd.bc</span><span class="w"> </span><span class="kn">import</span> <span class="n">SupersonicInlet</span><span class="p">,</span> <span class="n">SupersonicOutlet</span><span class="p">,</span> <span class="n">SlipWall</span><span class="p">,</span> <span class="n">Farfield</span>
+
+<span class="c1"># 1. Build mesh</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">wedge</span><span class="p">(</span><span class="n">half_angle_deg</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">chord</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">nx</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+
+<span class="c1"># 2. Boundary conditions</span>
+<span class="n">M_inf</span><span class="p">,</span> <span class="n">p_inf</span><span class="p">,</span> <span class="n">T_inf</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">101325.0</span><span class="p">,</span> <span class="mf">300.0</span>
+<span class="n">bcs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;west&quot;</span><span class="p">:</span>  <span class="n">SupersonicInlet</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="n">M_inf</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p_inf</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">T_inf</span><span class="p">),</span>
+    <span class="s2">&quot;east&quot;</span><span class="p">:</span>  <span class="n">SupersonicOutlet</span><span class="p">(),</span>
+    <span class="s2">&quot;south&quot;</span><span class="p">:</span> <span class="n">SlipWall</span><span class="p">(),</span>
+    <span class="s2">&quot;north&quot;</span><span class="p">:</span> <span class="n">Farfield</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="n">M_inf</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p_inf</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">T_inf</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c1"># 3. Create and initialize solver</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">CFDSolver</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">1.4</span><span class="p">,</span> <span class="n">flux_scheme</span><span class="o">=</span><span class="s2">&quot;roe&quot;</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">cfl</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="n">M_inf</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p_inf</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">T_inf</span><span class="p">,</span> <span class="n">alpha_deg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+
+<span class="c1"># 4. Run</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">monitor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">print_every</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+<span class="c1"># 5. Export</span>
+<span class="n">result</span><span class="o">.</span><span class="n">to_vtk</span><span class="p">(</span><span class="s2">&quot;wedge.vtk&quot;</span><span class="p">)</span>         <span class="c1"># open in ParaView</span>
+<span class="n">result</span><span class="o">.</span><span class="n">to_tecplot</span><span class="p">(</span><span class="s2">&quot;wedge.dat&quot;</span><span class="p">)</span>     <span class="c1"># open in Tecplot</span>
+</code></pre></div>
+
+<hr />
+<h2 id="mesh">Mesh<a class="headerlink" href="#mesh" title="Permanent link">&para;</a></h2>
+<p>All mesh types are structured (i, j indexing). Factory methods return a <code>StructuredMesh2D</code> object.</p>
+<h3 id="factory-methods">Factory Methods<a class="headerlink" href="#factory-methods" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span>
+
+<span class="c1"># Flat-plate / generic rectangular domain</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">cartesian</span><span class="p">(</span><span class="n">x_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">y_span</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">nx</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="c1"># Wedge (sharp leading edge, supersonic flows)</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">wedge</span><span class="p">(</span><span class="n">half_angle_deg</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">chord</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">nx</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+
+<span class="c1"># Gaussian bump (transonic channel flow, shock-induced separation)</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">bump</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">nx</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+                 <span class="n">bump_height</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">bump_center</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">bump_width</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+<span class="c1"># Compression ramp</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">compression_ramp</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                              <span class="n">ramp_angle_deg</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">nx</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="c1"># From custom coordinate arrays (body-fitted grid generation)</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>   <span class="c1"># X, Y: (nx+1, ny+1) node coordinates</span>
+
+<span class="c1"># Load from file (previously saved mesh)</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;mesh.msh&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="mesh-info-and-plotting">Mesh Info and Plotting<a class="headerlink" href="#mesh-info-and-plotting" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">mesh</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>       <span class="c1"># prints: nx, ny, patch names, bounding box</span>
+<span class="n">mesh</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>       <span class="c1"># matplotlib visualization of grid lines</span>
+<span class="n">mesh</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="s2">&quot;mesh.msh&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="patch-names">Patch Names<a class="headerlink" href="#patch-names" title="Permanent link">&para;</a></h3>
+<p>Each mesh factory assigns patch names to the four boundaries:</p>
+<table>
+<thead>
+<tr>
+<th>Factory</th>
+<th>west</th>
+<th>east</th>
+<th>south</th>
+<th>north</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cartesian</code></td>
+<td>inlet</td>
+<td>outlet</td>
+<td>wall</td>
+<td>top</td>
+</tr>
+<tr>
+<td><code>wedge</code></td>
+<td>west</td>
+<td>east</td>
+<td>south</td>
+<td>north</td>
+</tr>
+<tr>
+<td><code>bump</code></td>
+<td>west</td>
+<td>east</td>
+<td>south</td>
+<td>north</td>
+</tr>
+<tr>
+<td><code>compression_ramp</code></td>
+<td>west</td>
+<td>east</td>
+<td>south</td>
+<td>north</td>
+</tr>
+</tbody>
+</table>
+<p>Override with <code>patches={"west": MeshPatch(...), ...}</code> argument.</p>
+<hr />
+<h2 id="boundary-conditions">Boundary Conditions<a class="headerlink" href="#boundary-conditions" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil.cfd.bc</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SupersonicInlet</span><span class="p">,</span> <span class="n">SupersonicOutlet</span><span class="p">,</span>
+    <span class="n">SubsonicInlet</span><span class="p">,</span> <span class="n">SubsonicOutlet</span><span class="p">,</span>
+    <span class="n">SlipWall</span><span class="p">,</span> <span class="n">Farfield</span><span class="p">,</span> <span class="n">BackPressure</span><span class="p">,</span> <span class="n">MassFlowInlet</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>BC Class</th>
+<th>Use Case</th>
+<th>Required args</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SupersonicInlet</code></td>
+<td>M &gt; 1 inflow, all characteristics enter</td>
+<td><code>M, p, T</code></td>
+</tr>
+<tr>
+<td><code>SupersonicOutlet</code></td>
+<td>M &gt; 1 outflow, all characteristics leave</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>SubsonicInlet</code></td>
+<td>M &lt; 1 inflow (stagnation BCs)</td>
+<td><code>M, p0, T0</code></td>
+</tr>
+<tr>
+<td><code>SubsonicOutlet</code></td>
+<td>M &lt; 1 outflow, back-pressure specified</td>
+<td><code>p_back</code></td>
+</tr>
+<tr>
+<td><code>SlipWall</code></td>
+<td>Inviscid wall (tangential flow enforced)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>Farfield</code></td>
+<td>Far-field / freestream condition</td>
+<td><code>M, p, T</code></td>
+</tr>
+<tr>
+<td><code>BackPressure</code></td>
+<td>Pressure outlet (subsonic)</td>
+<td><code>p_back</code></td>
+</tr>
+<tr>
+<td><code>MassFlowInlet</code></td>
+<td>Specified mass flow rate inlet</td>
+<td><code>mdot, T, area</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example — subsonic channel with back-pressure:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="n">bcs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;west&quot;</span><span class="p">:</span>  <span class="n">SubsonicInlet</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">p0</span><span class="o">=</span><span class="mi">110000</span><span class="p">,</span> <span class="n">T0</span><span class="o">=</span><span class="mi">310</span><span class="p">),</span>
+    <span class="s2">&quot;east&quot;</span><span class="p">:</span>  <span class="n">BackPressure</span><span class="p">(</span><span class="n">p_back</span><span class="o">=</span><span class="mi">101325</span><span class="p">),</span>
+    <span class="s2">&quot;south&quot;</span><span class="p">:</span> <span class="n">SlipWall</span><span class="p">(),</span>
+    <span class="s2">&quot;north&quot;</span><span class="p">:</span> <span class="n">SlipWall</span><span class="p">(),</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="cfdsolver">CFDSolver<a class="headerlink" href="#cfdsolver" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="n">solver</span> <span class="o">=</span> <span class="n">CFDSolver</span><span class="p">(</span>
+    <span class="n">mesh</span><span class="p">,</span>
+    <span class="n">bcs</span><span class="p">,</span>
+    <span class="n">gamma</span>      <span class="o">=</span> <span class="mf">1.4</span><span class="p">,</span>       <span class="c1"># ratio of specific heats</span>
+    <span class="n">R_gas</span>      <span class="o">=</span> <span class="mf">287.058</span><span class="p">,</span>   <span class="c1"># specific gas constant [J/kg/K]</span>
+    <span class="n">flux_scheme</span><span class="o">=</span> <span class="s2">&quot;roe&quot;</span><span class="p">,</span>     <span class="c1"># &quot;roe&quot; or &quot;hllc&quot;</span>
+    <span class="n">order</span>      <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>         <span class="c1"># 1 = first-order upwind, 2 = MUSCL (2nd order)</span>
+    <span class="n">cfl</span>        <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>       <span class="c1"># CFL number (reduce to 0.3 for stability near shocks)</span>
+    <span class="n">time_scheme</span><span class="o">=</span> <span class="s2">&quot;rk4&quot;</span><span class="p">,</span>     <span class="c1"># &quot;rk4&quot; or &quot;euler&quot; (RK4 more stable)</span>
+<span class="p">)</span>
+
+<span class="n">solver</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">M</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">101325</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">alpha_deg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="running">Running<a class="headerlink" href="#running" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">max_iter</span>    <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>    <span class="c1"># iteration limit</span>
+    <span class="n">tol</span>         <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>   <span class="c1"># L2 residual convergence threshold</span>
+    <span class="n">monitor</span>     <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>   <span class="c1"># print residual every print_every iterations</span>
+    <span class="n">print_every</span> <span class="o">=</span> <span class="mi">200</span><span class="p">,</span>    <span class="c1"># print interval</span>
+    <span class="n">restart</span>     <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># path to .npz restart file (or None)</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Convergence output:</strong></p>
+<div class="codehilite"><pre><span></span><code>iter     0   res = 2.4812e+00
+iter   200   res = 4.3271e-01
+iter   400   res = 6.1843e-02
+...
+iter  3200   res = 8.4312e-07
+Converged in 3246 iterations (res = 9.98e-07)
+</code></pre></div>
+
+<h3 id="restart">Restart<a class="headerlink" href="#restart" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Save state mid-run</span>
+<span class="n">result</span><span class="o">.</span><span class="n">to_restart</span><span class="p">(</span><span class="s2">&quot;checkpoint.npz&quot;</span><span class="p">)</span>
+
+<span class="c1"># Resume from checkpoint</span>
+<span class="n">result2</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">restart</span><span class="o">=</span><span class="s2">&quot;checkpoint.npz&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="cfdresult">CFDResult<a class="headerlink" href="#cfdresult" title="Permanent link">&para;</a></h2>
+<p>Post-processing is done on the <code>CFDResult</code> object returned by <code>solver.run()</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="c1"># Prints: converged flag, iterations, final residual,</span>
+<span class="c1">#         freestream conditions, min/max field values</span>
+
+<span class="c1"># Wall pressure distribution (south boundary by default)</span>
+<span class="n">p_wall</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">wall_pressure</span><span class="p">(</span><span class="n">side</span><span class="o">=</span><span class="s2">&quot;south&quot;</span><span class="p">)</span>
+<span class="c1"># returns ndarray (nx,) of static pressure along wall</span>
+
+<span class="c1"># Aerodynamic force coefficients</span>
+<span class="n">CL</span><span class="p">,</span> <span class="n">CD</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">force_coefficients</span><span class="p">(</span>
+    <span class="n">p_ref</span><span class="o">=</span><span class="n">p_inf</span><span class="p">,</span> <span class="n">rho_ref</span><span class="o">=</span><span class="n">rho_inf</span><span class="p">,</span> <span class="n">V_ref</span><span class="o">=</span><span class="n">V_inf</span><span class="p">,</span>
+    <span class="n">S_ref</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>         <span class="c1"># reference area [m²]</span>
+    <span class="n">side</span><span class="o">=</span><span class="s2">&quot;south&quot;</span><span class="p">,</span>      <span class="c1"># which boundary to integrate</span>
+    <span class="n">alpha_deg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>     <span class="c1"># angle of attack (for CL/CD decomposition)</span>
+<span class="p">)</span>
+
+<span class="c1"># Field arrays</span>
+<span class="n">fields</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">_field_dict</span><span class="p">()</span>
+<span class="c1"># {&quot;rho&quot;: (nx,ny), &quot;u&quot;: (nx,ny), &quot;v&quot;: (nx,ny), &quot;p&quot;: (nx,ny),</span>
+<span class="c1">#  &quot;T&quot;: (nx,ny), &quot;M&quot;: (nx,ny), &quot;p0&quot;: (nx,ny)}</span>
+</code></pre></div>
+
+<h3 id="export">Export<a class="headerlink" href="#export" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">result</span><span class="o">.</span><span class="n">to_vtk</span><span class="p">(</span><span class="s2">&quot;solution.vtk&quot;</span><span class="p">)</span>         <span class="c1"># ParaView — rho, u, v, p, T, M</span>
+<span class="n">result</span><span class="o">.</span><span class="n">to_tecplot</span><span class="p">(</span><span class="s2">&quot;solution.dat&quot;</span><span class="p">)</span>     <span class="c1"># Tecplot ASCII</span>
+<span class="n">result</span><span class="o">.</span><span class="n">to_restart</span><span class="p">(</span><span class="s2">&quot;solution.npz&quot;</span><span class="p">)</span>     <span class="c1"># numpy restart file</span>
+</code></pre></div>
+
+<hr />
+<h2 id="integration-with-anvil-system">Integration with Anvil System<a class="headerlink" href="#integration-with-anvil-system" title="Permanent link">&para;</a></h2>
+<p><code>solver.as_relation()</code> converts the CFD solver into a standard Anvil Relation. Scalar Q inputs and scalar Q outputs are wired as normal workspace quantities.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">rel</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">as_relation</span><span class="p">(</span>
+    <span class="n">inputs</span>  <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;M_inf&quot;</span><span class="p">,</span> <span class="s2">&quot;p_inf&quot;</span><span class="p">,</span> <span class="s2">&quot;T_inf&quot;</span><span class="p">],</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">,</span> <span class="s2">&quot;CD&quot;</span><span class="p">,</span> <span class="s2">&quot;M_max&quot;</span><span class="p">,</span> <span class="s2">&quot;p_wall_max&quot;</span><span class="p">],</span>
+    <span class="n">name</span>    <span class="o">=</span> <span class="s2">&quot;wedge_cfd&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Use in a System</span>
+<span class="n">sys</span> <span class="o">=</span> <span class="n">anvil</span><span class="o">.</span><span class="n">System</span><span class="p">(</span><span class="s2">&quot;aero_study&quot;</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;M_inf&quot;</span><span class="p">,</span>  <span class="mf">2.0</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;p_inf&quot;</span><span class="p">,</span>  <span class="mf">101325.0</span><span class="p">,</span> <span class="s2">&quot;Pa&quot;</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;T_inf&quot;</span><span class="p">,</span>  <span class="mf">300.0</span><span class="p">,</span>    <span class="s2">&quot;K&quot;</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="n">rel</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">solve_forward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;CL&quot;</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;CD&quot;</span><span class="p">])</span>
+
+<span class="c1"># Sweep Mach number — runs CFD at each point</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="n">sweep</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">sweep</span><span class="p">(</span><span class="s2">&quot;M_inf&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">parallel</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">sweep</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="n">outputs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;M_inf&quot;</span><span class="p">,</span> <span class="s2">&quot;CL&quot;</span><span class="p">,</span> <span class="s2">&quot;CD&quot;</span><span class="p">])</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Note on <code>parallel</code>:</strong> Each parallel worker gets an independent solver copy. Stateless — safe for parallel sweeps.</p>
+</blockquote>
+<hr />
+<h2 id="supported-mesh-configurations-flows">Supported Mesh Configurations &amp; Flows<a class="headerlink" href="#supported-mesh-configurations-flows" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Mesh factory</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2D wedge</td>
+<td><code>Mesh.wedge()</code></td>
+<td>Oblique shock angle, wave drag</td>
+</tr>
+<tr>
+<td>Channel bump</td>
+<td><code>Mesh.bump()</code></td>
+<td>Transonic shock / shock-boundary layer</td>
+</tr>
+<tr>
+<td>Compression ramp</td>
+<td><code>Mesh.compression_ramp()</code></td>
+<td>Ramp-induced separation</td>
+</tr>
+<tr>
+<td>Flat plate</td>
+<td><code>Mesh.cartesian()</code></td>
+<td>Subsonic flow, generic geometry</td>
+</tr>
+<tr>
+<td>Custom body-fitted</td>
+<td><code>Mesh.from_arrays()</code></td>
+<td>Airfoils, nozzles, any structured grid</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Supported flow regimes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Regime</th>
+<th>M range</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Subsonic</td>
+<td>M &lt; 0.8</td>
+<td>Smooth convergence</td>
+</tr>
+<tr>
+<td>Transonic</td>
+<td>0.8 &lt; M &lt; 1.2</td>
+<td>May need CFL ≤ 0.3, order=1 near shock</td>
+</tr>
+<tr>
+<td>Supersonic</td>
+<td>M &gt; 1.2</td>
+<td>Fastest convergence, clean shocks</td>
+</tr>
+<tr>
+<td>Hypersonic</td>
+<td>M &gt; 5</td>
+<td>Needs reduced CFL (0.2–0.3), gamma correction</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>2D only</strong> — no 3D support</li>
+<li><strong>Structured meshes only</strong> — no unstructured, no AMR</li>
+<li><strong>Euler only</strong> — no viscous (Navier-Stokes), no turbulence</li>
+<li><strong>Ideal gas only</strong> — no real gas EOS, no equilibrium chemistry</li>
+<li><strong>Dirichlet / ghost-cell BCs only</strong> — no adjoint-compatible, no PML far-field</li>
+<li>For viscous flow, combustion, or production-quality results: use OpenFOAM via a CLI adapter</li>
+</ul>
+<p><strong>Extensibility notes (from module docstring):</strong>
+- Viscous: add <code>viscous_flux_2d()</code> in <code>flux.py</code>; call after inviscid in <code>solver._residual()</code>
+- 3D: add k-index in mesh, w-velocity, and third face sweep in solver
+- Real gas: replace ideal-gas EOS calls with custom EOS object</p></section>
   </div>
 </div>
 
@@ -9321,7 +9691,7 @@ Source is <code>export = Q(value, "unit")</code>. Executed to get the Q object.<
 
 <script>
 // ── Page data ─────────────────────────────────────────────────────────────────
-const PAGES = [["index", "Overview"], ["01", "Quick Start"], ["02", "Quantity (Q)"], ["03", "Unit Engine"], ["04", "Relation"], ["05", "System"], ["06", "Solvers"], ["07", "Registry"], ["08", "Project Registry"], ["09", "Built-in RSQs"], ["10", "Adapters"], ["11", "Sweep & Sensitivity"], ["12", "Visualization"], ["13", "Databases"], ["14", "Limits & Gotchas"], ["15", "Advanced"], ["16", "Decomposition"], ["17", "Abel Transform"]];
+const PAGES = [["index", "Overview"], ["01", "Quick Start"], ["02", "Quantity (Q)"], ["03", "Unit Engine"], ["04", "Relation"], ["05", "System"], ["06", "Solvers"], ["07", "Registry"], ["08", "Project Registry"], ["09", "Built-in RSQs"], ["10", "Adapters"], ["11", "Sweep & Sensitivity"], ["12", "Visualization"], ["13", "Databases"], ["14", "Limits & Gotchas"], ["15", "Advanced"], ["16", "Decomposition"], ["17", "Abel Transform"], ["18", "CFD Solver"]];
 let currentIdx = 0;
 
 // ── Show a page ───────────────────────────────────────────────────────────────

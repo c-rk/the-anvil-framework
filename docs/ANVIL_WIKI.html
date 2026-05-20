@@ -1179,9 +1179,20 @@ conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> <
 <span class="n">db</span><span class="o">.</span><span class="n">conversion_factor</span><span class="p">(</span><span class="s2">&quot;m/s&quot;</span><span class="p">,</span> <span class="s2">&quot;ft/s&quot;</span><span class="p">)</span> <span class="c1"># 1/0.3048  ≈ 3.28084</span>
 </code></pre></div>
 
+<h3 id="dbget_offsetunit_str-float"><code>db.get_offset(unit_str)</code> → float<a class="headerlink" href="#dbget_offsetunit_str-float" title="Permanent link">&para;</a></h3>
+<p>Returns the additive SI offset for a unit. Returns <code>0.0</code> for all non-offset units.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">db</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(</span><span class="s2">&quot;degC&quot;</span><span class="p">)</span>   <span class="c1"># 273.15</span>
+<span class="n">db</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(</span><span class="s2">&quot;°C&quot;</span><span class="p">)</span>     <span class="c1"># 273.15</span>
+<span class="n">db</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(</span><span class="s2">&quot;degF&quot;</span><span class="p">)</span>   <span class="c1"># 255.3722...  (= 459.67 × 5/9)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">)</span>      <span class="c1"># 0.0</span>
+<span class="n">db</span><span class="o">.</span><span class="n">get_offset</span><span class="p">(</span><span class="s2">&quot;Pa&quot;</span><span class="p">)</span>     <span class="c1"># 0.0</span>
+</code></pre></div>
+
 <h3 id="dbcompatiblea-b-bool"><code>db.compatible(a, b)</code> → bool<a class="headerlink" href="#dbcompatiblea-b-bool" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="n">db</span><span class="o">.</span><span class="n">compatible</span><span class="p">(</span><span class="s2">&quot;Pa&quot;</span><span class="p">,</span> <span class="s2">&quot;psi&quot;</span><span class="p">)</span>  <span class="c1"># True — same dimension</span>
 <span class="n">db</span><span class="o">.</span><span class="n">compatible</span><span class="p">(</span><span class="s2">&quot;Pa&quot;</span><span class="p">,</span> <span class="s2">&quot;K&quot;</span><span class="p">)</span>    <span class="c1"># False</span>
+<span class="n">db</span><span class="o">.</span><span class="n">compatible</span><span class="p">(</span><span class="s2">&quot;degC&quot;</span><span class="p">,</span> <span class="s2">&quot;K&quot;</span><span class="p">)</span>  <span class="c1"># True — same [Θ] dimension</span>
+<span class="n">db</span><span class="o">.</span><span class="n">compatible</span><span class="p">(</span><span class="s2">&quot;degF&quot;</span><span class="p">,</span> <span class="s2">&quot;R&quot;</span><span class="p">)</span>  <span class="c1"># True</span>
 </code></pre></div>
 
 <hr />
@@ -1484,7 +1495,8 @@ conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> <
 <thead>
 <tr>
 <th>Unit</th>
-<th>SI scale</th>
+<th>Scale (K per unit)</th>
+<th>SI offset (K)</th>
 <th>Notes</th>
 </tr>
 </thead>
@@ -1492,17 +1504,60 @@ conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> <
 <tr>
 <td><code>K</code></td>
 <td>1.0</td>
+<td>0</td>
 <td>Kelvin, SI preferred</td>
 </tr>
 <tr>
 <td><code>R</code></td>
-<td>5/9</td>
+<td>5/9 ≈ 0.5556</td>
+<td>0</td>
 <td>Rankine, Imperial preferred</td>
+</tr>
+<tr>
+<td><code>degC</code></td>
+<td>1.0</td>
+<td>+273.15</td>
+<td>Celsius — full offset arithmetic</td>
+</tr>
+<tr>
+<td><code>°C</code></td>
+<td>1.0</td>
+<td>+273.15</td>
+<td>Unicode alias for <code>degC</code></td>
+</tr>
+<tr>
+<td><code>degF</code></td>
+<td>5/9</td>
+<td>+255.372</td>
+<td>Fahrenheit — full offset arithmetic</td>
+</tr>
+<tr>
+<td><code>°F</code></td>
+<td>5/9</td>
+<td>+255.372</td>
+<td>Unicode alias for <code>degF</code></td>
 </tr>
 </tbody>
 </table>
+<p><strong>Storage formula:</strong> <code>SI_value = input_value × scale + offset</code>
+<strong>Display formula:</strong> <code>display_value = (SI_value − offset) / scale</code></p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">anvil</span><span class="w"> </span><span class="kn">import</span> <span class="n">Q</span>
+
+<span class="n">Q</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;degC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">si</span>          <span class="c1"># 298.15  (stored as K)</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;degC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>       <span class="c1"># 25.0    (display in °C)</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;degC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">)</span>     <span class="c1"># 298.15 K</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;degC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;degF&quot;</span><span class="p">)</span>  <span class="c1"># 77.00 degF</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;degC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;degF&quot;</span><span class="p">)</span> <span class="c1"># 212.00 degF</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span>  <span class="s2">&quot;degF&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">)</span>    <span class="c1"># 273.15 K</span>
+<span class="n">Q</span><span class="p">(</span><span class="mf">373.15</span><span class="p">,</span> <span class="s2">&quot;K&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;degC&quot;</span><span class="p">)</span> <span class="c1"># 100.00 degC</span>
+
+<span class="c1"># Unicode forms</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;°C&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">si</span>             <span class="c1"># 273.15</span>
+<span class="n">Q</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;°F&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;°C&quot;</span><span class="p">)</span>      <span class="c1"># 0.00 °C</span>
+</code></pre></div>
+
 <blockquote>
-<p><strong>Important:</strong> Anvil uses absolute temperature scales only. Celsius and Fahrenheit are NOT supported as unit strings — there is no offset conversion. Convert manually before wrapping in Q.</p>
+<p><strong>Note:</strong> <code>degC</code>/<code>degF</code> share the <code>[Θ]</code> dimension with <code>K</code> and <code>R</code> — all conversions and dimension checks work normally. Arithmetic between temperature quantities (e.g., <code>Q(100,"degC") + Q(50,"degC")</code>) operates on the SI (Kelvin) values, which is the physically correct behaviour for absolute-scale arithmetic. For temperature <em>differences</em> the result is correct; for absolute sums the meaning is ambiguous (as it is in any unit system).</p>
 </blockquote>
 <h3 id="force">Force<a class="headerlink" href="#force" title="Permanent link">&para;</a></h3>
 <table>
@@ -1584,36 +1639,54 @@ conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> <
 <tr>
 <th>Unit</th>
 <th>SI scale</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>J</code></td>
 <td>1.0</td>
+<td></td>
 </tr>
 <tr>
 <td><code>kJ</code></td>
 <td>1000.0</td>
+<td></td>
 </tr>
 <tr>
 <td><code>MJ</code></td>
 <td>1e6</td>
+<td></td>
+</tr>
+<tr>
+<td><code>Wh</code></td>
+<td>3600.0</td>
+<td>watt-hour</td>
+</tr>
+<tr>
+<td><code>kWh</code></td>
+<td>3.6e6</td>
+<td>kilowatt-hour</td>
 </tr>
 <tr>
 <td><code>cal</code></td>
 <td>4.184</td>
+<td></td>
 </tr>
 <tr>
 <td><code>kcal</code></td>
 <td>4184.0</td>
+<td></td>
 </tr>
 <tr>
 <td><code>BTU</code></td>
 <td>1055.06</td>
+<td></td>
 </tr>
 <tr>
 <td><code>eV</code></td>
 <td>1.602e-19</td>
+<td></td>
 </tr>
 </tbody>
 </table>

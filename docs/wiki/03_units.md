@@ -104,11 +104,25 @@ db.conversion_factor("Pa", "psi")   # 1/6894.757 ≈ 0.000145
 db.conversion_factor("m/s", "ft/s") # 1/0.3048  ≈ 3.28084
 ```
 
+### `db.get_offset(unit_str)` → float
+
+Returns the additive SI offset for a unit. Returns `0.0` for all non-offset units.
+
+```python
+db.get_offset("degC")   # 273.15
+db.get_offset("°C")     # 273.15
+db.get_offset("degF")   # 255.3722...  (= 459.67 × 5/9)
+db.get_offset("K")      # 0.0
+db.get_offset("Pa")     # 0.0
+```
+
 ### `db.compatible(a, b)` → bool
 
 ```python
 db.compatible("Pa", "psi")  # True — same dimension
 db.compatible("Pa", "K")    # False
+db.compatible("degC", "K")  # True — same [Θ] dimension
+db.compatible("degF", "R")  # True
 ```
 
 ---
@@ -213,12 +227,35 @@ Pass a category name as the unit string to get the default SI unit for that dime
 | `hr` | 3600.0 |
 
 ### Temperature
-| Unit | SI scale | Notes |
-|------|----------|-------|
-| `K` | 1.0 | Kelvin, SI preferred |
-| `R` | 5/9 | Rankine, Imperial preferred |
+| Unit | Scale (K per unit) | SI offset (K) | Notes |
+|------|--------------------|---------------|-------|
+| `K` | 1.0 | 0 | Kelvin, SI preferred |
+| `R` | 5/9 ≈ 0.5556 | 0 | Rankine, Imperial preferred |
+| `degC` | 1.0 | +273.15 | Celsius — full offset arithmetic |
+| `°C` | 1.0 | +273.15 | Unicode alias for `degC` |
+| `degF` | 5/9 | +255.372 | Fahrenheit — full offset arithmetic |
+| `°F` | 5/9 | +255.372 | Unicode alias for `degF` |
 
-> **Important:** Anvil uses absolute temperature scales only. Celsius and Fahrenheit are NOT supported as unit strings — there is no offset conversion. Convert manually before wrapping in Q.
+**Storage formula:** `SI_value = input_value × scale + offset`
+**Display formula:** `display_value = (SI_value − offset) / scale`
+
+```python
+from anvil import Q
+
+Q(25, "degC").si          # 298.15  (stored as K)
+Q(25, "degC").value       # 25.0    (display in °C)
+Q(25, "degC").to("K")     # 298.15 K
+Q(25, "degC").to("degF")  # 77.00 degF
+Q(100, "degC").to("degF") # 212.00 degF
+Q(32,  "degF").to("K")    # 273.15 K
+Q(373.15, "K").to("degC") # 100.00 degC
+
+# Unicode forms
+Q(0, "°C").si             # 273.15
+Q(32, "°F").to("°C")      # 0.00 °C
+```
+
+> **Note:** `degC`/`degF` share the `[Θ]` dimension with `K` and `R` — all conversions and dimension checks work normally. Arithmetic between temperature quantities (e.g., `Q(100,"degC") + Q(50,"degC")`) operates on the SI (Kelvin) values, which is the physically correct behaviour for absolute-scale arithmetic. For temperature *differences* the result is correct; for absolute sums the meaning is ambiguous (as it is in any unit system).
 
 ### Force
 | Unit | SI scale |
@@ -242,15 +279,17 @@ Pass a category name as the unit string to get the default SI unit for that dime
 | `torr` | 133.322 |
 
 ### Energy
-| Unit | SI scale |
-|------|----------|
-| `J` | 1.0 |
-| `kJ` | 1000.0 |
-| `MJ` | 1e6 |
-| `cal` | 4.184 |
-| `kcal` | 4184.0 |
-| `BTU` | 1055.06 |
-| `eV` | 1.602e-19 |
+| Unit | SI scale | Notes |
+|------|----------|-------|
+| `J` | 1.0 | |
+| `kJ` | 1000.0 | |
+| `MJ` | 1e6 | |
+| `Wh` | 3600.0 | watt-hour |
+| `kWh` | 3.6e6 | kilowatt-hour |
+| `cal` | 4.184 | |
+| `kcal` | 4184.0 | |
+| `BTU` | 1055.06 | |
+| `eV` | 1.602e-19 | |
 
 ### Power
 | Unit | SI scale |

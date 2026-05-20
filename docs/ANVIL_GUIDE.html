@@ -384,46 +384,11 @@ conda install -c cantera cantera   <span class="cm"># Cantera combustion</span>
 <section id="why">
 <h2>Why Anvil</h2>
 
-<p>Engineering computation sits at an awkward intersection: the mathematics is well-understood, the physics is domain-specific, and the tooling is fragmented. Physicists reach for <code>numpy</code> and <code>scipy</code>. Chemical engineers reach for Aspen. Aerospace engineers reach for MATLAB. Nobody agrees on how to share physics knowledge across projects, or even across the same project over time.</p>
-
-<p>Anvil is built around a specific observation: <strong>the primary unit of reusable engineering knowledge is a pure function that maps physical inputs to physical outputs</strong>. Not a class, not a module, not a simulation — a function. Once you accept that, the rest follows.</p>
-
 <div class="insight">
-<strong>The core insight:</strong> If a physics computation is a plain Python function (kwargs → dict), it can be stored, searched, version-controlled, composed into systems, swept over parameter spaces, and called from any domain — without any framework coupling. The function doesn't need to know it's in Anvil. Anvil just provides the infrastructure around it.
+<strong>Core idea:</strong> A physics computation is a plain Python function (kwargs → dict). Store it, search it, wire it into systems, sweep it — without framework coupling. The function doesn't need to know it's in Anvil.
 </div>
 
-<h3>What the Existing Tools Get Wrong</h3>
-
-<p>The tools Anvil is most often compared to each solve part of the problem but leave a gap.</p>
-
-<div class="gap-box">
-  <div class="gap-item">
-    <h4>Pint / astropy.units</h4>
-    <p>Unit tracking only. No computation graph, no registry, no solvers, no sweep. You still assemble everything by hand in scripts. Units are annotations — not participants in a system.</p>
-  </div>
-  <div class="gap-item">
-    <h4>OpenMDAO</h4>
-    <p>Computation graphs with derivatives. But: components require subclassing a framework class, explicit connection declarations in XML/YAML, no unit-first arithmetic, no knowledge registry. Optimized for gradient-based MDO, not general engineering scripting.</p>
-  </div>
-  <div class="gap-item">
-    <h4>scipy / sympy</h4>
-    <p>Excellent solvers and symbolic math. But stateless — no concept of a persistent workspace, no unit propagation, no reusable function registry. Every analysis starts from scratch.</p>
-  </div>
-  <div class="gap-item">
-    <h4>CoolProp / REFPROP</h4>
-    <p>Best-in-class fluid property databases. But isolated — no graph, no units, no composition. Using CoolProp in an engineering system still requires manual wiring and unit conversion.</p>
-  </div>
-  <div class="gap-item">
-    <h4>MATLAB / Simulink</h4>
-    <p>Time-domain simulation and control design. No persistent physics registry, no unit-first arithmetic, closed ecosystem, commercial license. Sharing a function between projects means copying files.</p>
-  </div>
-  <div class="gap-item">
-    <h4>Excel / spreadsheets</h4>
-    <p>Still the most common "engineering computation" tool. Zero composability, no units, no version control, no search, no testing. Every spreadsheet reinvents the same formulas.</p>
-  </div>
-</div>
-
-<h3>The Capability Gap</h3>
+<p>Engineering tooling is fragmented: numpy/scipy have no registry or units; Pint has units but no graph; OpenMDAO has graphs but requires subclassing and XML wiring; MATLAB has toolboxes but no persistence. Anvil fills the gap between a loose script and a full framework.</p>
 
 <div class="table-wrap"><table class="cmp-table">
 <tr>
@@ -475,7 +440,7 @@ conda install -c cantera cantera   <span class="cm"># Cantera combustion</span>
   <td class="yes hi">✓</td>
 </tr>
 <tr>
-  <td>Domain physics library (76+ RSQs)</td>
+  <td>Domain physics library (87+ RSQs)</td>
   <td class="no">✗</td>
   <td class="no">✗</td>
   <td class="no">✗</td>
@@ -483,7 +448,7 @@ conda install -c cantera cantera   <span class="cm"># Cantera combustion</span>
   <td class="yes hi">✓</td>
 </tr>
 <tr>
-  <td>Adapter pattern for external libs</td>
+  <td>Adapter pattern for external tools</td>
   <td class="no">✗</td>
   <td class="no">✗</td>
   <td class="no">✗</td>
@@ -500,29 +465,9 @@ conda install -c cantera cantera   <span class="cm"># Cantera combustion</span>
 </tr>
 </table></div>
 
-<h3>What Anvil Does That Nothing Else Does</h3>
+<p><strong>Three things Anvil does that nothing else does:</strong> (1) wires a computation graph automatically from function argument names — no XML, no decorators; (2) stores the full Python source of every function in a searchable SQLite registry that survives restarts; (3) treats the individual physics function — not the module or class — as the unit of reuse.</p>
 
-<p><strong>1. Graph wiring from function signatures.</strong> When you call <code>sys.use(my_fn)</code>, Anvil reads the argument names of <code>my_fn</code> and connects them to matching quantities already in the workspace. You never declare connections explicitly. The function signature <em>is</em> the connection diagram. This is the most direct expression of the physical structure: if a function needs <code>rho</code> and <code>V</code>, it says so in its definition — no separate XML, no decorator, no class attribute.</p>
-
-<p><strong>2. Source-level function persistence.</strong> The registry stores the full Python source text of every RSQ. This means functions survive Python restarts, can be retrieved on any machine with Anvil installed, can be exported to <code>.py</code> files, searched by keyword, and versioned. No other Python engineering tool has a persistent, searchable, source-level function store. The closest analogy is a paper's appendix — a permanent, citable record of the method.</p>
-
-<p><strong>3. Units that participate in computation, not just annotate it.</strong> In Pint, you annotate an existing computation with units. In Anvil, the computation is <em>between</em> quantities — the units are there from the start, propagate through every operation, and dimension errors surface at the point of incompatibility. A <code>Q</code> divided by another <code>Q</code> knows its resulting dimension without being told.</p>
-
-<p><strong>4. The RSQ as the atomic unit of engineering knowledge.</strong> Most frameworks operate at the level of modules or classes. Anvil operates at the level of individual physics functions. This granularity matters: a single RSQ can be tested in isolation, pushed to the registry independently, composed with unrelated RSQs, and called directly without loading a system. It is the minimal viable unit of reusable physics.</p>
-
-<h3>When <em>Not</em> to Use Anvil</h3>
-
-<p>Anvil is not the right tool for every problem. Be specific about where it fits:</p>
-
-<ul>
-  <li><strong>Large-scale FEM / CFD</strong> — Anvil includes a 2D structured Euler solver (<code>anvil.cfd</code>) for parametric studies. For viscous, turbulent, unstructured, or 3D flows use OpenFOAM/SU2/ANSYS via a CLI Adapter.</li>
-  <li><strong>Symbolic algebra</strong> — Use SymPy. Anvil operates numerically.</li>
-  <li><strong>Real-time control loops</strong> — Anvil solvers are not designed for sub-millisecond execution.</li>
-  <li><strong>Gradient-based MDO at scale</strong> — OpenMDAO with analytic derivatives is faster for large design spaces requiring exact Jacobians.</li>
-  <li><strong>EOS / thermophysical property accuracy</strong> — CoolProp and REFPROP are more accurate for near-critical and multi-phase conditions. Use them via Anvil's adapter pattern.</li>
-</ul>
-
-<p>Anvil is the right tool when you are: writing engineering physics in Python, want to reuse functions across projects, need unit safety without ceremony, and want sweep/sensitivity as first-class operations — not as afterthoughts assembled from scipy primitives every time.</p>
+<p><strong>When not to use Anvil:</strong> symbolic algebra (use SymPy), large unstructured 3D CFD (use OpenFOAM/SU2 via adapter), gradient-based MDO with exact Jacobians at scale (use OpenMDAO), real-time control loops, near-critical EOS accuracy (use CoolProp/REFPROP via adapter).</p>
 
 </section>
 

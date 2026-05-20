@@ -921,7 +921,7 @@ _SEED_ENTRIES = [
      )},
 
     # ==================== DECOMPOSITION ====================
-    {"name": "pod_analysis", "type": "R", "domain": "decomp.pod",
+    {"name": "pod_analysis", "type": "R", "domain": "misc",
      "desc": "Proper Orthogonal Decomposition of snapshot matrix X (n_space × n_time)",
      "tags": ["pod", "svd", "decomposition", "rom", "modes"],
      "source": (
@@ -946,7 +946,7 @@ _SEED_ENTRIES = [
          'export = pod_analysis'
      )},
 
-    {"name": "dmd_analysis", "type": "R", "domain": "decomp.dmd",
+    {"name": "dmd_analysis", "type": "R", "domain": "misc",
      "desc": "Dynamic Mode Decomposition of snapshot matrix X (n_space × n_time)",
      "tags": ["dmd", "decomposition", "eigenvalues", "stability", "modes"],
      "source": (
@@ -971,7 +971,7 @@ _SEED_ENTRIES = [
          'export = dmd_analysis'
      )},
 
-    {"name": "abel_inverse", "type": "R", "domain": "decomp.abel",
+    {"name": "abel_inverse", "type": "R", "domain": "misc",
      "desc": "Inverse Abel transform: projected profile F(y) → radial profile f(r)",
      "tags": ["abel", "inverse", "spectroscopy", "axisymmetric", "combustion"],
      "source": (
@@ -992,7 +992,7 @@ _SEED_ENTRIES = [
          'export = abel_inverse'
      )},
 
-    {"name": "abel_forward", "type": "R", "domain": "decomp.abel",
+    {"name": "abel_forward", "type": "R", "domain": "misc",
      "desc": "Forward Abel transform: radial profile f(r) → projected profile F(y)",
      "tags": ["abel", "forward", "spectroscopy", "axisymmetric", "projection"],
      "source": (

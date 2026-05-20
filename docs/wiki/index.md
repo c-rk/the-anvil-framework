@@ -25,7 +25,7 @@ Anvil is an engineering computation framework: write physics as plain Python fun
 | [Solvers](06_solvers.md) | `find_root`, `solve_nonlinear`, `solve_ode`, `solve_ode_stiff`, `solve_bvp`, `solve_pde_heat_1d`, `minimize`, `minimize_global` |
 | [Registry](07_registry.md) | SQLite store, `push`, `update`, `search`, `list`, `info`, `export`, `remove`, `check` |
 | [Project Registry](08_project.md) | `anvil.project()`, isolated stores, context manager, `promote` |
-| [Built-in RSQs](09_builtin_rsqs.md) | All 80 RSQs — signatures, domains, example outputs (includes `misc` domain: pod_analysis, dmd_analysis, abel_inverse, abel_forward) |
+| [Built-in RSQs](09_builtin_rsqs.md) | All 87 RSQs — signatures, domains, example outputs (includes `misc` domain: pod_analysis, dmd_analysis, abel_inverse, abel_forward, fft_spectrum, welch_psd, stft_spectrogram, bandpass_filter, envelope_detection, cross_correlation, signal_statistics) |
 | [Adapters](10_adapters.md) | `Adapter`, python/CLI backends, unit handling |
 | [Sweep & Sensitivity](11_sweep_sensitivity.md) | `sys.sweep()`, `sys.sensitivity()`, result objects, parallel |
 | [Visualization](12_visualization.md) | `viz.convergence`, `viz.sweep_plot`, `viz.variable_trace`, `viz.dependency_graph`, `viz.pod_energy`, `viz.dmd_spectrum` |
@@ -34,6 +34,7 @@ Anvil is an engineering computation framework: write physics as plain Python fun
 | [Advanced](15_advanced.md) | Composition, cycles, block relations, CFD module, Watchdog |
 | [Decomposition](16_decomp.md) | `anvil.decomp` — POD, DMD, Hankel embedding, signal analysis |
 | [Abel Transform](17_abel.md) | `abel_forward`, `abel_three_point`, `abel_onion`, `abel_image`, `abel_center` |
+| [Signal Processing](19_signal_processing.md) | `fft_spectrum`, `welch_psd`, `stft_spectrogram`, `bandpass_filter`, `envelope_detection`, `cross_correlation`, `signal_statistics` |
 
 ---
 
@@ -110,7 +111,7 @@ src/anvil/
 │   ├── store.py         SQLite backend (Store class)
 │   ├── namespace.py     R., S., QDB. dot-access namespaces
 │   └── loader.py        RSQ source → live object
-├── seed.py              76 built-in RSQs seeded on first import
+├── seed.py              87 built-in RSQs seeded on first import
 ├── project.py           Project class (isolated registry)
 ├── adapter.py           Adapter class (python + cli backends)
 ├── viz.py               convergence, sweep_plot, variable_trace, dependency_graph,
@@ -130,7 +131,7 @@ src/anvil/
 
 | Version | Key additions |
 |---------|--------------|
-| 1.3.0   | Current. pip-installable, adapters in `anvil.adapters`, poliastro/pykep adapters, angle Q(deg) inputs fixed in all RSQs, `Wh`/`kWh` energy units, `degC`/`degF` offset temperature units, beam RSQ unit bug fixed, auto-update seed on source change, +4 RSQs in `misc` domain (pod_analysis, dmd_analysis, abel_inverse, abel_forward), total 80 RSQs, full 2D Euler CFD docs |
+| 1.3.0   | Current. pip-installable, adapters in `anvil.adapters`, poliastro/pykep adapters, angle Q(deg) inputs fixed in all RSQs, `Wh`/`kWh` energy units, `degC`/`degF` offset temperature units, beam RSQ unit bug fixed, auto-update seed on source change, +4 RSQs in `misc` domain (pod_analysis, dmd_analysis, abel_inverse, abel_forward), +7 signal processing RSQs (fft_spectrum, welch_psd, stft_spectrogram, bandpass_filter, envelope_detection, cross_correlation, signal_statistics), 7 new engineering adapters (XFOIL, OpenFOAM, SU2, OpenMDAO, FEniCSx, pyNASTRAN, surrogate models), total 87 RSQs, full 2D Euler CFD docs |
 | 1.2.1   | +19 RSQs: orbital extended, attitude/ADCS, mission budgets, controls extended. Total 76. |
 | 1.2.0   | `minimize_global` (DE/DA/SHGO/BH), `System.optimize()`, `OptimizeResult`, `anvil.decomp` (POD/DMD), `viz.pod_energy`, `viz.dmd_spectrum` |
 | 1.1.0   | CFD module, Watchdog, help_ |

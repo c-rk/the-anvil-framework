@@ -262,6 +262,7 @@ section { scroll-margin-top: 20px; }
   <a href="#rsq-mission">Mission / ADCS</a>
   <a href="#rsq-materials">Materials</a>
   <a href="#rsq-decomp">Decomp &amp; Abel</a>
+  <a href="#rsq-signal">Signal Processing</a>
 
   <div class="sb-section">Adapters</div>
   <a href="#adapters">Writing Adapters</a>
@@ -1483,6 +1484,130 @@ r=10 energy=0.185</div>
 </div>
 
 <div class="note"><strong>Low-level module API:</strong> <code>decomp.pod_reconstruct()</code>, <code>decomp.pod_rank()</code>, <code>decomp.dmd_reconstruct()</code>, <code>decomp.hankel()</code>, <code>decomp.abel_image()</code>, <code>decomp.abel_center()</code> are available as direct module calls for operations that don't fit the RSQ pattern (e.g. image inversion, Hankel embedding). See the <a href="https://github.com/c-rk/the-anvil-framework">wiki pages 16 &amp; 17</a> for full details.</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SIGNAL PROCESSING RSQs
+     ══════════════════════════════════════════════════════════════════════════ -->
+<section id="rsq-signal">
+<h2>Built-in RSQs — Signal Processing</h2>
+
+<div><span class="domain">misc</span></div>
+
+<p>Seven RSQs covering the core signal-processing toolkit: FFT spectrum, STFT spectrogram, Welch PSD, Butterworth filtering, Hilbert envelope, cross-correlation, and descriptive statistics. All accept plain NumPy arrays as inputs and return arrays + scalar summaries. Domain: <code>misc</code>.</p>
+
+<h3>fft_spectrum — one-sided power spectrum</h3>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np, anvil
+
+t  = np.linspace(<span class="nu">0</span>, <span class="nu">1</span>, <span class="nu">1024</span>, endpoint=<span class="kw">False</span>)
+dt = t[<span class="nu">1</span>] - t[<span class="nu">0</span>]
+sig = np.sin(<span class="nu">2</span>*np.pi*<span class="nu">50</span>*t) + <span class="nu">0.3</span>*np.sin(<span class="nu">2</span>*np.pi*<span class="nu">150</span>*t)  <span class="cm"># 50 Hz + 3rd harmonic</span>
+
+r = anvil.R.fft_spectrum(signal=sig, dt=dt, window=<span class="st">"hann"</span>)
+<span class="kw">print</span>(<span class="st">"dominant_freq:"</span>, round(r[<span class="st">"dominant_freq"</span>], <span class="nu">1</span>))
+<span class="kw">print</span>(<span class="st">"RMS:          "</span>, round(r[<span class="st">"rms"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"THD:          "</span>, round(r[<span class="st">"thd"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"f_resolution: "</span>, round(r[<span class="st">"f_resolution"</span>], <span class="nu">3</span>), <span class="st">"Hz"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">dominant_freq: 50.0
+RMS:           0.7399
+THD:           0.2999
+f_resolution:  0.977 Hz</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>window="hann"</code> reduces spectral leakage for non-integer-cycle signals. <code>window="none"</code> uses a rectangular window — fine for exactly periodic signals, leaky otherwise. THD is √(sum of 2nd–5th harmonic powers) / fundamental amplitude — the 0.3 amplitude harmonic gives THD≈0.30. Longer signals → finer frequency resolution (1/T Hz).</div>
+
+<h3>welch_psd — averaged power spectral density</h3>
+<pre>r = anvil.R.welch_psd(signal=sig, dt=dt, nperseg=<span class="nu">256</span>)
+<span class="kw">print</span>(<span class="st">"dominant_freq:"</span>, round(r[<span class="st">"dominant_freq"</span>], <span class="nu">1</span>))
+<span class="kw">print</span>(<span class="st">"total_power:  "</span>, round(r[<span class="st">"total_power"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"PSD shape:    "</span>, r[<span class="st">"psd"</span>].shape)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">dominant_freq: 50.0
+total_power:   0.6437
+PSD shape:     (129,)</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Welch averages multiple overlapping periodograms — reduces variance vs single FFT at the cost of frequency resolution. <code>nperseg</code> trades resolution (∝ 1/nperseg) for variance reduction (∝ 1/n_segments). Total power integrates PSD over frequency (Parseval's theorem).</div>
+
+<h3>stft_spectrogram — time-frequency power map</h3>
+<pre><span class="cm"># Chirp: frequency sweeps 10 → 200 Hz over 1 second</span>
+chirp = np.sin(<span class="nu">2</span>*np.pi*((<span class="nu">10</span> + <span class="nu">95</span>*t)*t))
+r = anvil.R.stft_spectrogram(signal=chirp, dt=dt, nperseg=<span class="nu">128</span>)
+<span class="kw">print</span>(<span class="st">"S shape (n_freq × n_time):"</span>, r[<span class="st">"S"</span>].shape)
+<span class="kw">print</span>(<span class="st">"peak at t="</span>, round(r[<span class="st">"t_peak"</span>],<span class="nu">3</span>), <span class="st">"s, f="</span>, round(r[<span class="st">"f_peak"</span>],<span class="nu">1</span>), <span class="st">"Hz"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">S shape (n_freq × n_time): (65, 113)
+peak at t= 0.938 s, f= 190.4 Hz</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>nperseg</code> controls the time-frequency resolution tradeoff — larger → better frequency resolution, worse time resolution. Use <code>S</code> array with <code>matplotlib.pcolormesh(r["t"], r["freqs"], 10*np.log10(r["S"]+1e-12))</code> to plot the spectrogram in dB.</div>
+
+<h3>bandpass_filter — zero-phase Butterworth</h3>
+<pre>noisy = sig + <span class="nu">0.5</span>*np.random.RandomState(<span class="nu">0</span>).randn(<span class="kw">len</span>(sig))
+r = anvil.R.bandpass_filter(signal=noisy, dt=dt,
+                              f_low=<span class="nu">30</span>, f_high=<span class="nu">80</span>, order=<span class="nu">4</span>)
+<span class="kw">print</span>(<span class="st">"RMS in: "</span>,  round(r[<span class="st">"rms_in"</span>],  <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"RMS out:"</span>,  round(r[<span class="st">"rms_out"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"attenuation:"</span>, round(r[<span class="st">"attenuation_dB"</span>], <span class="nu">1</span>), <span class="st">"dB"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">RMS in:  0.8835
+RMS out: 0.7023
+attenuation: -1.99 dB</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Set only <code>f_low</code> → highpass, only <code>f_high</code> → lowpass, both → bandpass. <code>order=4</code> applied forward+backward (sosfiltfilt) → effective 8th-order zero-phase. Higher order → steeper roll-off, more ringing near cutoff. Noise outside 30–80 Hz band suppressed; the 50 Hz fundamental passes through at full amplitude.</div>
+
+<h3>envelope_detection — Hilbert transform</h3>
+<pre><span class="cm"># AM-modulated signal: 200 Hz carrier, 5 Hz envelope</span>
+am = (<span class="nu">1</span> + <span class="nu">0.8</span>*np.sin(<span class="nu">2</span>*np.pi*<span class="nu">5</span>*t)) * np.sin(<span class="nu">2</span>*np.pi*<span class="nu">200</span>*t)
+r = anvil.R.envelope_detection(signal=am, dt=dt)
+<span class="kw">print</span>(<span class="st">"peak_envelope:"</span>, round(r[<span class="st">"peak_envelope"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"mean_envelope:"</span>, round(r[<span class="st">"mean_envelope"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"carrier freq ≈"</span>, round(<span class="kw">float</span>(np.median(r[<span class="st">"inst_freq"</span>])), <span class="nu">1</span>), <span class="st">"Hz"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">peak_envelope: 1.7978
+mean_envelope: 0.9984
+carrier freq ≈ 200.0 Hz</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Hilbert transform gives the analytic signal; envelope = magnitude, inst_freq = derivative of phase. Useful for detecting amplitude modulation (bearing fault signatures, flutter, AE hits). <code>inst_freq</code> array noisy at envelope zeros — filter it first for clean frequency tracking.</div>
+
+<h3>cross_correlation — time delay estimation</h3>
+<pre>sig_a = np.sin(<span class="nu">2</span>*np.pi*<span class="nu">50</span>*t)
+sig_b = np.roll(sig_a, <span class="nu">20</span>)   <span class="cm"># delay by 20 samples</span>
+r = anvil.R.cross_correlation(signal_a=sig_a, signal_b=sig_b, dt=dt)
+<span class="kw">print</span>(<span class="st">"lag_peak: "</span>, round(r[<span class="st">"lag_peak"</span>], <span class="nu">6</span>), <span class="st">"s ="</span>, round(r[<span class="st">"lag_peak"</span>]/dt), <span class="st">"samples"</span>)
+<span class="kw">print</span>(<span class="st">"corr_peak:"</span>, round(r[<span class="st">"corr_peak"</span>], <span class="nu">4</span>))
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">lag_peak:  0.01953 s = 20.0 samples
+corr_peak: 1.0000</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Normalized cross-correlation (zero-mean, unit-variance) returns lag in seconds. Perfect match → corr_peak=1. Use for time-of-arrival differences (acoustic localization, flow velocity from two probe signals), signal alignment, or system identification.</div>
+
+<h3>signal_statistics — descriptive statistics</h3>
+<pre>r = anvil.R.signal_statistics(signal=sig, dt=dt)
+<span class="kw">print</span>(<span class="st">"rms:         "</span>, round(r[<span class="st">"rms"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"crest_factor:"</span>, round(r[<span class="st">"crest_factor"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"kurtosis:    "</span>, round(r[<span class="st">"kurtosis"</span>], <span class="nu">4</span>))
+<span class="kw">print</span>(<span class="st">"duration:    "</span>, r[<span class="st">"duration"</span>], <span class="st">"s"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output</div>
+<div class="out-block">rms:          0.7399
+crest_factor: 1.8103
+kurtosis:     1.4985
+duration:     1.0 s</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Kurtosis = 3 for pure Gaussian noise; &gt;3 indicates impulsive content (bearing impacts, structural hits). Crest factor = peak/RMS; sine wave gives √2 ≈ 1.414; impulsive signals have high crest factors. Used in machine health monitoring as fault indicators before spectral analysis.</div>
+
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════

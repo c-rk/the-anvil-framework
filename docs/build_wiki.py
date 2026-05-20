@@ -46,6 +46,7 @@ PAGES = [
     ("16",       "Decomposition",          "wiki/16_decomp.md"),
     ("17",       "Abel Transform",         "wiki/17_abel.md"),
     ("18",       "CFD Solver",             "wiki/18_cfd.md"),
+    ("19",       "Signal Processing",      "wiki/19_signal_processing.md"),
 ]
 
 # ── Markdown → HTML conversion ────────────────────────────────────────────────

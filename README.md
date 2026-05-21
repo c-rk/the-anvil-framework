@@ -6,6 +6,8 @@ Anvil is a computation framework for engineering and scientific research. Write 
 
 ## Install
 
+After downloading the repo, refer `ANVIL_GUIDE.html` inside /docs to get started.
+
 ```bash
 pip install -e .                      # core (numpy + scipy)
 pip install -e ".[viz]"               # + matplotlib

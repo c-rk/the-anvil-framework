@@ -267,6 +267,55 @@ sweep.summary(outputs=["M_inf", "CL", "CD"])
 
 ---
 
+## Visualization — anvil.cfd.viz
+
+`anvil.cfd.viz` provides filled contour plots and multi-field panels for `CFDResult` objects. All plots use monospace fonts. Fixed colorbar limits (`vmin`/`vmax`) keep successive frames directly comparable — essential for animations or batch sweeps.
+
+```python
+from anvil.cfd import viz as cfd_viz
+
+# Single-field contour (opens matplotlib window)
+cfd_viz.contour(result, "M")                           # Mach number, auto scale
+cfd_viz.contour(result, "p", vmin=90000, vmax=180000)  # fixed colorbar
+
+# Save to PNG without opening a window
+cfd_viz.save_png(result, "M", "mach.png", vmin=0, vmax=2.5)
+
+# 2×2 multi-field panel with per-field colorbar limits
+fig, axes = cfd_viz.multi_field(
+    result, ["M", "p", "T", "rho"],
+    vmin_map={"p": (90e3, 200e3), "M": (0, 3)},
+    save_path="overview.png",
+)
+
+# Mesh + named boundary patch labels
+cfd_viz.mesh_plot(mesh)
+
+# Normalised residual history PNG (res / res0)
+cfd_viz.convergence_png(result.history, "convergence.png")
+```
+
+**Available fields:** `p` (pressure), `T` (temperature), `M` (Mach), `rho` (density), `u`, `v` (velocity components), `cp` (pressure coefficient), `pt` (total pressure).
+
+**Function reference:**
+
+| Function | Description |
+|----------|-------------|
+| `contour(result, field, vmin, vmax, show_patches, save_path)` | Filled contour of one field; overlays boundary patch labels |
+| `save_png(result, field, path, vmin, vmax)` | Non-interactive contour save — no window |
+| `multi_field(result, fields, vmin_map, save_path)` | 2×2 (or 1×N) panel, optional per-field limits |
+| `mesh_plot(mesh)` | Grid lines + named boundary patch labels |
+| `convergence_png(history, path)` | Normalised residual (res/res0) saved to PNG |
+
+**Tip — animations:** Run `save_png` inside a loop over `save_every` restart frames. Pass the same `vmin`/`vmax` each call so all frames share a colorbar scale.
+
+```python
+for i, r in enumerate(solver.snapshots):
+    cfd_viz.save_png(r, "M", f"frame_{i:04d}.png", vmin=0, vmax=2.5)
+```
+
+---
+
 ## Limitations
 
 - **2D only** — no 3D support

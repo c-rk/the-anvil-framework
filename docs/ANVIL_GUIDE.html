@@ -281,6 +281,7 @@ section { scroll-margin-top: 20px; }
   <a href="#monitoring">Monitoring</a>
   <a href="#lookup">Lookup</a>
   <a href="#cfd">CFD Solver</a>
+  <a href="#cfd-viz">CFD Visualization</a>
   <a href="#unit-table">Unit Table</a>
   <a href="#patterns">Common Patterns</a>
 </nav>
@@ -2041,6 +2042,26 @@ viz.dmd_spectrum(dmd_r)              <span class="cm"># eigenvalue scatter in co
                 points inside circle: stable (decaying), outside: unstable</div>
 </div>
 
+<h3>Abel Compare</h3>
+<pre><span class="kw">from</span> anvil <span class="kw">import</span> viz, decomp
+<span class="cm"># Camera image (2D projection) → Abel-inverted radial distribution</span>
+abel_r = decomp.abel_image(image, method=<span class="st">"three_point"</span>)
+viz.abel_compare(image, abel_r)
+<span class="cm"># log-scale for high dynamic range flame/plasma images</span>
+viz.abel_compare(image, abel_r, log_scale=<span class="op">True</span>, cmap=<span class="st">"inferno"</span>)
+<span class="cm"># save without display</span>
+fig = viz.abel_compare(image, abel_r, show=<span class="op">False</span>)
+fig.savefig(<span class="st">"abel_compare.png"</span>, dpi=<span class="nu">150</span>, bbox_inches=<span class="st">"tight"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — side-by-side matplotlib Figure (1×2)</div>
+<div class="out-block">  Left panel:  "Projection"  — original camera image with symmetry axis (cyan dashed)
+  Right panel: "Abel inverse: three_point" — recovered radial emission/absorption field
+  Both panels: shared colormap, colorbar, 99th-percentile vmax auto-clip
+  Cyan line marks the detected axis column (center of symmetry)</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> <code>log_scale=True</code> applies <code>log1p</code> to both panels — essential when flame edges are 3–4 orders of magnitude dimmer than the core. <code>cmap</code> accepts any matplotlib colormap: <code>"hot"</code> for flames, <code>"gray"</code> for absorption, <code>"viridis"</code> for plasma density. The symmetry axis line position comes from <code>abel_result["center"][1]</code> — if it looks off, re-run <code>decomp.abel_image()</code> with <code>center</code> overridden manually.</div>
+
 <div class="table-wrap"><table>
 <tr><th>Function</th><th>Input</th><th>Plot type</th></tr>
 <tr><td><code>viz.convergence(sys)</code></td><td>System with <code>monitor=True</code> solve history</td><td>Semi-log residual vs iteration</td></tr>
@@ -2049,6 +2070,7 @@ viz.dmd_spectrum(dmd_r)              <span class="cm"># eigenvalue scatter in co
 <tr><td><code>viz.dependency_graph(sys)</code></td><td>System</td><td>DAG: inputs → relations → outputs</td></tr>
 <tr><td><code>viz.pod_energy(pod)</code></td><td>POD result dict</td><td>Singular value bar + cumulative energy</td></tr>
 <tr><td><code>viz.dmd_spectrum(dmd_r)</code></td><td>DMD result dict</td><td>Eigenvalue scatter in complex plane</td></tr>
+<tr><td><code>viz.abel_compare(image, abel_r)</code></td><td>raw image ndarray + Abel result dict</td><td>Side-by-side projection vs radial distribution</td></tr>
 </table></div>
 </section>
 
@@ -2250,6 +2272,48 @@ sweep.summary(outputs=[<span class="st">"M_inf"</span>, <span class="st">"CL"</s
 </table></div>
 
 <div class="note"><strong>For large-scale / production CFD:</strong> Use OpenFOAM, SU2, or Fluent via a CLI Adapter. Anvil's CFD module is for structured 2D inviscid problems — parametric studies, shock analysis, educational use.</div>
+
+<h3 id="cfd-viz">CFD Visualization — anvil.cfd.viz</h3>
+<p><code>anvil.cfd.viz</code> provides contour plots and multi-field panels for <code>CFDResult</code> objects. All plots use monospace fonts and support fixed colorbar limits so successive snapshots remain directly comparable.</p>
+
+<pre><span class="kw">from</span> anvil.cfd <span class="kw">import</span> viz <span class="kw">as</span> cfd_viz
+
+<span class="cm"># Single-field filled contour (opens matplotlib window)</span>
+cfd_viz.contour(result, <span class="st">"M"</span>)                         <span class="cm"># Mach number, auto scale</span>
+cfd_viz.contour(result, <span class="st">"p"</span>, vmin=<span class="nu">90000</span>, vmax=<span class="nu">180000</span>) <span class="cm"># fixed colorbar for animation</span>
+
+<span class="cm"># Save frame to PNG without displaying</span>
+cfd_viz.save_png(result, <span class="st">"M"</span>, <span class="st">"mach_frame.png"</span>, vmin=<span class="nu">0</span>, vmax=<span class="nu">2.5</span>)
+
+<span class="cm"># 2×2 panel: M, p, T, rho in one figure</span>
+fig, axes = cfd_viz.multi_field(result, [<span class="st">"M"</span>, <span class="st">"p"</span>, <span class="st">"T"</span>, <span class="st">"rho"</span>],
+                                vmin_map={<span class="st">"p"</span>: (<span class="nu">90e3</span>, <span class="nu">200e3</span>), <span class="st">"M"</span>: (<span class="nu">0</span>, <span class="nu">3</span>)},
+                                save_path=<span class="st">"overview.png"</span>)
+
+<span class="cm"># Mesh + boundary patch labels</span>
+cfd_viz.mesh_plot(mesh)
+
+<span class="cm"># Normalised residual convergence PNG (useful for batch runs)</span>
+cfd_viz.convergence_png(result.history, <span class="st">"convergence.png"</span>)
+<span class="lang-label">python</span></pre>
+<div class="out-wrap">
+<div class="out-label">Output — cfd_viz.contour(result, "M")</div>
+<div class="out-block">  [matplotlib window: filled contour, monospace font]
+  Title: "M  wedge_10deg  |  80x40  converged  (3246 iter)"
+  Domain outline drawn in black; boundary patch names overlaid in colour
+  Colorbar label: "Mach number"  cmap: RdBu_r
+  Bow shock visible as sharp gradient band across domain</div>
+</div>
+<div class="what-changes"><strong>What changes this:</strong> Pass <code>vmin/vmax</code> to fix the colorbar across all frames — without it, each frame auto-scales and animations flicker. <code>multi_field</code> accepts up to 4 fields; extra panels are hidden. <code>show_patches=False</code> on <code>contour()</code> removes boundary labels for cleaner publication figures. <code>convergence_png</code> normalises residuals to <code>res/res0</code> so curves from different cases are comparable.</div>
+
+<div class="table-wrap"><table>
+<tr><th>Function</th><th>Description</th></tr>
+<tr><td><code>cfd_viz.contour(result, field)</code></td><td>Filled contour of one field. Fields: <code>p, T, M, rho, u, v, cp, pt</code></td></tr>
+<tr><td><code>cfd_viz.save_png(result, field, path)</code></td><td>Non-interactive contour save — no window opened</td></tr>
+<tr><td><code>cfd_viz.multi_field(result, fields)</code></td><td>2×2 (or 1×N) panel, optional per-field <code>vmin_map</code></td></tr>
+<tr><td><code>cfd_viz.mesh_plot(mesh)</code></td><td>Mesh grid + named boundary patch labels</td></tr>
+<tr><td><code>cfd_viz.convergence_png(history, path)</code></td><td>Normalised residual plot saved to PNG</td></tr>
+</table></div>
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════════════════

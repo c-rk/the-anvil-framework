@@ -241,6 +241,48 @@ plt.show()
 
 ---
 
+## `viz.abel_compare(image, abel_result, ax=None, show=True, cmap="hot", log_scale=False)`
+
+Side-by-side comparison of a raw camera projection and its Abel-inverted radial distribution. Used for flame, plasma, and symmetric emission imaging.
+
+```python
+from anvil import viz, decomp
+
+# Run Abel inversion
+abel_r = decomp.abel_image(image, method="three_point")
+
+# Compare projection vs radial distribution
+viz.abel_compare(image, abel_r)
+
+# Log scale for high dynamic-range data (flames, plasma)
+viz.abel_compare(image, abel_r, log_scale=True, cmap="inferno")
+
+# Save without displaying
+fig = viz.abel_compare(image, abel_r, show=False)
+fig.savefig("abel_compare.png", dpi=150, bbox_inches="tight")
+```
+
+**Layout:** 1×2 figure. Left panel shows the original projection; right panel shows the recovered radial distribution. Both panels share the colormap. The symmetry axis (column center) is overlaid as a cyan dashed line.
+
+**Auto-scaling:** Each panel clips at the 99th percentile of finite values to suppress hot pixels. Pass `ax=[ax0, ax1]` to embed in an existing figure layout.
+
+**Parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `image` | required | 2D ndarray — original camera image (projection) |
+| `abel_result` | required | Dict from `anvil.decomp.abel_image()` |
+| `ax` | None | Array of 2 Axes `[ax_raw, ax_radial]`; creates figure if None |
+| `show` | True | Call `plt.show()` |
+| `cmap` | `"hot"` | Colormap — `"hot"` for flames, `"gray"` for absorption, `"viridis"` for plasma density |
+| `log_scale` | False | Apply `log1p` to both images before display |
+
+**Returns:** The Figure object.
+
+**When to use `log_scale=True`:** Flame cores and plasma jets can be 3–4 orders of magnitude brighter than the edges. Without log scale, the outer structure is invisible. With log scale, both core and edge features are visible in the same frame.
+
+---
+
 ## Saving Figures
 
 All functions return an object (Axes or Figure) that can be used for further customization:

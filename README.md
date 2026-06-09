@@ -17,7 +17,7 @@ pip install -e ".[openmdao]"          # + OpenMDAO (MDO problems)
 pip install -e ".[all]"               # numpy, scipy, matplotlib, pyNASTRAN, openmdao, scikit-learn
 ```
 
-XFOIL, SU2, and OpenFOAM adapters require the respective binaries on PATH — no pip package.
+XFOIL, SU2, and OpenFOAM adapters require the respective binaries on PATH, no pip package.
 FEniCSx requires `conda install -c conda-forge fenics-dolfinx mpi4py`.
 
 ## Quick Start
